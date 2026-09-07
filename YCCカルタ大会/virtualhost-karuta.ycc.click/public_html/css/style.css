@@ -1,0 +1,240 @@
+@charset "UTF-8";
+
+html, body, div, span {
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 100%;
+}
+
+.preloadedImages {
+    width: 0px;
+    height: 0px;
+    display: inline;
+}
+
+#title_contents {
+    transition: all 1s ease 0s;
+}
+
+#title_contents.after {
+    opacity: 0;
+}
+
+#logo {
+    /*margin: 72px auto 0; 2014-12-29コメントアウト*/
+    margin: 48px auto 0; /*2014-12-29追加*/
+    display: block;
+}
+
+#logo.after {
+    opacity: 0;
+}
+
+#progressbox {
+    max-width: 640px;
+    height: 64px;
+    position: relative;
+    top: 160px;
+    margin: 0 auto;
+    text-align: center;
+    transition: all 0.5s ease 0s;
+}
+
+#progressbox.after {
+    opacity: 0;
+}
+
+#progressbox span {
+    font-size: 2em;
+    font-family: sans-serif;
+}
+
+#progressbar {
+    margin-top: 8px;
+    max-width: 640px;
+    height: 32px;
+    box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.6),
+                0px 1px 4px rgba(0, 0, 0, 0.3);
+    border-radius: 2px;
+}
+
+#progress {
+    background: #6F9;
+    width: 0;
+    height: 100%;
+}
+
+#buttons {
+    width: 600px;
+    /*height: 260px; 2014-12-29コメントアウト*/
+    height: 420px; /*2014-12-29追加*/
+    margin: 0 auto;
+    position: relative;
+    /*top: 150px; 2014-12-29コメントアウト*/
+    top: 100px; /*2014-12-29追加*/
+    transition: all 1s ease 0s;
+}
+
+#buttons.before {
+    display: none;
+    opacity: 0;
+}
+
+.button {
+    left: 221px;
+    width: 158px;
+    height: 260px;
+    position: absolute;
+    transform-origin: 50% 50% -250px;
+    cursor: pointer;
+}
+
+#main_contents {
+    opacity: 0;
+    max-width: 640px;
+    margin: 0 auto;
+    margin-bottom: 16px;
+    transition: all 1s ease 0s;
+}
+
+#main_contents.after {
+    opacity: 1;
+}
+
+#display {
+    width: calc(100% - 128px);
+    height: 2.25em;
+    margin-top: 36px;
+    margin-left: 16px;
+
+    line-height: 2.25em;
+    float: left;
+}
+
+#display span {
+    font-size: 1.5em;
+    transition: all 0.2s ease 0s;
+}
+
+#functions {
+    margin-top: 36px;
+    float: left;
+}
+
+.fn_button {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.6),
+                0px 1px 4px rgba(0, 0, 0, 0.3);
+    margin-top: 16px;
+    margin-left: 16px;
+    cursor: pointer;
+    float: left;
+}
+
+#return {
+    background-image: url(../img/return.gif);
+}
+
+#replay {
+    background-image: url(../img/replay.gif);
+}
+
+.cards, #button, #display, .fn_button {
+    -webkit-user-select: none;
+       -moz-user-select: none;
+        -ms-user-select: none;
+            user-select: none;
+}
+
+#level1 {
+    background-image: url(../img/level1.gif);
+}
+
+#level1.layer1{
+    background-image: url(../img/level1_active.gif);
+}
+
+#level2 {
+    background-image: url(../img/level2.gif);
+}
+
+#level2.layer1 {
+    background-image: url(../img/level2_active.gif);
+}
+
+#level3 {
+    background-image: url(../img/level3.gif);
+}
+
+#level3.layer1 {
+    background-image: url(../img/level3_active.gif);
+}
+
+.layer0, .layer1 {
+    transform: rotate3d(0, 10, -1, 0deg);
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.6),
+                0px 4px 36px rgba(0, 0, 0, 0.3);
+}
+
+.layer2 {
+    transform: rotate3d(0, 10, -1, 60deg);
+    box-shadow: 12px 4px 8px rgba(0, 0, 0, 0.35),
+                12px 4px 32px rgba(0, 0, 0, 0.3);
+}
+
+.layer3 {
+    transform: rotate3d(0, 10, -1, -60deg);
+    box-shadow: -12px 4px 8px rgba(0, 0, 0, 0.35),
+                -12px 4px 32px rgba(0, 0, 0, 0.3);
+}
+
+.cards {
+    width: calc(100% / 6 - 16px);
+    margin-left: 16px;
+    margin-top: 16px;
+    float: left;
+    box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.6),
+                0px 1px 4px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    cursor: pointer;
+}
+
+.cards.missed {
+    background-color: rgba(255, 0, 0, 0.5);
+}
+
+.cards span {
+    font-family: 'Arial';
+    font-weight: bolder;
+}
+
+.underline {
+    position: absolute;
+    border-bottom: 1px solid;
+    height: 1em;
+}
+
+/*2014-12-29追加*/
+#readme {
+    position: absolute;
+    width: 100%;
+    bottom: 70px;
+    text-align: center;
+}
+
+/*2014-12-29追加*/
+#ad {
+    position: absolute;
+    width: 100%;
+    bottom: 0px;
+    text-align: center;
+    font-size: 0.5em;
+}
+    #ad img {
+        vertical-align: middle;
+    }

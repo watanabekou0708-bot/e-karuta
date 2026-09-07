@@ -1,0 +1,123 @@
+# サーバー管理者のメールアドレスの設定
+ServerSignature EMail
+SetEnv SERVER_ADMIN root@localhost
+
+# エラーページの設定
+ErrorDocument 401 /error/401.html
+ErrorDocument 403 /error/403.html
+ErrorDocument 404 /error/404.html
+ErrorDocument 500 /error/500.html
+ErrorDocument 503 /error/503.html
+
+# インデックスファイルの設定
+DirectoryIndex index.php index.html
+
+# 文字コードの設定
+# 特定のディレクトリで文字セットと言語を変更したい場合の設定
+AddDefaultCharset UTF-8
+#DefaultLanguage en-GB
+
+# ディレクトリの非表示
+# ディレクトリにindex.htmlなど表示するべきファイルが無い場合、ディレクトリのファイル一覧が表示されないようにする
+Options All -Indexes
+# ディレクトリの表示を許可
+#Options All +Indexes
+
+# タイムゾーンの設定
+SetEnv TZ Asia/Tokyo
+
+AddType "text/html; charset=UTF-8" .html .css .php
+
+IndexOptions Charset=UTF-8
+
+# URLからwwwを削除
+#RewriteEngine On
+#RewriteBase /
+#RewriteCond %{HTTP_HOST} ^www.yourdomain.com [NC]
+#RewriteRule ^(.*)$ http://yourdomain.com/$1 [L,R=301]
+
+# ファイルへのアクセス制限
+# まずは、全アクセスを禁止
+#order deny,allow
+#deny from all
+# 続いて、特定のIPアドレスのみ禁止
+#order allow,deny
+#deny from XXX.XXX.XXX.XXX
+#allow from all
+
+# 301リダイレクト
+# リニューアルなどでURLが恒久的に変更した際に、旧ページのアクセスを新ページに向ける
+#Redirect 301 /olddirectory/file.html http://www.yourdomain.com/newdirectory/file.html
+
+# iPadなどのタブレットを検出して、リダイレクト
+#RewriteCond %{HTTP_USER_AGENT} ^.*iPad.*$
+#RewriteRule ^(.*)$ http://yourdomain.com/folderfortablets [R=301]
+#RewriteCond %{HTTP_USER_AGENT} ^.*Android.*$
+#RewriteRule ^(.*)$ http://yourdomain.com/folderfortablets [R=301]
+
+# hotlinkingの防止
+# hotlinkingとはあなたのサイトの画像を他の誰かに勝手に利用されてしまうことで、その際に別の画像を指定して表示させる
+#Options +FollowSymlinks
+#RewriteEngine On
+#RewriteCond %{HTTP_REFERER} !^$
+#RewriteCond %{HTTP_REFERER} !^http://(www.)?yourdomain.com/ [nc]
+#RewriteRule .*.(gif|jpg|png)$ http://yourdomain.com/img/hotlink_f_o.png [nc]
+
+# 自ドメインを含まないサイトに画像を表示させたくないだけの場合
+#RewriteCond %{HTTP_REFERER} !yourdomain\.com [NC] RewriteRule \.(gif|jpg|png)$ - [F]
+
+# PDFや動画などのファイルを保存
+# PDFや動画などのファイルをブラウザ上で表示するのではなく、ダウンロードしてほしいファイルの拡張子を設定
+#AddType application/octet-stream .csv
+#AddType application/octet-stream .xls
+#AddType application/octet-stream .doc
+#AddType application/octet-stream .avi
+#AddType application/octet-stream .mpg
+#AddType application/octet-stream .mov
+#AddType application/octet-stream .pdf
+# 下記のように一行に指定することもでき
+#AddType application/octet-stream .avi .mpg .mov .pdf .xls .mp4
+
+# URLのリライト
+# 「content-1.html」を「content.php?id=1」にリライト
+#RewriteEngine on
+#RewriteRule ^content-([0-9]+)\.html$ content.php?id=$1
+
+# httpsにリライト
+#RewriteEngine On
+#RewriteCond %{HTTPS} !on
+#RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI}
+
+# SSIの利用
+#AddType text/html .html
+#AddType text/html .shtml
+#AddHandler server-parsed .html
+#AddHandler server-parsed .shtml
+#AddHandler server-parsed .htm
+
+# 特定のリファラからのアクセスをブロック
+#<IfModule mod_rewrite.c>
+# RewriteEngine on
+# RewriteCond %{HTTP_REFERER} website1.com [NC,OR]
+# RewriteCond %{HTTP_REFERER} website2.com [NC,OR]
+# RewriteRule .* - [F]
+#</ifModule>
+
+# 特定のUAを持ったアクセスをブロック
+# 指定したロボットやスパイダーのアクセスを阻止
+#<IfModule mod_rewrite.c>
+#SetEnvIfNoCase ^User-Agent$ .*(bot1|bot2|bot3|bot4|bot5|bot6|) HTTP_SAFE_BADBOT
+#SetEnvIfNoCase ^User-Agent$ .*(bot1|bot2|bot3|bot4|bot5|bot6|) HTTP_SAFE_BADBOT
+#Deny from env=HTTP_SAFE_BADBOT
+#</ifModule>
+
+# 特定のファイルのアクセスをブロック
+# 拡張子を指定して、.htaccessなどのファイルのアクセスを阻止
+#<Files privatefile.jpg>
+# order allow,deny
+# deny from all
+#</Files>
+#<FilesMatch ".(htaccess|htpasswd|ini|phps|fla|psd|log|sh)$">
+# Order Allow,Deny
+# Deny from all
+#</FilesMatch>

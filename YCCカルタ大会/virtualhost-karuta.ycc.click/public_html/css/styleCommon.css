@@ -1,0 +1,9 @@
+@charset "UTF-8";
+
+@import "/font-awesome-4.7.0/css/font-awesome.min.css";
+
+/* その他 */
+#id,
+#pass {
+	ime-mode: disabled;
+}

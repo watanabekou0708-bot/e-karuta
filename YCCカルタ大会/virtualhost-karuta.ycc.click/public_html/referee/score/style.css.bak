@@ -1,0 +1,72 @@
+@charset "UTF-8";
+
+.class-button {
+	width: 50px;
+	height: 50px;
+	line-height: 50px;
+	float: left;
+	-webkit-appearance: none; /* iPad対策 */
+	border-radius: 0; /* iPad対策 */
+	font-weight: 900;
+	border: solid 1px black;
+}
+
+.class-text {
+	width: 2.8rem;
+	height: 3rem;
+	line-height: 3rem;
+	font-size: 2.6rem;
+	border-top: solid 1px black;
+	border-bottom: solid 1px black;
+	text-align: right;
+	float: left;
+	padding-right: 0.4rem;
+}
+
+.class-name {
+	width: 310px;
+	height: 6rem;
+	margin: 10px;
+	font-size: 2.5rem;
+	border: solid 1px;
+	text-align: center;
+	float: left;
+	line-height: 6rem;
+}
+
+.class-player {
+	width: 330px;
+	height: 180px;
+	float: left;
+}
+
+#list {
+	width: 100%;
+}
+
+h1 {
+	margin-bottom: -5px;
+}
+
+#karuta_count_p_1 {
+	margin-left: 10px;
+}
+
+#karuta_count_m_1 {
+	margin-right: 10px;
+}
+
+#kannryou {
+	margin-left: calc(100% / 1.14);
+	width: 110px;
+	height: 50px;
+}
+
+.bgBlue {
+	background-color: blue;
+	color: white;
+}
+.bgRed {
+	background-color: red;
+	color: white;
+}

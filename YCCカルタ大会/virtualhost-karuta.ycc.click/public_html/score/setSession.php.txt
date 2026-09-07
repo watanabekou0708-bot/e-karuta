@@ -1,0 +1,12 @@
+<?php
+
+	session_start();
+
+    $ret = array('STATUS' => 'NG', 'ACCESS' => 'Failure', 'HOST' => '', 'GUEST' => '');
+
+	$_SESSION['deviceName'] = 'Score';
+
+    $ret['STATUS'] = 'OK';
+
+    echo json_encode($ret);
+

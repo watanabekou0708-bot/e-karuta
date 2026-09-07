@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT かるた</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #06081a;
+      --surface: #0e1630;
+      --surface2: #162040;
+      --border: #2a3f70;
+      --accent: #4a9eff;
+      --accent2: #00e5a0;
+      --text: #c8d8f8;
+      --dim: #6880aa;
+      --danger: #ff5555;
+      --warn: #ffaa44;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(6, 8, 26, 0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 1.5rem;
+      gap: 1rem;
+    }
+
+    .logo {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent);
+      white-space: nowrap;
+      letter-spacing: 0.05em;
+      text-shadow: 0 0 16px rgba(74,158,255,0.5);
+    }
+
+    .stats {
+      display: flex;
+      gap: 1.2rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 56px;
+    }
+
+    .stat-label {
+      font-size: 0.6rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .stat-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    #statScore  .stat-value { color: var(--accent2); }
+    #statMiss   .stat-value { color: var(--warn); }
+    #statTimer  .stat-value { color: #aaf; }
+    #statLeft   .stat-value { color: var(--dim); }
+
+    /* ===== READING PANEL ===== */
+    .reading-panel {
+      max-width: 860px;
+      margin: 1rem auto;
+      padding: 0 1rem;
+    }
+
+    .reading-box {
+      background: linear-gradient(135deg, var(--surface2), var(--surface));
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 2px 20px rgba(74,158,255,0.12);
+    }
+
+    .reading-icon {
+      font-size: 1.8rem;
+      flex-shrink: 0;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.5; }
+    }
+
+    .reading-label {
+      font-size: 0.65rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 0.25rem;
+    }
+
+    .reading-text {
+      font-size: 1.15rem;
+      line-height: 1.55;
+      color: #fff;
+    }
+
+    /* ===== CARD GRID ===== */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      padding: 0.75rem 1rem 2rem;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(5, 1fr); }
+    }
+    @media (max-width: 680px) {
+      .grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .card {
+      background: linear-gradient(160deg, #182848, #0d1a30);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #b0c8f0;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
+      position: relative;
+      overflow: hidden;
+      word-break: break-word;
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent);
+      pointer-events: none;
+    }
+
+    .card:hover:not(.removed) {
+      background: linear-gradient(160deg, #223d6a, #112030);
+      border-color: var(--accent);
+      color: #fff;
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 6px 20px rgba(74,158,255,0.25);
+      z-index: 2;
+    }
+
+    /* ===== STATE ANIMATIONS ===== */
+    .card.correct {
+      animation: correctFlash 0.5s ease forwards;
+      pointer-events: none;
+    }
+
+    @keyframes correctFlash {
+      0%   { transform: scale(1);    background: linear-gradient(160deg,#182848,#0d1a30); border-color: var(--border); }
+      30%  { transform: scale(1.15); background: linear-gradient(160deg,#104028,#062018); border-color: var(--accent2); color: #0f6; box-shadow: 0 0 24px rgba(0,229,160,0.5); }
+      70%  { transform: scale(0.9);  opacity: 0.6; }
+      100% { transform: scale(0);    opacity: 0; }
+    }
+
+    .card.wrong {
+      animation: wrongShake 0.4s ease;
+      border-color: var(--danger) !important;
+      background: linear-gradient(160deg,#3a1020,#200810) !important;
+      color: #ff9999 !important;
+    }
+
+    @keyframes wrongShake {
+      0%,100% { transform: translateX(0); }
+      20%     { transform: translateX(-7px); }
+      40%     { transform: translateX(7px); }
+      60%     { transform: translateX(-5px); }
+      80%     { transform: translateX(5px); }
+    }
+
+    .card.removed {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* ===== OVERLAY SCREENS ===== */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      background: rgba(4, 6, 20, 0.93);
+      backdrop-filter: blur(6px);
+    }
+
+    .overlay.hidden { display: none; }
+
+    .overlay-title {
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: var(--accent);
+      text-shadow: 0 0 40px rgba(74,158,255,0.6);
+      margin-bottom: 0.5rem;
+    }
+
+    .overlay-sub {
+      color: var(--dim);
+      font-size: 1rem;
+      max-width: 480px;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    .how-to {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+
+    .how-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.8rem 1.2rem;
+      max-width: 180px;
+      font-size: 0.82rem;
+      color: var(--dim);
+      line-height: 1.5;
+    }
+
+    .how-card strong {
+      display: block;
+      color: var(--accent);
+      margin-bottom: 0.3rem;
+      font-size: 0.9rem;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #1a5a9a, #0a3060);
+      border: 1px solid #4a8adf;
+      color: #adf;
+      padding: 0.85rem 2.5rem;
+      border-radius: 10px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
+    }
+
+    .btn:hover {
+      background: linear-gradient(135deg, #2a6ab0, #1a4070);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(74,158,255,0.35);
+    }
+
+    .btn.green {
+      background: linear-gradient(135deg, #1a6a3a, #0a4020);
+      border-color: #4adf8a;
+      color: #8fe;
+    }
+
+    .btn.green:hover {
+      background: linear-gradient(135deg, #2a8a4a, #1a6030);
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(0,200,100,0.35);
+    }
+
+    /* ===== RESULT ===== */
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin: 1.5rem 0 2rem;
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .result-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.8rem;
+    }
+
+    .result-item .r-label {
+      font-size: 0.65rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.3rem;
+    }
+
+    .result-item .r-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .r-score  { color: var(--accent2); }
+    .r-time   { color: #aaf; }
+    .r-miss   { color: var(--warn); }
+
+    /* ===== FLOATING SCORE ===== */
+    .float-score {
+      position: fixed;
+      font-size: 1.1rem;
+      font-weight: 700;
+      pointer-events: none;
+      z-index: 300;
+      animation: floatUp 0.9s ease forwards;
+    }
+
+    @keyframes floatUp {
+      0%   { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-60px); }
+    }
+
+    /* ===== PROGRESS BAR ===== */
+    .progress-bar {
+      height: 3px;
+      background: var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== START SCREEN ===== -->
+<div class="overlay" id="startScreen">
+  <div class="overlay-title">💻 IT かるた</div>
+  <p class="overlay-sub">情報欄のIT用語の説明を読み、<br>画面上の該当カードをクリックしよう！</p>
+  <div class="how-to">
+    <div class="how-card"><strong>正解 ＋100点</strong>カードが消えて次の問題へ</div>
+    <div class="how-card"><strong>不正解 −20点</strong>カードが震えて再挑戦</div>
+    <div class="how-card"><strong>全30枚</strong>すべて取ればゲームクリア！</div>
+  </div>
+  <button class="btn green" onclick="startGame()">ゲーム スタート</button>
+</div>
+
+<!-- ===== GAME OVER SCREEN ===== -->
+<div class="overlay hidden" id="gameOver">
+  <div class="overlay-title">🎉 クリア！</div>
+  <div class="result-grid">
+    <div class="result-item">
+      <div class="r-label">スコア</div>
+      <div class="r-value r-score" id="resScore">0</div>
+    </div>
+    <div class="result-item">
+      <div class="r-label">タイム</div>
+      <div class="r-value r-time" id="resTime">0:00</div>
+    </div>
+    <div class="result-item">
+      <div class="r-label">ミス</div>
+      <div class="r-value r-miss" id="resMiss">0</div>
+    </div>
+  </div>
+  <button class="btn" onclick="startGame()">もう一度プレイ</button>
+</div>
+
+<!-- ===== HEADER ===== -->
+<header class="header">
+  <div class="logo">💻 IT かるた</div>
+  <div class="stats">
+    <div class="stat" id="statLeft">
+      <div class="stat-label">残り</div>
+      <div class="stat-value" id="valLeft">30枚</div>
+    </div>
+    <div class="stat" id="statMiss">
+      <div class="stat-label">ミス</div>
+      <div class="stat-value" id="valMiss">0</div>
+    </div>
+    <div class="stat" id="statTimer">
+      <div class="stat-label">タイム</div>
+      <div class="stat-value" id="valTimer">00:00</div>
+    </div>
+    <div class="stat" id="statScore">
+      <div class="stat-label">スコア</div>
+      <div class="stat-value" id="valScore">0</div>
+    </div>
+  </div>
+</header>
+
+<div class="progress-bar">
+  <div class="progress-fill" id="progressFill" style="width:0%"></div>
+</div>
+
+<!-- ===== READING PANEL ===== -->
+<div class="reading-panel">
+  <div class="reading-box">
+    <div class="reading-icon">📢</div>
+    <div>
+      <div class="reading-label">読み上げ — 該当するカードを選んでください</div>
+      <div class="reading-text" id="readingText">ゲームを開始してください</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CARD GRID ===== -->
+<div class="grid" id="cardsGrid"></div>
+
+<script>
+  const KARUTA = [
+    { id:  1, term: "API",           desc: "アプリケーション同士がデータをやり取りするための「接続口」となる仕組み" },
+    { id:  2, term: "クラウド",       desc: "サーバーやストレージをインターネット経由でサービスとして利用する形態" },
+    { id:  3, term: "アルゴリズム",   desc: "問題を解くための手順や計算方法を明確に定めたもの" },
+    { id:  4, term: "データベース",   desc: "大量のデータを構造的に保存し、高速に検索・更新できるシステム" },
+    { id:  5, term: "バグ",           desc: "プログラムに潜む誤りや欠陥のこと。デバッグで取り除く対象" },
+    { id:  6, term: "ブラウザ",       desc: "URLを入力してWebページを取得・表示するソフトウェア" },
+    { id:  7, term: "プログラム",     desc: "コンピュータに実行させる命令を順序立てて記述したもの" },
+    { id:  8, term: "ネットワーク",   desc: "複数のコンピュータやデバイスを相互につないだ通信網" },
+    { id:  9, term: "セキュリティ",   desc: "システムや情報を不正アクセス・攻撃から守るための対策全般" },
+    { id: 10, term: "AI",             desc: "学習・推論・認識など、人間の知的行動をコンピュータで実現する技術" },
+    { id: 11, term: "サーバー",       desc: "ネットワーク上で他の機器にサービスや情報を提供するコンピュータ" },
+    { id: 12, term: "クライアント",   desc: "サーバーに対してサービスを要求する側の端末やソフトウェア" },
+    { id: 13, term: "プロトコル",     desc: "コンピュータ同士が通信するために定めたルールと手順の取り決め" },
+    { id: 14, term: "OSS",            desc: "ソースコードが公開され、誰でも自由に使用・改変・再配布できるソフトウェア" },
+    { id: 15, term: "Git",            desc: "ファイルの変更履歴を記録・管理する分散型バージョン管理ツール" },
+    { id: 16, term: "Docker",         desc: "アプリと依存環境をコンテナとしてパッケージ化する仮想化技術" },
+    { id: 17, term: "暗号化",         desc: "第三者に解読されないよう、データを別の形式に変換する処理" },
+    { id: 18, term: "DNS",            desc: "人が覚えやすいドメイン名をIPアドレスに変換するシステム" },
+    { id: 19, term: "HTTP",           desc: "ブラウザとWebサーバー間でデータをやり取りするプロトコル" },
+    { id: 20, term: "JSON",           desc: "人にも読みやすい軽量なテキスト形式のデータ交換フォーマット" },
+    { id: 21, term: "UI",             desc: "ユーザーがシステムと対話するための画面・ボタン・入力欄などの総称" },
+    { id: 22, term: "UX",             desc: "ユーザーがサービスや製品を使う中で感じる体験や感情の総体" },
+    { id: 23, term: "フレームワーク", desc: "アプリ開発の骨格となる再利用可能な機能をまとめた枠組み" },
+    { id: 24, term: "ライブラリ",     desc: "特定の機能をまとめ、他のプログラムから呼び出せる部品の集合" },
+    { id: 25, term: "コンパイル",     desc: "人が書いたソースコードをコンピュータが実行できる機械語へ変換する処理" },
+    { id: 26, term: "デバッグ",       desc: "プログラムのバグを見つけて修正する作業" },
+    { id: 27, term: "スクラム",       desc: "短い反復サイクルでソフトウェアを開発するアジャイル手法のひとつ" },
+    { id: 28, term: "クラス",         desc: "オブジェクト指向でデータと処理をひとまとめにした設計図" },
+    { id: 29, term: "インスタンス",   desc: "クラスの設計図をもとに実際にメモリ上に生成されたオブジェクト" },
+    { id: 30, term: "キャッシュ",     desc: "よく使うデータを一時保存し、次回の処理を高速化する仕組み" },
+  ];
+
+  let score = 0, misses = 0, remaining = 30, seconds = 0;
+  let currentCard = null, usedIds = new Set(), timerInterval = null;
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function fmtTime(s) {
+    return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  }
+
+  function startGame() {
+    score = 0; misses = 0; remaining = 30; seconds = 0;
+    usedIds = new Set(); currentCard = null;
+
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('gameOver').classList.add('hidden');
+    updateStats();
+    renderCards();
+    nextCard();
+
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      seconds++;
+      document.getElementById('valTimer').textContent = fmtTime(seconds);
+    }, 1000);
+  }
+
+  function updateStats() {
+    document.getElementById('valScore').textContent = score;
+    document.getElementById('valMiss').textContent  = misses;
+    document.getElementById('valLeft').textContent  = `${remaining}枚`;
+    const pct = ((30 - remaining) / 30 * 100).toFixed(1);
+    document.getElementById('progressFill').style.width = pct + '%';
+  }
+
+  function renderCards() {
+    const grid = document.getElementById('cardsGrid');
+    grid.innerHTML = '';
+    shuffle(KARUTA).forEach(card => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.id = `card-${card.id}`;
+      el.dataset.id = card.id;
+      el.textContent = card.term;
+      el.addEventListener('click', () => handleClick(card.id, el));
+      grid.appendChild(el);
+    });
+  }
+
+  function nextCard() {
+    const available = KARUTA.filter(c => !usedIds.has(c.id));
+    if (available.length === 0) { endGame(); return; }
+    currentCard = available[Math.floor(Math.random() * available.length)];
+    document.getElementById('readingText').textContent = currentCard.desc;
+  }
+
+  function handleClick(id, el) {
+    if (!currentCard || el.classList.contains('removed')) return;
+
+    if (id === currentCard.id) {
+      score += 100;
+      remaining--;
+      usedIds.add(id);
+      updateStats();
+      showFloatScore(el, '+100', '#00e5a0');
+      el.classList.add('correct');
+      setTimeout(() => { el.classList.add('removed'); el.classList.remove('correct'); nextCard(); }, 500);
+    } else {
+      misses++;
+      score = Math.max(0, score - 20);
+      updateStats();
+      showFloatScore(el, '-20', '#ff5555');
+      el.classList.add('wrong');
+      setTimeout(() => el.classList.remove('wrong'), 450);
+    }
+  }
+
+  function showFloatScore(el, text, color) {
+    const rect = el.getBoundingClientRect();
+    const span = document.createElement('div');
+    span.className = 'float-score';
+    span.style.left = (rect.left + rect.width / 2 - 20) + 'px';
+    span.style.top  = (rect.top + window.scrollY - 10) + 'px';
+    span.style.color = color;
+    span.textContent = text;
+    document.body.appendChild(span);
+    setTimeout(() => span.remove(), 900);
+  }
+
+  function endGame() {
+    clearInterval(timerInterval);
+    document.getElementById('resScore').textContent = score + '点';
+    document.getElementById('resTime').textContent  = fmtTime(seconds);
+    document.getElementById('resMiss').textContent  = misses + '回';
+    document.getElementById('gameOver').classList.remove('hidden');
+  }
+</script>
+</body>
+</html>

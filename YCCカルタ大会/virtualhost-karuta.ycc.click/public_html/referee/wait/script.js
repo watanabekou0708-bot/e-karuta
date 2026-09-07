@@ -1,0 +1,5 @@
+$(function() {
+
+	chkDeviceInfo(); // isCurrentDir=wait
+
+});

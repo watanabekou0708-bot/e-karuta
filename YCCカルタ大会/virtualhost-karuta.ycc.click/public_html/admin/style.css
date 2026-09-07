@@ -1,0 +1,107 @@
+@charset "UTF-8";
+
+body > input:first-child {
+    position: fixed;
+    right: 3rem;
+}
+
+#contents {
+    clear: both;
+}
+
+/* 審判用端末 一斉送信 */
+#btnSystem {
+    box-sizing: border-box;
+    width: 100px;
+    height: 100px;
+    margin: 5px;
+    background-color: lime;
+    float: left;
+}
+#btnSystem > div:first-child {
+    width: 100%;
+    height: 20px;
+    background-color: blue;
+    text-align: center;
+    color: white;
+}
+#btnSystem > div:last-child {
+    width: 100%;
+    height: 80px;
+    background-color: pink;
+}
+#btnSystem > div:last-child input {
+    width: 100%;
+}
+/* 審判用端末 各端末 */
+#userInfo > div {
+    box-sizing: border-box;
+    width: 100px;
+    height: 100px;
+    margin: 5px;
+    float: left;
+}
+#userInfo > div > div:first-child {
+    width: 100%;
+    height: 20px;
+    background-color: blue;
+    text-align: center;
+    color: white;
+}
+#userInfo > div > div:last-child {
+    width: 100%;
+    height: 80px;
+    background-color: pink;
+}
+
+/* スコアボード 一斉送信 */
+#btnScore {
+    box-sizing: border-box;
+    width: 210px;
+    height: 100px;
+    margin: 5px;
+    background-color: lime;
+    float: left;
+}
+#btnScore > div:first-child {
+    width: 100%;
+    height: 20px;
+    background-color: blue;
+    text-align: center;
+    color: white;
+}
+#btnScore > div:last-child {
+    width: 100%;
+    height: 80px;
+    padding: 0 5px;
+    background-color: pink;
+}
+#btnScore > div:last-child input {
+    width: 100px;
+    float: left;
+}
+/* スコアボード 各端末 */
+#scoreInfo > div {
+    box-sizing: border-box;
+    width: 100px;
+    height: 100px;
+    margin: 5px;
+    float: left;
+}
+#scoreInfo > div > div:first-child {
+    width: 100%;
+    height: 20px;
+    background-color: blue;
+    text-align: center;
+    color: white;
+}
+#scoreInfo > div > div:last-child {
+    width: 100%;
+    height: 80px;
+    background-color: pink;
+}
+
+/* データベース */
+#btnDatabase {
+    width: 100%;
+}

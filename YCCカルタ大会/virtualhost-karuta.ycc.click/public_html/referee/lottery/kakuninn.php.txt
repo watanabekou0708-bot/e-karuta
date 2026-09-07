@@ -1,0 +1,33 @@
+<?php
+
+    require_once('../../inc/dbConnect.php');
+
+    $ret = array('STATUS' => 'NG', 'DATA' => '');
+
+    $sql2 = "SELECT `ninnzuu`, `battle` FROM `tBattle` WHERE `lottery` = (SELECT `hostSendMSG` FROM `deviceInfo` WHERE `deviceName` = 'PC')";
+    $result2 = mysqli_query($db, $sql2);
+
+    $ninnzuu1 = 0;
+    $ninnzuu2 = 0;
+    while($row2 = mysqli_fetch_array($result2, MYSQLI_ASSOC)) {
+        $ninnzuu1 = $ninnzuu1 + $row2['ninnzuu'];
+
+        $sql = "SELECT COUNT(*) FROM `tScore` WHERE `battle` = {$row2['battle']}";
+        $result = mysqli_query($db, $sql);
+        $row = mysqli_fetch_row($result);
+        $ninnzuu2 = $ninnzuu2 + $row[0];
+    }
+
+    if($ninnzuu2 >= $ninnzuu1) {
+        $ret['STATUS'] = 'OK';
+        $ret['DATA'] = 'moveScore';
+    } else {
+        $ret['DATA'] = 'Failure';
+    }
+
+    mysqli_free_result($result);
+    mysqli_free_result($result2);
+
+    echo json_encode($ret);
+
+    mysqli_close($db);

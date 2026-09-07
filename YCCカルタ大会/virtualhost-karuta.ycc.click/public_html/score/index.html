@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=no">
+		<title>HTML5カルタ大会 | スコアボード</title>
+		<link rel="icon" href="/favicon.ico">
+		<link rel="stylesheet" href="/css/reset.css">
+		<link rel="stylesheet" href="/css/styleCommon.css">
+		<link rel="stylesheet" href="/css/stylePC.css"      media="screen and (min-width:1024px)                                                  "><!-- 300M -->
+		<link rel="stylesheet" href="/css/styleMobileV.css" media="screen and                        (max-width: 414px) and (orientation:portrait)"><!--  60Y  320*1, 320*2, 412*2.625, 414*3-->
+		<link rel="stylesheet" href="/css/styleMobileH.css" media="screen and (min-width: 480px) and (max-width: 736px) and (orientation:landscape)"><!--120G  480*1, 568*2, 684*2.625, 736*3-->
+		<link rel="stylesheet" href="/css/styleTabletV.css" media="screen and (min-width: 768px) and (max-width:1024px) and (orientation:portrait)"><!-- 180C  768*2, 800*1,1024*2-->
+		<link rel="stylesheet" href="/css/styleTabletH.css" media="screen and (min-width:1024px) and (max-width:1366px) and (orientation:landscape)"><!--240B 1024*2,1280*1,1366*2-->
+		<link rel="stylesheet" href="/css/stylePrint.css"   media="print">
+        <link rel="stylesheet" href="/css/styleFullScreen.css">
+		<link rel="stylesheet" href="style.css">
+	</head>
+	<body id="tgtFull">
+<!-- デバイスの解像度を表示する 1939*861, 1280*576
+        <script>
+            document.write("devicePixelRatio" + ":" + window.devicePixelRatio + "<br>");
+            document.write("innerWidth/innerHeight" + ":" + window.innerWidth + "/" + window.innerHeight + "<br>");
+            document.write("orientation" + ":" + window.orientation + "<br>");
+        </script>
+-->
+        <!--全画面切り替えボタン-->
+        <button id="btnFull" onclick="requestFullscreen()"><i class="fa fa-window-maximize fa-3x" aria-hidden="true"></i></button>
+        <!--//全画面切り替えボタン-->
+        <div id="wrapper">
+    		<div id="round"></div>
+            <div id="kati"></div>
+            <div id="container"></div>
+        </div>
+        <style>
+            body {
+                background-color: hsla(30, 65%, 70%, 1);
+            }
+            #wrapper {
+                position: fixed;
+                top: -170px;
+                left: 0;
+                width: 100%;
+                height: 740px;
+            }
+        </style>
+        <script src="/js/jquery-3.1.1.min.js"></script>
+        <script src="/js/common.js"></script>
+		<script src="script.js"></script>
+	</body>
+</html>

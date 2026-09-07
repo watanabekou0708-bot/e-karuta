@@ -1,0 +1,20 @@
+<?php
+	require "../../inc/dbConnect.php";
+
+	$lottery = $_POST["lottery"];
+
+	$sql = "SELECT `battle` FROM `tBattle` WHERE `lottery` = '{$lottery}'";
+	$result = mysqli_query($db, $sql);
+
+	$ret = 0;
+	while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)) {
+		if($ret < $row["battle"]) {
+			$ret = $row["battle"];
+		}
+	}
+
+	echo $ret;
+	
+	mysqli_free_result($result);
+	mysqli_close($db);
+?>

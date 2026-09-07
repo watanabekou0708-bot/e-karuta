@@ -1,0 +1,13 @@
+<?php
+
+    require_once($_SERVER['DOCUMENT_ROOT'].'/inc/dbConnect.php');
+
+    $name = $_POST['name'];
+    $score = $_POST['score'];
+    $otetuki = $_POST['otetuki'];
+
+	$sql = "UPDATE `tScore` SET `score` = '{$score}', `otetuki` = {$otetuki} WHERE `name` = '{$name}'";
+	$result = mysqli_query($db, $sql);
+
+	mysqli_free_result($result);
+	mysqli_close($db);

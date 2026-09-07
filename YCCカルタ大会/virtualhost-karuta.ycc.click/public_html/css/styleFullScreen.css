@@ -1,0 +1,41 @@
+@charset "UTF-8";
+
+/* 全画面表示 */
+#btnFull {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 9999;
+}
+#tgtFull:-webkit-full-screen {
+    position : fixed ;
+    left     : 0 ;
+    top      : 0 ;
+    width    : 100% ;
+    height   : 100% ;
+    z-index: 9999;
+}
+#tgtFull:-moz-full-screen {
+    position : fixed ;
+    left     : 0 ;
+    top      : 0 ;
+    width    : 100% ;
+    height   : 100% ;
+    z-index: 9999;
+}
+#tgtFull:-ms-fullscreen {
+    position : fixed ;
+    left     : 0 ;
+    top      : 0 ;
+    width    : 100% ;
+    height   : 100% ;
+    z-index: 9999;
+}
+#tgtFull:fullscreen {
+    position : fixed ;
+    left     : 0 ;
+    top      : 0 ;
+    width    : 100% ;
+    height   : 100% ;
+    z-index: 9999;
+}

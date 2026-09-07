@@ -1,0 +1,7 @@
+@charset "UTF-8";
+
+/* パソコン用 */
+body {
+    background-color: hsla(300, 100%, 50%, 0.5);
+    font-size: 28pt;
+}

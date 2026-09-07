@@ -1,0 +1,37 @@
+@charset "UTF-8";
+
+/* スマホ横用 */
+body {
+    background-color: hsla(120, 100%, 50%, 0.5);
+    font-size: 22pt;
+}
+
+#wrapper {
+    width: 80%;
+    margin: 25vh auto;
+    background-color: red;
+}
+
+table {
+    width: 100%;
+}
+
+table tr:nth-child(2) {
+    height: 25vh;
+}
+
+table th {
+    width: 27vw;
+    text-align: center;
+}
+
+.inputArea input {
+    width: 100%;
+}
+
+.btnLogin {
+    text-align: center;
+}
+
+.btnLogin input {
+}

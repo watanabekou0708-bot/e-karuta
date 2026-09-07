@@ -1,0 +1,11 @@
+@charset "UTF-8";
+
+#wrapper {
+    width: 60%;
+    margin: 30vh auto;
+    font-size: 3rem;
+}
+
+p {
+	text-align: center;
+}

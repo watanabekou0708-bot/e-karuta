@@ -1,0 +1,38 @@
+<?php
+
+	require_once('../../inc/dbConnect.php');
+
+	$table = $_POST["table"];
+	// $ret = array('STATUS' => 'NG', 'DATA' => '');
+	$ret = "";
+
+    $sql = "SELECT `battle` FROM `tInfo`";
+    if($result = mysqli_query($db, $sql)) {
+        if(mysqli_num_rows($result) > 0) {
+            $row = mysqli_fetch_array($result, MYSQLI_ASSOC);
+            $battle = $row['battle'];
+        }
+        mysqli_free_result($result);
+    }
+
+	$sql = "SELECT * FROM `tScore` WHERE `table` = '{$table}' AND `battle` = '{$battle}'";
+	if($result = mysqli_query($db, $sql)) {
+		if(mysqli_num_rows($result) > 0) {
+			// $ret['STATUS'] = 'OK';
+			while($row = mysqli_fetch_array($result, MYSQLI_ASSOC)) {
+				if($ret == "") {
+					$ret = "{$row['name']},{$row['score']},{$row['otetuki']}";
+				} else {
+					$ret = $ret . ",{$row['name']},{$row['score']},{$row['otetuki']}";
+				}
+			}
+		} else {
+			$ret = 'Failure';
+		}
+		mysqli_free_result($result);
+	}
+
+	echo $ret;
+	
+	mysqli_close($db);
+?>

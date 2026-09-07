@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /213003/
+Disallow: /213003.stop/
+Disallow: /213113/
+Disallow: /213113.bak/
+Disallow: /_Materials/
+Disallow: /json_encoder/
+Disallow: /mp3/
+Disallow: /tts/

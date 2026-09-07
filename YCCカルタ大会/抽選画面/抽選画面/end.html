@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta charset="UTF-8">
+    <title>抽選画面</title>
+    <link rel="stylesheet" href="css/index.css">
+    <style>
+        .topBtn{
+            width: 100px;
+            height: 100px;
+            color: #fff;
+            background-color: rgb(68, 114, 196);
+            line-height: 100px;
+            text-align: center;
+            cursor: pointer;
+        }
+    </style>
+<head>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="in_wrapper">
+            <div>抽選が完了しました</div>
+            <div>Finish shuffle!</div>
+        </div>
+    </div>
+    <div id="topBtn" class="topBtn">Topへ戻る</div>
+    <script>
+        window.onload = function(){
+            var i = document.getElementById('topBtn');
+            i.addEventListener("click",function(){
+                location.href = "index.html";
+            },false);
+        }
+        setTimeout(function() {
+            location.href = "index.html";
+        }, 10000);
+    </script>
+</body>
+</html>

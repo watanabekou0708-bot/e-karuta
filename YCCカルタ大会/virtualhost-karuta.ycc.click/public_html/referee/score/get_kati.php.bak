@@ -1,0 +1,14 @@
+<?php
+	require "../../inc/dbConnect.php";
+
+    $battle = $_POST["battle"];
+
+	$sql = "SELECT `kati` FROM `tBattle` WHERE `battle` = {$battle}";
+	$result = mysqli_query($db, $sql);
+	$row = mysqli_fetch_array($result, MYSQLI_ASSOC);
+
+	echo $row["kati"];
+	
+	mysqli_free_result($result);
+	mysqli_close($db);
+?>

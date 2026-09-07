@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="author" content="Masato Hayashi">
+        <meta name="copyright" content="YCC Web Design Circle">
+        <meta name="description" content="HTML5で使用されるタグの説明を文字表示とともに音声で読み上げます。カルタのようにカードを選択することで学習できます。">
+        <meta name="keywords" content="HTML5,カルタ,タグ,学習,音声,読み上げ,読み札">
+        <meta name="robots" content="index,follow,noodp,noydir">
+        <link rel="icon" type="image/vnd.microsoft.icon" href="favicon.ico">
+        <meta http-equiv="Content-Script-Type" content="text/javascript">
+        <meta http-equiv="Content-Style-Type" content="text/css">
+        <title>HTML5 KARUTA</title>
+        <!-- <script src="js/jquery-1.11.1.js"></script> -->
+        <script src="js/jquery-3.1.1.min.js"></script>
+        <script src="js/jquery.arrays.js"></script>
+        <script src="js/karuta.js"></script>
+        <link rel="stylesheet" href="css/style.css?update=20161222">
+    </head>
+    <body>
+        <img src="img/level1.gif" alt="" class="preloadedImages">
+        <img src="img/level2.gif" alt="" class="preloadedImages">
+        <img src="img/level3.gif" alt="" class="preloadedImages">
+        <img src="img/level1_active.gif" alt="" class="preloadedImages">
+        <img src="img/level2_active.gif" alt="" class="preloadedImages">
+        <img src="img/level3_active.gif" alt="" class="preloadedImages">
+        <img src="img/return.gif" alt="" class="preloadedImages">
+        <img src="img/replay.gif" alt="" class="preloadedImages">
+
+        <div id="title_contents">
+            <img alt="HTML5 KARUTA" id="logo">
+            <div id="buttons" class="before">
+                <div class="button layer0" id="level1"></div>
+                <div class="button layer0" id="level2"></div>
+                <div class="button layer0" id="level3"></div>
+
+                <div id="readme">
+                    <a href="pdf/readme.pdf">競技概要 [PDF]</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="pdf/tagList.pdf">競技タグ一覧 [PDF]</a>
+                </div>
+            </div>
+        </div>
+
+        <div id="progressbox">
+            <span>Now loading...</span>
+            <div id="progressbar">
+                <div id="progress"></div>
+            </div>
+        </div>
+
+        <div id="main_contents">
+            <audio id="audio_player"></audio>
+            <div id="display"></div>
+            <div id="functions">
+                <div class="fn_button" id="return" title="タイトルに戻る"></div>
+                <div class="fn_button" id="replay" title="最初からやり直す"></div>
+            </div>
+            <div class="cards" id="card0"></div>
+            <div class="cards" id="card1"></div>
+            <div class="cards" id="card2"></div>
+            <div class="cards" id="card3"></div>
+            <div class="cards" id="card4"></div>
+            <div class="cards" id="card5"></div>
+            <div class="cards" id="card6"></div>
+            <div class="cards" id="card7"></div>
+            <div class="cards" id="card8"></div>
+            <div class="cards" id="card9"></div>
+            <div class="cards" id="card10"></div>
+            <div class="cards" id="card11"></div>
+            <div class="cards" id="card12"></div>
+            <div class="cards" id="card13"></div>
+            <div class="cards" id="card14"></div>
+            <div class="cards" id="card15"></div>
+            <div class="cards" id="card16"></div>
+            <div class="cards" id="card17"></div>
+            <div class="cards" id="card18"></div>
+            <div class="cards" id="card19"></div>
+            <div class="cards" id="card20"></div>
+            <div class="cards" id="card21"></div>
+            <div class="cards" id="card22"></div>
+            <div class="cards" id="card23"></div>
+            <div class="cards" id="card24"></div>
+            <div class="cards" id="card25"></div>
+            <div class="cards" id="card26"></div>
+            <div class="cards" id="card27"></div>
+            <div class="cards" id="card28"></div>
+            <div class="cards" id="card29"></div>
+            <div class="cards" id="card30"></div>
+            <div class="cards" id="card31"></div>
+            <div class="cards" id="card32"></div>
+            <div class="cards" id="card33"></div>
+            <div class="cards" id="card34"></div>
+            <div class="cards" id="card35"></div>
+        </div>
+    </body>
+</html>

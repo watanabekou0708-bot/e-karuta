@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>YCCかるたスピーチ</title>
+    <style>
+	    .announce {
+	    	position: fixed;
+	    	top: 1em;
+	    	right: 1em;
+	    }
+        #hideDiv {
+            position: fixed;
+            margin-top: -9999px;
+        }
+        #hideDiv span {display: inline-block; }
+        h3 {margin-bottom: -0.25em; display: inline-block; }
+        .card {
+            width: 100px;
+            height: 50px;
+            font-size: 1em;
+            box-sizing: border-box;
+            margin: 5px;
+            padding: 5px;
+        }
+        .noCard    {background-color: hsl( 60, 60%, 75%); }
+        .noCardx   {background-color: hsl( 60,  0%, 75%); color: hsl(0,  0%, 50%); }
+        .html      {background-color: hsl(211, 60%, 75%); }
+        .htmlx     {background-color: hsl(211,  0%, 75%); color: hsl(0,  0%, 50%); }
+        .excel     {background-color: hsl(132, 54%, 75%); }
+        .excelx    {background-color: hsl(132,  0%, 75%); color: hsl(0,  0%, 50%); }
+        .business  {background-color: hsl( 20, 47%, 75%); }
+        .businessx {background-color: hsl( 20,  0%, 75%); color: hsl(0,  0%, 50%); }
+    </style>
+</head>
+<body>
+    <div id="hideDiv"><span></span></div>
+    <div id="wrapper">
+        <input type="text" id="ip" value="192.168.111.100">
+        <!-- <input type="text" id="ip" value="10.9.10.4"> -->
+        <button id="connect">接続</button><span class="result"></span><br>
+        <button class="announce" onClick="speech('フ^ダ^を取る手はテーブルのフチよりも外側においてください')">札を取る手はテーブルの端より外側においてください</button>
+        <div>
+            <h3>Aセット（第1~2回戦）</h3>
+	        <button onClick="speech('只今から第1回戦を始めます')">只今から第1回戦を始めます</button><button onClick="speech('只今から第2回戦を始めます')">只今から第2回戦を始めます</button><br>
+            <button class="card html" onClick="read(this, 'セクションの見出しを表す要素','へ^ディんグワンからへ^ディんグシックス')">h1～h6</button>
+            <button class="card excel" onClick="read(this, '最大値を求める関数','マックス')">MAX</button>
+            <button class="card business" onClick="read(this, '会社が法律や内規など基本的なルールに従って活動すること','コンプライアンス')">コンプライアンス</button>
+            <button class="card html" onClick="read(this, '段落を表す要素','P、パラグラフ')">p</button>
+            <button class="card excel" onClick="read(this, '数値の小数部分を切り捨て、整数にする関数','インテジャー')">INT</button>
+            <button class="card excel" onClick="read(this, '順位を求める関数','ランク・イコール')">RANK.EQ</button>
+            <button class="card html" onClick="read(this, 'メタデータの圧マリを表す要素','head')">head</button>
+            <button class="card excel" onClick="read(this, '合計を求める関数','サム')">SUM</button>
+            <button class="card noCard" onClick="read(this, '数値のセルを数える関数','カウント')">COUNT</button>
+            <button class="card html" onClick="read(this, '開業を表す要素','BR、ラ^インブレイク')">br</button>
+            <button class="card excel" onClick="read(this, '空白でないセルを数える関数','カウントエー')">COUNTA</button>
+            <button class="card html" onClick="read(this, 'ルート要素をあらわす要素','HTML')">html</button>
+            <button class="card excel" onClick="read(this, '最小値を求める関数','ミニマム')">MIN</button>
+            <button class="card html" onClick="read(this, '文書のタイトルを表す^要素','タイ^トル^')">title</button>
+            <button class="card html" onClick="read(this, '文書の内容\\vct=140\\を表す要素','ボ^ディ^ー')">body</button>
+            <button class="card business" onClick="read(this, '自社に不足する技術の積極的活用やコストを削減のための特定業務の外部委託を言う','アウトソーシング')">アウトソーシング</button>
+            <button class="card noCard" onClick="read(this, '文書のメタデータを表す要素','メ^タ')">meta</button>
+            <button class="card excel" onClick="read(this, '数値を四捨五入する関数','ラウンド')">ROUND</button>
+        </div>
+        <div>
+            <h3>Bセット（第3回戦）</h3>
+	        <button onClick="speech('只今から第3回戦を始めます')">只今から第3回戦を始めます</button><br>
+            <button class="card excel" onClick="read(this, '文字列の指定された位置から、指定された数の文字を取り出す関数','ミッド')">MID</button>
+            <button class="card excel" onClick="read(this, '文字列の先頭から指定された数の文字を取り出す関数','レフト')">LEFT</button>
+            <button class="card excel" onClick="read(this, '数値を切り捨てる関数','ラウンドダウン')">ROUNDDOWN</button>
+            <button class="card excel" onClick="read(this, '文字列の文字数を取り出す関数','レン')">LEN</button>
+            <button class="card excel" onClick="read(this, '文字列の末尾から指定された数の文字を取り出す関数','ライト')">RIGHT</button>
+            <button class="card business" onClick="read(this, '小売・流通業者が独自に企画・開発した商品','プライベートブランド')">プライベートブランド</button>
+            <button class="card html" onClick="read(this, 'ヒョうぐみの本体部分の行グループを表す要素','TビーODY、テーブル^ボディー')">tbody</button>
+            <button class="card html" onClick="read(this, '評組みの^^ヘッダー部分の行グループを表す要素','ティーHEAD、テーブル^ヘ^ッだー')">thead</button>
+            <button class="card html" onClick="read(this, '強調したいテキストを表す要素','EM、エンファシス')">em</button>
+            <button class="card excel" onClick="read(this, '条件によって処理を分ける関数','イフ')">IF</button>
+            <button class="card noCard" onClick="read(this, '質が異なるテキストを表す要素','I')">i</button>
+            <button class="card business" onClick="read(this, '必要なものを、必要なときに、必要な量だけ、必要な場所に供給する生産の管理手法。','ジャストインタイム生産システム')">ジャストインタイム生産システム</button>
+            <button class="card html" onClick="read(this, 'リンクを設置^^する要素','A、アンカー')">a</button>
+            <button class="card html" onClick="read(this, '特別なテキストを表す要素','B')">b</button>
+            <button class="card html" onClick="read(this, 'ヒョうぐみを表す要素','テーブル')">table</button>
+            <button class="card html" onClick="read(this, '重要なテキストを表す要素','すとろんぐ')">strong</button>
+            <button class="card noCard" onClick="read(this, '数値を切り上げる関数','ラウンドアップ')">ROUNDUP</button>
+            <button class="card excel" onClick="read(this, '文字列を指定された回数だけ繰り返す関数','リピート')">REPT</button>
+        </div>
+        <div>
+            <h3>Cセット（第4回戦）</h3>
+	        <button onClick="speech('只今から第4回戦を始めます')">只今から第4回戦を始めます</button><br>
+            <button class="card excel" onClick="read(this, '割り算の余りを求める関数','モデュラス')">MOD</button>
+            <button class="card excel" onClick="read(this, '文字列のイチをケンサクする関数','サーチ')">SEARCH</button>
+            <button class="card html" onClick="read(this, '画像を埋め込む要素','IMG、イメージ')">img</button>
+            <button class="card noCard" onClick="read(this, '最小値を求めるデータベース関数','ディーミニマム')">DMIN</button>
+            <button class="card html" onClick="read(this, 'フローコンテンツをマとめル要素','DIV、ディヴィジョン')">div</button>
+            <button class="card noCard" onClick="read(this, 'リストの項目を表す要素','LI、リストアイテム')">li</button>
+            <button class="card html" onClick="read(this, '純ふどうリストを表す要素','UL、アンオーダードりすと')">ul</button>
+            <button class="card excel" onClick="read(this, '最大値を求めるデータベース関数','ディーマックス')">DMAX</button>
+            <button class="card business" onClick="read(this, '自由な雰囲気で、他を批判せずにアイデアを出し合い、最終的に一定の課題によりよい解決を得ようとする方法','ブレーンストーミング')">ブレーンストーミング</button>
+            <button class="card excel" onClick="read(this, '数値から符号を除いた絶対値を求める関数','アブソルート')">ABS</button>
+            <button class="card html" onClick="read(this, 'ヒョうぐみの行を表す要素','TR、テーブル^ロー')">tr</button>
+            <button class="card html" onClick="read(this, '序列リストを表す要素','OL、オーダードりすと')">ol</button>
+            <button class="card html" onClick="read(this, 'ヒョうぐみのセルを表す要素','TD、テーブル^データーセ^ル')">td</button>
+            <button class="card excel" onClick="read(this, '条件に一致するセルの合計を求める関数','サムイフ')">SUMIF</button>
+            <button class="card excel" onClick="read(this, '合計を求めるデータベース関数','ディーサム')">DSUM</button>
+            <button class="card business" onClick="read(this, '障害の有無に関係なく、すべての人が使いやすいように製品・建物・環境などをデザインすること','ユニバーサルデザイン')">ユニバーサルデザイン</button>
+            <button class="card html" onClick="read(this, 'ヒョうぐみの身だしセルを表す要素','TH、テーブル^ヘ^ッだーセ^る')">th</button>
+            <button class="card excel" onClick="read(this, '複数の条件に一致するセルの合計を求める関数','サムイフズ')">SUMIFS</button>
+        </div>
+        <div>
+            <h3>Dセット（順位決定戦）</h3>
+	        <button onClick="speech('只今から順位決定戦を始めます')">只今から順位決定戦を始めます</button><br>
+            <button class="card html" onClick="read(this, '写真などのまとまりを表す要素','フィギュア')">figure</button>
+            <button class="card noCard" onClick="read(this, '条件に一致するセルの平均を求める関数','アベレージイフ')">AVERAGEIF</button>
+            <button class="card excel" onClick="read(this, '現在の日付を表示する関数','トゥデイ')">TODAY</button>
+            <button class="card excel" onClick="read(this, '平均を求める関数','アベレージ')">AVERAGE</button>
+            <button class="card excel" onClick="read(this, '昇順での指定した順位のあたいを取得する関数','スモール')">SMALL</button>
+            <button class="card excel" onClick="read(this, '条件に一致するセルを数える関数','カウントイフ')">COUNTIF</button>
+            <button class="card html" onClick="read(this, '文書のセクションを表す要素','section')">section</button>
+            <button class="card html" onClick="read(this, '主要なナビゲーションを表す^要素','NAV、ナビ')">nav</button>
+            <button class="card html" onClick="read(this, 'フ^レ^ーずをぐループ化する要素','スパン')">span</button>
+            <button class="card html" onClick="read(this, '写真などにキャプションを付与する要素','エフアイジぃシーえーピーTION、フィギュア^キャプション')">figcaption</button>
+            <button class="card excel" onClick="read(this, '平均を求めるデータベース関数','ディーアベレージ')">DAVERAGE</button>
+            <button class="card excel" onClick="read(this, '降順での指定した順位のあたいを取得する関数','ラージ')">LARGE</button>
+            <button class="card html" onClick="read(this, '文書を他の外部リソースと関連付ける要素','リン^ク^')">link</button>
+            <button class="card business" onClick="read(this, '商品や原材料の仕入れ、人件費等の支払いに充てられる運営資金のこと','ランニングコスト')">ランニングコスト</button>
+            <button class="card noCard" onClick="read(this, 'ハイライトされたテキストを表す要素','マーク^')">mark</button>
+            <button class="card html" onClick="read(this, 'へ^っ駄ーを表す要素','ヘッダー')">header</button>
+        </div>
+        <div>
+            <h3>Eセット（第3位決定戦）</h3>
+	        <button onClick="speech('只今から第3位決定戦を始めます')">只今から第3位決定戦を始めます</button><br>
+            <button class="card excel" onClick="read(this, '一つ以上の条件を満たしているか判定する関数','オア')">OR</button>
+            <button class="card html" onClick="read(this, '補足情報を表す要素','エーSIDE、アサイド')">aside</button>
+            <button class="card excel" onClick="read(this, '全ての条件を満たしているか判定する関数','アンド')">AND</button>
+            <button class="card html" onClick="read(this, 'スタイルじょうほうをきじゅ^つする要素','スタイル')">style</button>
+            <button class="card business" onClick="read(this, '実際の場面を想定し、ある役割を演技して、それぞれの問題点や解決法を考えさせる学習法','ロールプレーイング')">ロールプレーイング</button>
+            <button class="card html" onClick="read(this, 'ふっ田ー\\vct=150\\を表す要素','フッター')">footer</button>
+            <button class="card html" onClick="read(this, 'さいモクや注釈のテキストを表す要素','small')">small</button>
+            <button class="card excel" onClick="read(this, 'セルが空白か判定する関数','イズブランク')">ISBLANK</button>
+            <button class="card excel" onClick="read(this, '指定したあたいがエラーかどうかで処理を分ける関数','イフエラー')">IFERROR</button>
+            <button class="card excel" onClick="read(this, '現在の日付と時刻を表示する関数','ナウ')">NOW</button>
+            <button class="card html" onClick="read(this, 'ボタンを設置する要素','ボタン')">button</button>
+            <button class="card noCard" onClick="read(this, '日付から曜日を取得する関数','ウィークデイ')">WEEKDAY</button>
+            <button class="card noCard" onClick="read(this, 'クライアントサイドスクリプトのコードを埋め込む^要素','script')">script</button>
+            <button class="card excel" onClick="read(this, 'セルのふりがなを表示する関数','フォネティック')">PHONETIC</button>
+        </div>
+        <div>
+            <h3>Fセット（優勝決定戦）</h3>
+	        <button onClick="speech('只今から優勝決定戦を始めます')">只今から優勝決定戦を始めます</button><br>
+            <button class="card html" onClick="read(this, '音声ファイルを埋め込む要素','オーディオ')">audio</button>
+            <button class="card excel" onClick="read(this, '数値のセルを数えるデータベース関数','ディーカウント')">DCOUNT</button>
+            <button class="card html" onClick="read(this, '動画ファイルを埋め込む要素','ビデオ')">video</button>
+            <button class="card html" onClick="read(this, '定義リストの説明文を表す要素','ディぃディー、ディフィニションディスクリプション')">dd</button>
+            <button class="card excel" onClick="read(this, '検索するあたいに対応したあたいを指定の列から取り出す関数','ブイルックアップ')">VLOOKUP</button>
+            <button class="card excel" onClick="read(this, '指定された行と列が、交差する位置にあるあたいを取り出す関数','インデックス')">INDEX</button>
+            <button class="card business" onClick="read(this, '販売時点情報管理','POS')">POS</button>
+            <button class="card excel" onClick="read(this, '検索するあたいに対応したあたいを指定の行から取り出す関数','エイチルックアップ')">HLOOKUP</button>
+            <button class="card html" onClick="read(this, '定義リストを表す要素','DL、ディスクリプションりすと')">dl</button>
+            <button class="card noCard" onClick="read(this, '独立した記事セクションを表す^要素','アーティクル')">article</button>
+            <button class="card html" onClick="read(this, '連絡先状報を表す要素','アドレス')">address</button>
+            <button class="card excel" onClick="read(this, '複数の引数から指定した位置のあたいを取り出す関数','チューズ')">CHOOSE</button>
+            <button class="card excel" onClick="read(this, '数値に指定した書式を設定し、文字列に変換する関数','テキスト')">TEXT</button>
+            <button class="card html" onClick="read(this, '定義リストの\\vct=120\\語句を表す要素','DT、ディスクリプション・リスト・ターム')">dt</button>
+            <button class="card noCard" onClick="read(this, '空白でないセルを数えるデータベース関数','ディーカウントエー')">DCOUNTA</button>
+            <button class="card business" onClick="read(this, '企業イメージ統合戦略','CI')">CI</button>
+        </div>
+    </div>
+    <script src="/libs/qimessaging/1.0/qimessaging.js"></script>
+    <!-- <script src="/libs/qimessaging/2/qimessaging.js"></script> -->
+    <!-- <script src="/libs/qi/qi.js"></script> -->
+    <script>
+        // ボタン内のテキストサイズを調整
+        span = document.querySelector('#hideDiv span')
+        button = document.querySelectorAll('button[class^=card]')
+        for (let i = 0; i < button.length; i++) {
+            span.textContent = button[i].textContent
+            margin = (button[i].offsetWidth - button[i].clientWidth) * 2
+            if (span.clientWidth > button[i].offsetWidth - (margin * 2)) {
+                button[i].innerHTML = '<span>'+button[i].textContent+'</span>'
+                ratio = (button[i].offsetWidth - (margin * 2) - 2) / span.clientWidth
+                button[i].children[0].style.display = 'inline-block'
+                button[i].children[0].style.transformOrigin = 0
+                button[i].children[0].style.transform = 'scaleX('+ratio+')'
+                button[i].children[0].style.width = (100 / ratio - (margin * 3))+'px'
+            }
+        }
+        var als = {}
+        document.querySelector('#connect').onclick = function() {
+            // 1.0
+            ip = document.querySelector('#ip').value
+            qis = new QiSession(ip)
+            qis.socket()
+            .on('connect', function() {
+                document.querySelector('.result').textContent = '[CONNECTED]'
+                qis.service('ALTextToSpeech').done(function(ins) {
+                    als.alTextToSpeech = ins
+                })
+                qis.service('ALMotion').done(function(ins) {
+                    als.alMotion = ins
+                })
+                qis.service('ALRobotPosture').done(function(ins) {
+                    als.alRobotPosture = ins
+                })
+                qis.service('ALAudioDevice').done(function(ins) {
+                    als.alALAudioDevice = ins
+                    als.alALAudioDevice.setOutputVolume(50)
+                })
+                qis.service('ALAnimatedSpeech').done(function(ins) {
+                    als.alAnimatedSpeech = ins
+                })
+                qis.service('ALTabletService').done(function(ins) {
+                    als.alALTabletService = ins
+                    // als.alALTabletService.loadUrl("https://www.yc-c.ac.jp/");
+                })
+                qis.service('ALAutonomousLife').done(function(ins) {
+                    als.alALAutonomousLife = ins
+                    // als.alALAutonomousLife.setState("disabled");
+                    als.alALAutonomousLife.setState("safeguard");
+                })
+                qis.service('ALBehaviorManager').done(function(ins) {
+                    als.alALBehaviorManager = ins
+                })
+                qis.service('ALBattery').done(function(ins) {
+                    als.alALBattery = ins
+                })
+                qis.service('ALBasicAwareness').done(function(ins) {
+                    als.alALBasicAwareness = ins
+                })
+                qis.service('ALAutonomousMoves').done(function(ins) {
+                    als.alALAutonomousMoves = ins
+                })
+                qis.service('ALLeds').done(function(ins) {
+                    als.alALLeds = ins
+                })
+                qis.service('ALSystem').done(function(ins) {
+                    als.alALSystem = ins
+                })
+            })
+            .on('disconnect', function() {
+                document.querySelector('.result').textContent = '[Disconnected]'
+            })
+            .on('error', function() {
+                document.querySelector('.result').textContent = '[Connection Error]'
+            })
+            // 2
+            // ip = document.querySelector('#ip').value
+            // QiSession(function(session) {
+            //     document.querySelector('.result').textContent = '[Connected]'
+            //     session.service('ALTextToSpeech').then(function(tts) {
+            //         als.alTextToSpeech = tts
+            //     }, function(error){
+            //         document.querySelector('.result').textContent = '[Error]'
+            //     })
+            // }, function () {
+            //     document.querySelector('.result').textContent = '[Disconnected]'
+            // }
+            // , ip)
+        }
+
+        function speech(sentence) {
+            if (als.alTextToSpeech) als.alTextToSpeech.say('\\vct=135\\\\rspd=90\\\\vol=30\\' + sentence)
+        }
+        function read(elm, sentence, read) {
+            if (elm.classList.contains('html')) elm.classList.replace('html', 'htmlx')
+            if (elm.classList.contains('excel')) elm.classList.replace('excel', 'excelx')
+            if (elm.classList.contains('business')) elm.classList.replace('business', 'businessx')
+            if (elm.classList.contains('noCard')) elm.classList.replace('noCard', 'noCardx')
+            if (als.alTextToSpeech) {
+            	als.alTextToSpeech.say('\\vct=135\\\\rspd=90\\\\vol=30\\' + 'よみあげます')
+            	setTimeout(function() {
+	            	als.alAnimatedSpeech.say('\\vct=135\\\\rspd=90\\\\vol=30\\' + sentence)
+	            	setTimeout(function() {
+		            	als.alTextToSpeech.say('\\vct=135\\\\rspd=90\\\\vol=30\\' + 'そコ^マで！')
+		            	setTimeout(function() {
+			            	als.alAnimatedSpeech.say('\\vct=135\\\\rspd=90\\\\vol=30\\' + '正解は、' + read + 'デス')
+		            	}, 4000)
+	            	}, 11000)
+            	}, 3000)
+            }
+        }
+    </script>
+</body>
+</html>

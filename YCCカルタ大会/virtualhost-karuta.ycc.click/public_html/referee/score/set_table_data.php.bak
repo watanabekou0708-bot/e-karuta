@@ -1,0 +1,13 @@
+<?php
+	require "../../inc/dbConnect.php";
+
+    $data = $_POST['data'];
+
+	foreach($data as $value){
+		$sql = "INSERT INTO `tReturnTable`(`data`) VALUES ('{$value}')";
+		mysqli_query($db, $sql);
+	}
+
+	mysqli_close($db);
+	
+?>

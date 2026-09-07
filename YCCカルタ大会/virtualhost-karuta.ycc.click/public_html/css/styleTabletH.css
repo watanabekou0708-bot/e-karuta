@@ -1,0 +1,45 @@
+@charset "UTF-8";
+
+/* タブレット横用 */
+body {
+    background-color: hsla(120, 65%, 75%, 1);
+    font-size: 28pt;
+}
+/* 警告カラー */
+@media screen and (max-height: 656px) {
+    body {
+        background-color: hsla(0, 100%, 75%, 0.3);
+    }
+}
+
+#wrapper {
+    width: 60%;
+    margin: 30vh auto;
+    /*background-color: red;*/
+}
+
+table {
+    width: 100%;
+}
+
+/*
+table tr:nth-child(2) {
+    height: 15vh;
+}
+*/
+
+table th {
+    width: 18vw;
+    text-align: center;
+}
+
+.inputArea input {
+    width: 100%;
+}
+
+.btnLogin {
+    text-align: center;
+}
+
+.btnLogin input {
+}

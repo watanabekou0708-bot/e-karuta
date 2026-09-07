@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT かるた — 対戦</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── Name Entry ────────────────────────────────────── -->
+<div id="oName" class="overlay">
+  <div class="ov-card">
+    <div class="ov-title">💻 IT かるた</div>
+    <p class="ov-sub">プレイヤー名を入力して参加しましょう</p>
+    <input id="nameInput" class="name-input" type="text"
+           placeholder="あなたの名前（最大15字）" maxlength="15" autofocus>
+    <button class="btn btn-green" onclick="doJoin()">参加する</button>
+  </div>
+</div>
+
+<!-- ── Lobby ─────────────────────────────────────────── -->
+<div id="oLobby" class="overlay hidden">
+  <div class="ov-card">
+    <div class="ov-title">ロビー</div>
+    <p class="ov-sub">他のパソコンは下記URLにアクセスしてください</p>
+    <div class="lobby-url-label">接続URL</div>
+    <div class="lobby-url" id="lobbyUrl" title="クリックで選択"></div>
+    <div class="lobby-players" id="lobbyList"></div>
+    <!-- ホストのみ表示：難易度選択 -->
+    <div id="lobbyDiffPicker" class="diff-picker" style="display:none">
+      <div class="diff-label">難易度（ダミー読み）</div>
+      <div class="diff-btns">
+        <button class="diff-btn"        data-diff="easy"   onclick="selectDifficulty('easy')">かんたん</button>
+        <button class="diff-btn active" data-diff="normal" onclick="selectDifficulty('normal')">ふつう</button>
+        <button class="diff-btn"        data-diff="hard"   onclick="selectDifficulty('hard')">難しい</button>
+      </div>
+    </div>
+    <!-- ホストのみ表示：CPU の強さ -->
+    <div id="lobbyCpuPicker" class="diff-picker" style="display:none">
+      <div class="diff-label">CPU の強さ</div>
+      <div class="diff-btns">
+        <button class="diff-btn"        data-cpudiff="easy"   onclick="selectCpuDifficulty('easy')">弱い</button>
+        <button class="diff-btn active" data-cpudiff="normal" onclick="selectCpuDifficulty('normal')">ふつう</button>
+        <button class="diff-btn"        data-cpudiff="hard"   onclick="selectCpuDifficulty('hard')">強い</button>
+      </div>
+    </div>
+    <!-- ホストのみ表示：通過人数 -->
+    <div id="lobbySurvivorPicker" class="diff-picker" style="display:none">
+      <div class="diff-label">各試合の通過人数（CPU含む）</div>
+      <div class="survivor-row">
+        <button class="surv-btn" onclick="adjustSurvivorCount(-1)">－</button>
+        <input type="number" id="survivorInput" class="survivor-input" min="1" max="9999" value="3"
+               oninput="setSurvivorCount(this.value)">
+        <button class="surv-btn" onclick="adjustSurvivorCount(1)">＋</button>
+        <span class="surv-hint">人が次の試合へ</span>
+      </div>
+    </div>
+    <!-- 敗者復活戦セクション（最終試合後にアンロック） -->
+    <div id="lobbyRevivalSection" class="lobby-revival-section locked">
+      <div class="lobby-revival-title">敗者復活戦</div>
+      <div class="lobby-revival-desc" id="lobbyRevivalDesc">最終試合終了後に解放されます</div>
+      <div class="group-btns" id="lobbyGroupBtns">
+        <button class="btn btn-group-bottom" onclick="startGroupMatch('bottom')" id="lobbyGroupBtnBottom">
+          🥉 下位グループ戦<br><small id="lobbyGroupDescBottom">弱CPU25人と対戦</small>
+        </button>
+        <button class="btn btn-group-middle" onclick="startGroupMatch('middle')" id="lobbyGroupBtnMiddle">
+          🥈 中位グループ戦<br><small id="lobbyGroupDescMiddle">中CPU25人と対戦</small>
+        </button>
+        <button class="btn btn-group-top" onclick="startGroupMatch('top')" id="lobbyGroupBtnTop">
+          🥇 上位グループ戦<br><small id="lobbyGroupDescTop">強CPU25人と対戦</small>
+        </button>
+      </div>
+      <div id="lobbyPromotedList" class="lobby-promoted-list" style="display:none"></div>
+    </div>
+    <!-- ホストのみ表示 -->
+    <button id="lobbyStartBtn" class="btn btn-green" onclick="startGame()" style="display:none">ゲームスタート（全3試合）</button>
+    <!-- ゲスト向けメッセージ -->
+    <p id="lobbyWaiting" class="ov-sub" style="margin-top:.8rem">ホストがゲームを開始するまでお待ちください</p>
+    <button class="btn btn-leave" onclick="leaveLobby()">🚪 退室する</button>
+  </div>
+</div>
+
+<!-- ── Round Result（試合間インターバル）────────────────── -->
+<div id="oRoundResult" class="overlay hidden">
+  <div class="ov-card rr-card">
+    <div class="rr-round-dots" id="rrDots"></div>
+    <div class="ov-title" id="rrTitle">第1試合終了！</div>
+    <div class="rr-table" id="rrTable"></div>
+    <div class="rr-my-status" id="rrMyStatus"></div>
+
+    <!-- ホスト向けモードタブ（最終戦・グループ戦以外） -->
+    <div id="rrModeTabs" class="rr-mode-tabs hidden">
+      <button id="rrTabMain" class="rr-tab active" onclick="switchRrMode('main')">次の試合</button>
+      <button id="rrTabRevival" class="rr-tab" onclick="switchRrMode('revival')">敗者復活戦</button>
+    </div>
+
+    <!-- [本戦モード] 通過人数設定 + 次の試合ボタン -->
+    <div id="rrMainSection" class="hidden">
+      <div id="rrSurvivorPicker" class="diff-picker" style="margin:.5rem 0 .6rem">
+        <div class="diff-label">第<span id="rrNextRoundNum">2</span>試合への通過人数（CPU含む）</div>
+        <div class="survivor-row">
+          <button class="surv-btn" onclick="adjustSurvivorCount(-1)">－</button>
+          <input type="number" id="rrSurvInput" class="survivor-input" min="1" max="9999" value="3"
+                 oninput="setSurvivorCount(this.value)">
+          <button class="surv-btn" onclick="adjustSurvivorCount(1)">＋</button>
+          <span class="surv-hint">人が進出</span>
+        </div>
+      </div>
+      <button id="rrNextBtn" class="btn btn-green" onclick="startNextRound()">第<span id="rrNextRoundLabel">2</span>試合を開始 →</button>
+    </div>
+
+    <!-- [グループ戦中間ラウンド] 次ラウンド設定 + 開始ボタン（ホストのみ） -->
+    <div id="rrGroupInterSection" class="hidden">
+      <div class="rr-revival-progress" id="rrGroupRoundLabel">下位グループ 第1ラウンド終了 → 第2ラウンドへ</div>
+      <div class="diff-picker" style="margin:.5rem 0 .6rem">
+        <div class="diff-label">次ラウンドの通過人数</div>
+        <div class="survivor-row">
+          <button class="surv-btn" onclick="adjustGroupSurvivorCount(-1)">－</button>
+          <input type="number" id="rrGroupInterSurvInput" class="survivor-input" min="1" max="99" value="3"
+                 oninput="setGroupSurvivorCount(this.value)">
+          <button class="surv-btn" onclick="adjustGroupSurvivorCount(1)">＋</button>
+          <span class="surv-hint">人が通過</span>
+        </div>
+      </div>
+      <button class="btn btn-blue" onclick="startNextGroupRound()">▶ 次のラウンドを開始</button>
+    </div>
+
+    <!-- [復活戦中間ラウンド] 次ラウンド設定 + 開始ボタン（ホストのみ） -->
+    <div id="rrRevivalInterSection" class="hidden">
+      <div class="rr-revival-progress" id="rrRevivalRoundLabel">復活戦 第1ラウンド終了 → 第2ラウンドへ</div>
+      <div id="rrRevivalSurvivorPicker" class="diff-picker" style="margin:.5rem 0 .6rem">
+        <div class="diff-label">次ラウンドの通過人数</div>
+        <div class="survivor-row">
+          <button class="surv-btn" onclick="adjustRevivalSurvivorCount(-1)">－</button>
+          <input type="number" id="rrRevivalInterSurvInput" class="survivor-input" min="1" max="99" value="3"
+                 oninput="setRevivalSurvivorCount(this.value)">
+          <button class="surv-btn" onclick="adjustRevivalSurvivorCount(1)">＋</button>
+          <span class="surv-hint">人が通過</span>
+        </div>
+      </div>
+      <button class="btn btn-revival" onclick="startNextRevivalRound()">🔄 次の復活戦ラウンドを開始</button>
+    </div>
+
+    <!-- [敗者復活戦モード] ユーザー選択 + 復活人数 + 開始ボタン -->
+    <div id="rrRevivalSection" class="hidden">
+      <div class="rr-divider"></div>
+      <div class="diff-label" style="margin-bottom:.4rem">復活戦の参加者を選択</div>
+      <div id="rrRevivalUsers" class="rr-user-list"></div>
+      <button class="btn btn-sm" style="margin:.3rem 0 .5rem" onclick="toggleAllRevivalUsers()">全員切替</button>
+      <div class="survivor-row" style="margin-bottom:.4rem">
+        <span style="font-size:.82rem;color:var(--dim)">第1ラウンド通過：</span>
+        <button class="surv-btn" onclick="adjustRevivalSurvivorCount(-1)">－</button>
+        <input type="number" id="rrRevivalSurvInput" class="survivor-input" min="1" max="99" value="3"
+               oninput="setRevivalSurvivorCount(this.value)">
+        <button class="surv-btn" onclick="adjustRevivalSurvivorCount(1)">＋</button>
+        <span class="surv-hint">人</span>
+      </div>
+      <div class="survivor-row" style="margin-bottom:.5rem">
+        <span style="font-size:.82rem;color:var(--dim)">本戦復帰：</span>
+        <button class="surv-btn" onclick="adjustRevivalCount(-1)">－</button>
+        <input type="number" id="rrRevivalInput" class="survivor-input" min="1" max="20" value="1"
+               oninput="setRevivalCount(this.value)">
+        <button class="surv-btn" onclick="adjustRevivalCount(1)">＋</button>
+        <span class="surv-hint">人</span>
+      </div>
+      <button class="btn btn-revival" onclick="startRevival()">🔄 敗者復活戦を開始（全3ラウンド）</button>
+    </div>
+
+    <p id="rrGuestWait" class="ov-sub hidden">ホストが次の試合を開始するまでお待ちください</p>
+    <button id="rrLobbyBtn" class="btn btn-blue hidden" onclick="requestLobby()">ロビーに戻る</button>
+  </div>
+</div>
+
+<!-- ── 式典（上位グループ戦結果発表）──────────────────────── -->
+<div id="oCeremony" class="overlay hidden">
+  <div class="ceremony-wrap" id="ceremonyWrap">
+    <div class="ceremony-step" id="ceremonyStep">3 / 3</div>
+    <div class="ceremony-place" id="ceremonyPlace">🥉 第3位</div>
+    <div class="ceremony-avatar" id="ceremonyAvatar"></div>
+    <div class="ceremony-name" id="ceremonyName">—</div>
+    <div class="ceremony-score" id="ceremonyScore">— 点</div>
+    <div class="ceremony-promoted" id="ceremonyPromoted"></div>
+    <div class="ceremony-actions">
+      <button class="btn btn-sm ceremony-skip-btn" onclick="skipCeremony()">スキップ ›</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Memorize ────────────────────────────────────────── -->
+<div id="oMemorize" class="overlay hidden">
+  <div class="ov-card memo-card">
+    <div class="ov-title">🃏 暗記タイム</div>
+    <div class="memo-timer-wrap">
+      <span class="memo-timer" id="memoTimer">05:00</span>
+      <span class="memo-timer-label">後にゲーム開始</span>
+    </div>
+    <p class="ov-sub">上の句を聞いて対応する下の句（カード）を取ります。<br>ペアを覚えましょう！</p>
+    <div class="memo-headcount" id="memoHeadcount"></div>
+    <div class="memo-list" id="memoList"></div>
+    <!-- ホストのみ表示 -->
+    <button id="memoSkipBtn" class="btn btn-debug" onclick="skipMemorize()" style="display:none">⏭ スキップ（デバッグ用）</button>
+  </div>
+</div>
+
+<!-- ── Game Over ──────────────────────────────────────── -->
+<div id="oGameOver" class="overlay hidden">
+  <div class="ov-card">
+    <div class="ov-title">🎉 ゲーム終了！</div>
+    <div class="rankings" id="rankings"></div>
+    <button class="btn btn-blue" onclick="requestLobby()">ロビーに戻る</button>
+  </div>
+</div>
+
+<!-- ── Game UI ────────────────────────────────────────── -->
+<header class="header">
+  <div class="logo">💻 IT かるた</div>
+  <div class="round-badge hidden" id="roundBadge">第1試合</div>
+  <div class="spectator-badge hidden" id="spectatorBadge">👀 観戦中</div>
+  <div class="chips" id="chips"></div>
+  <div class="game-timer" id="timer">00:00</div>
+  <button id="debugCpuBtn" class="btn btn-debug" onclick="debugGiveCpuPoints()" title="デバッグ用：CPUにランダムポイント" style="display:none">🎲 CPUポイント</button>
+  <button id="debugEndBtn" class="btn btn-debug" onclick="debugEndGame()" title="デバッグ用：即試合終了" style="display:none">⏹ 即終了（デバッグ）</button>
+</header>
+
+<div class="prog">
+  <div class="prog-fill" id="progFill" style="width:0%"></div>
+</div>
+
+<div class="reading-wrap">
+  <div class="reading-box">
+    <div class="reading-icon">📢</div>
+    <div style="flex:1">
+      <div class="reading-label"><span id="roundLabel">第1試合</span> — 残り <span id="leftCount">10</span> 枚</div>
+      <div class="reading-text" id="readingText">ゲーム開始をお待ちください…</div>
+      <div class="host-notice hidden" id="hostNotice">👑 ホストは進行役です。札は取れません。</div>
+    </div>
+    <button id="readBtn" class="read-btn hidden" onclick="readNext()" title="次の上の句を読み上げる">▶ 読み上げ</button>
+  </div>
+</div>
+
+<!-- ── TOP3 ランキング（ゲーム中常時表示）───────────────── -->
+<div class="top3-wrap">
+  <div class="top3-label">🏆 ランキング</div>
+  <div id="top3" class="top3-list"></div>
+</div>
+
+<!-- ── 取得通知（画面中央に一時表示）────────────────────── -->
+<div id="takenNotif" class="taken-notif hidden">
+  <span class="tn-dot"></span>
+  <span class="tn-name"></span>
+  <span class="tn-label">&nbsp;が獲得！</span>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

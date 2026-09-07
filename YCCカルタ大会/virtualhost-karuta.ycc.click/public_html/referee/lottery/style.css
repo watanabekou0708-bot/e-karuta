@@ -1,0 +1,29 @@
+#btnLottery {
+	width: 340px;
+	height: 130px;
+	margin-top: 20px;
+	margin-left: calc(100% / 2 - 170px);
+	border: solid 3px black;
+	border-radius: 10px;
+	background-color: rgba(211,211,211,1);
+	font-size: 50px;
+	-webkit-appearance: none; /* iPad対策 */
+	border-radius: 0; /* iPad対策 */
+}
+
+.mozi {
+	width: 100%;
+	font-size: 50px;
+}
+
+.text-center {
+	text-align: center;
+}
+
+.margin-top {
+	margin-top: 45px;
+}
+
+#battle {
+	margin-left: 20px;
+}

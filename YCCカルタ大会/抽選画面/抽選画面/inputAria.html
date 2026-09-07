@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<meta charset="UTF-8">
+	<title>入力フォーム</title>
+	<link rel="stylesheet" href="css/inputAria.css">
+</head>
+<body>
+	<div class="wrapper">
+		<div class="in_wrapper">
+			<ul>
+				<li>あなたのグループ</li>
+				<li id="groupNo">A-1</li>
+			</ul>
+			<div class="num">学籍番号</div>
+			<ul>
+				<li><input type="text" id="value" ></li>
+				<li id="nextBtn">次へ</li>
+			</ul>
+		</div>
+	</div>
+	<div class="modal_body">
+		<ul>
+			<li><div>学籍番号</div><div id="number">000000</div></li>
+			<li><div>名前</div><div id="name">矢部　祐人</div></li>
+			<li><div>グループ</div><div id="group">A-1</div></li>
+		</ul>
+		<div class="modal_text">この内容で登録しますか？</div>
+		<ul>
+			<li id="yes">はい</li>
+			<li id="no">いいえ</li>
+		</ul>
+	</div>
+	<script src="js/js_group.js"></script>
+	<script>
+		getGroupNo();
+		//modal
+		var body = document.querySelector("body");
+		var btn = document.getElementById('nextBtn');
+		var sw_modal = document.querySelector(".modal_body");
+		var yesBtn = document.getElementById('yes');
+		var noBtn = document.getElementById('no');
+		var flag = 0;
+		btn.addEventListener("click",function(){
+			noPost();
+			if(flag === 0){
+				/*overlayを表示*/
+				var oRay = document.createElement('div');
+			    oRay.id = 'overLay';
+			    body.appendChild(oRay);
+			    /*モーダルを表示*/
+			    sw_modal.classList.add('on_modal');
+			    flag = 1;
+			}
+		},false);
+		noBtn.addEventListener("click",modal_remove,false);
+		function modal_remove(){
+			if(flag === 1)
+			// overlayを削除
+			var oRay_r = document.getElementById('overLay');
+			oRay_r.parentNode.removeChild(oRay_r);
+
+			//モーダルを消す
+			sw_modal.classList.remove('on_modal');
+
+			flag = 0;
+		}
+		yesBtn.addEventListener("click",function(){
+			addPost();
+			flag = 0;
+			location.href = "end.html";
+		},false);
+
+	</script>
+</body>
+</html>
