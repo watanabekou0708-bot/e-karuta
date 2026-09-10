@@ -800,6 +800,21 @@ body {
   gap: .25rem;
   flex: 1;
 }
+.house-score-wrap {
+  max-width: 900px; margin: .1rem auto .3rem; padding: 0 .75rem;
+  display: flex; align-items: flex-start; gap: .5rem;
+}
+.house-score-wrap.hidden { display: none; }
+.house-score-list {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: .25rem; flex: 1;
+}
+.house-score-chip {
+  display: flex; align-items: center; justify-content: space-between; gap: .3rem;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 6px; padding: .2rem .5rem; font-size: .78rem; font-weight: 700;
+}
+.house-score-chip .hs-score { color: var(--green); }
+
 .t3-row {
   display: flex; align-items: center; gap: .3rem;
   background: var(--surf2); border: 1px solid var(--border);

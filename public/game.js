@@ -390,8 +390,36 @@ function showTimeUpNotif() {
   }, 2800);
 }
 
+// ── ハウス得点（ハウス編成済みの場合のみ）───────────────────
+function computeHouseScores(players) {
+  const scores = { A: 0, B: 0, C: 0, D: 0 };
+  if (!currentHouses) return scores;
+  Object.entries(currentHouses).forEach(([hid, ids]) => {
+    ids.forEach(id => {
+      const p = players[id];
+      if (p) scores[hid] = (scores[hid] || 0) + (p.score || 0);
+    });
+  });
+  return scores;
+}
+
+function renderHouseScoreboard(players) {
+  if (!currentHouses) return;
+  const scores = computeHouseScores(players);
+  const html = Object.entries(scores)
+    .map(([hid, s]) => `<div class="house-score-chip"><span>${HOUSE_LABELS[hid] || hid}</span><span class="hs-score">${s}</span></div>`)
+    .join('');
+  const wrap = $('houseScoreWrap');
+  const list = $('houseScoreList');
+  if (list) list.innerHTML = html;
+  if (wrap) wrap.classList.remove('hidden');
+  const specList = $('specHouseScores');
+  if (specList) specList.innerHTML = html;
+}
+
 // ── TOP10 ランキング（自分の行を強調、2列グリッド表示）─────────
 function renderTop3(players) {
+  renderHouseScoreboard(players);
   const el = $('top3');
   if (!el) return;
   const medals = ['🥇', '🥈', '🥉'];
