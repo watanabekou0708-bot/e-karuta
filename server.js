@@ -122,6 +122,8 @@ function hiResNow() {
 
 const MEMO_SECONDS    = 5 * 60;
 const READ_TIMEOUT_MS = 10 * 1000;   // 上の句 / ダミー読み完了後の制限時間
+const GRAB_WINDOW_MS  = 180;   // 正解の最初の申告からこの時間だけ他の候補も受け付ける
+const GRAB_BUCKET_MS  = 70;    // この時間差以内は「同時」とみなし、精度で決着する
 
 // ── Game state ────────────────────────────────────────────
 const gs = {
@@ -136,6 +138,8 @@ const gs = {
   hostId:         null,
   cpuTimers:      [],
   currentDecoy:   null,   // ダミー読み中の札情報（time_up で正解発表に使用）
+  grabCandidates: [],     // 受付時間中に届いた正解候補（速さ＋精度判定用）
+  grabWindowTimer: null,
 
   // ── トーナメント管理 ────────────────────────────────────
   round:               1,
@@ -163,6 +167,9 @@ const gs = {
   postTournament:      false,       // 最終試合終了済み（敗者復活戦解放フラグ）
   bottomGroupWinners:  null,        // null=未完了 / []=完了（旧システムとの互換）
   middleGroupWinners:  null,
+
+  // ── ハウス編成（大会モード）──────────────────────────────
+  houses: null,   // { A: [id,...], B: [...], C: [...], D: [...] } または null（未編成）
 };
 let memorizeTimer     = null;
 let decoyTimer        = null;
@@ -184,6 +191,54 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+// ── ハウス編成（学年×コースを横断して4ハウスへ均等配分）─────
+const HOUSE_IDS = ['A', 'B', 'C', 'D'];
+
+// count 人分のハウス割り当て順を、offset だけ開始ハウスをずらした
+// スネーク（往復）順で生成する。例：offset=0 → A,B,C,D,D,C,B,A,A,B,...
+// グループ（学年×コース）ごとに offset を1つずつ回すことで、
+// 端数の余りが特定ハウスに偏らないようにする。
+function buildHouseSnakeOrder(count, offset) {
+  const base = HOUSE_IDS.map((_, i) => HOUSE_IDS[(i + offset) % HOUSE_IDS.length]);
+  const order = [];
+  let forward = true;
+  while (order.length < count) {
+    order.push(...(forward ? base : [...base].reverse()));
+    forward = !forward;
+  }
+  return order.slice(0, count);
+}
+
+// 出席中（joined済み）の人間プレイヤーを学年×コースでグルーピングし、
+// グループ内をシャッフルした上でスネークドラフトにより4ハウスへ配分する。
+// 当日の出欠に応じて何度でも再実行可能（そのたびに再シャッフルされる）。
+function assignHouses() {
+  const humanEntries = Object.entries(gs.players)
+    .filter(([id, p]) => id !== gs.hostId && !p.isBot && p.joined);
+
+  const groups = new Map();   // key: "学年-コース" → [ [id, player], ... ]
+  humanEntries.forEach(entry => {
+    const p   = entry[1];
+    const key = `${p.grade || '?'}-${p.course || '?'}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(entry);
+  });
+
+  const houses = { A: [], B: [], C: [], D: [] };
+  let groupIdx = 0;
+  for (const members of groups.values()) {
+    const shuffled = shuffle(members);
+    const order = buildHouseSnakeOrder(shuffled.length, groupIdx % HOUSE_IDS.length);
+    shuffled.forEach(([id, p], i) => {
+      const houseId = order[i];
+      p.house = houseId;
+      houses[houseId].push(id);
+    });
+    groupIdx++;
+  }
+  return houses;
 }
 
 function pickNext() {
@@ -682,6 +737,27 @@ function clearAllTimers() {
   if (decoyTimer)        { clearTimeout(decoyTimer);        decoyTimer        = null; }
   if (decoyTimeoutTimer) { clearTimeout(decoyTimeoutTimer); decoyTimeoutTimer = null; }
   if (readTimeoutTimer)  { clearTimeout(readTimeoutTimer);  readTimeoutTimer  = null; }
+  if (gs.grabWindowTimer) { clearTimeout(gs.grabWindowTimer); gs.grabWindowTimer = null; }
+  gs.grabCandidates = [];
+}
+
+// 受付時間内に集まった正解候補から勝者を決める。
+// まず時刻を GRAB_BUCKET_MS 単位でグルーピングし、最速グループの中で
+// 最も札の中心に近かった人（precision が最小）を勝者とする。
+function resolveGrabWindow(cardId) {
+  gs.grabWindowTimer = null;
+  const candidates = gs.grabCandidates.filter(c => c.cardId === cardId);
+  gs.grabCandidates = [];
+  if (!candidates.length) return;
+  if (!gs.currentCard || gs.currentCard.id !== cardId || !gs.remaining.has(cardId)) return;
+
+  const minT = Math.min(...candidates.map(c => c.t));
+  const fastest = candidates.filter(c => c.t - minT < GRAB_BUCKET_MS);
+  fastest.sort((a, b) => a.precision - b.precision);
+  const winner = fastest[0];
+  const player = gs.players[winner.id];
+  if (!player) return;
+  processCorrectGrab(winner.id, gs.currentCard);
 }
 
 // ── Socket.io ─────────────────────────────────────────────
@@ -735,16 +811,34 @@ io.on('connection', socket => {
   });
 
   // ── Set name ─────────────────────────────────────────────
-  socket.on('set_name', name => {
-    const n = String(name).trim().slice(0, 15);
+  // payload は { name, grade, course }（ハウス編成に使用）。
+  // 文字列のみで届いた場合（旧形式）もフォールバックする。
+  socket.on('set_name', payload => {
+    const isObj = payload && typeof payload === 'object';
+    const rawName = isObj ? payload.name : payload;
+    const n = String(rawName).trim().slice(0, 15);
     if (n && gs.players[socket.id]) {
       gs.players[socket.id].name   = n;
       gs.players[socket.id].joined = true;
+      if (isObj) {
+        if (payload.grade)  gs.players[socket.id].grade  = String(payload.grade);
+        if (payload.course) gs.players[socket.id].course = String(payload.course);
+      }
       const becameHost = !gs.hostId;
       if (becameHost) gs.hostId = socket.id;
       io.emit('players_updated', gs.players);
       if (becameHost) io.emit('host_changed', { hostId: gs.hostId });
     }
+  });
+
+  // ── ハウス編成（ホストのみ・大会モード）─────────────────
+  // 学年×コースの各グループを出席者だけでシャッフルし、4ハウスへ
+  // スネークドラフト（グループごとに開始ハウスを1つずつローテーション）で
+  // 均等配分する。出欠が変わった場合は何度でも再実行できる。
+  socket.on('assign_houses', () => {
+    if (socket.id !== gs.hostId) return;
+    gs.houses = assignHouses();
+    io.emit('houses_assigned', { houses: gs.houses, players: gs.players });
   });
 
   // ── Start game（ホストのみ）──────────────────────────────
@@ -835,7 +929,16 @@ io.on('connection', socket => {
   });
 
   // ── Grab card ────────────────────────────────────────────
-  socket.on('grab_card', cardId => {
+  // payload は { cardId, t, precision }（t: サーバー時計に補正済みのクリック時刻、
+  // precision: 札の中心からのズレ 0〜1）。旧クライアント互換のため、
+  // 数値（cardId のみ）で届いた場合もフォールバックする。
+  socket.on('grab_card', payload => {
+    const isObj     = payload && typeof payload === 'object';
+    const cardId    = isObj ? payload.cardId : payload;
+    const clientT   = (isObj && typeof payload.t === 'number') ? payload.t : null;
+    const precision = (isObj && typeof payload.precision === 'number')
+      ? Math.max(0, Math.min(1, payload.precision)) : 1;
+
     if (!gs.players[socket.id]) return;
     if (socket.id === gs.hostId) return;
 
@@ -865,7 +968,14 @@ io.on('connection', socket => {
     const player = gs.players[socket.id];
 
     if (cardId === gs.currentCard.id && gs.remaining.has(cardId)) {
-      processCorrectGrab(socket.id, gs.currentCard);
+      // 即座に正解者を確定させず、短い受付時間の間だけ他の候補も集める。
+      // 集まった候補は、まず時刻でグルーピングし、最速グループ内では
+      // 札の中心により近かった人（precision）を優先して勝者を決める。
+      const t = clientT !== null ? clientT : hiResNow();
+      gs.grabCandidates.push({ id: socket.id, cardId, t, precision });
+      if (!gs.grabWindowTimer) {
+        gs.grabWindowTimer = setTimeout(() => resolveGrabWindow(cardId), GRAB_WINDOW_MS);
+      }
     } else if (gs.remaining.has(cardId)) {
       player.misses++;
       player.score -= 20;

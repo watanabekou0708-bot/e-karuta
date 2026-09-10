@@ -684,12 +684,36 @@ function adjustRevivalCount(delta) {
   setRevivalCount(revivalCount + delta);
 }
 
+// ── House assignment（ハウス編成・大会モード）───────────────
+const HOUSE_LABELS = { A: '🔴 Aハウス', B: '🔵 Bハウス', C: '🟢 Cハウス', D: '🟡 Dハウス' };
+let myHouse        = null;
+let currentHouses  = null;
+
+function assignHouses() {
+  socket.emit('assign_houses');
+}
+
+function renderHouseList(houses, players) {
+  const wrap = $('lobbyHouseList');
+  if (!wrap || !houses) return;
+  wrap.innerHTML = Object.entries(houses).map(([hid, ids]) => {
+    const rows = ids.map(id => {
+      const p = players[id];
+      if (!p) return '';
+      return `<div class="house-member">${escHtml(p.name)} <small>（${escHtml(p.grade || '')}年 ${escHtml(p.course || '')}）</small></div>`;
+    }).join('');
+    return `<div class="house-block"><div class="house-block-title">${HOUSE_LABELS[hid] || hid}（${ids.length}人）</div>${rows}</div>`;
+  }).join('');
+}
+
 function updateLobbyUI() {
   const startBtn   = $('lobbyStartBtn');
   const waiting    = $('lobbyWaiting');
   const diffPick   = $('lobbyDiffPicker');
   const cpuPick    = $('lobbyCpuPicker');
   const survPick   = $('lobbySurvivorPicker');
+  const housePick  = $('lobbyHouseSection');
+  if (housePick) housePick.style.display = myIsHost ? '' : 'none';
   if (startBtn) {
     startBtn.style.display = myIsHost ? '' : 'none';
     startBtn.disabled = false;
@@ -846,13 +870,34 @@ function readNext() {
   socket.emit('read_next');
 }
 
+// ── 学年・コース（ハウス編成用）───────────────────────────
+// 医療ビジネス科はかるた大会の対象外のため選択肢に含めない
+const COURSE_OPTIONS = {
+  '1': ['ITエキスパート科', 'IT・ビジネス科'],
+  '2': ['ITスペシャリストコース', '画像クリエイトコース', 'ITエンジニアコース', 'ビジュアルデザインコース', 'ビジネスITコース'],
+  '3': ['ITスペシャリストコース', '画像クリエイトコース'],
+};
+
+function updateCourseOptions() {
+  const gradeSel  = $('gradeSelect');
+  const courseSel = $('courseSelect');
+  if (!gradeSel || !courseSel) return;
+  const opts = COURSE_OPTIONS[gradeSel.value] || [];
+  courseSel.innerHTML = opts.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+}
+updateCourseOptions();
+
 // ── Name entry ────────────────────────────────────────────
 function doJoin() {
   const name = $('nameInput').value.trim();
   if (!name) { $('nameInput').focus(); return; }
+  const gradeSel  = $('gradeSelect');
+  const courseSel = $('courseSelect');
+  const grade  = gradeSel  ? gradeSel.value  : null;
+  const course = courseSel ? courseSel.value : null;
   unlockTts();
   getAudioCtx();
-  socket.emit('set_name', name);
+  socket.emit('set_name', { name, grade, course });
   hide('oName');
   nameEntered = true;
   if (liveData) applyInit(liveData);
@@ -1402,12 +1447,25 @@ function renderGrid(cardOrder, remainingSet) {
     el.id          = `card-${id}`;
     el.dataset.id  = id;
     el.textContent = k.tori;
-    el.addEventListener('click', () => onCardClick(id, el));
+    el.addEventListener('click', ev => onCardClick(id, el, ev));
     grid.appendChild(el);
   });
 }
 
-function onCardClick(id, el) {
+// クリック位置とカード中心とのズレを 0（中心）〜1（端）に正規化して返す。
+// サーバー側で「速さがほぼ同時のときだけ精度で決着する」判定に使う。
+function computeGrabPrecision(el, ev) {
+  if (!ev || typeof ev.clientX !== 'number') return 1;
+  const rect = el.getBoundingClientRect();
+  if (!rect.width || !rect.height) return 1;
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = (ev.clientX - cx) / (rect.width / 2);
+  const dy = (ev.clientY - cy) / (rect.height / 2);
+  return Math.min(1, Math.sqrt(dx * dx + dy * dy));
+}
+
+function onCardClick(id, el, ev) {
   if (myIsHost || myIsSpectator || myIsRevivalSpectator || myIsGroupSpectator) {
     if (el.classList.contains('removed')) return;
     el.classList.remove('host-forbidden');
@@ -1420,7 +1478,8 @@ function onCardClick(id, el) {
       el.classList.contains('correct-mine') ||
       el.classList.contains('correct-other') ||
       el.classList.contains('wrong')) return;
-  socket.emit('grab_card', id);
+  const precision = computeGrabPrecision(el, ev);
+  socket.emit('grab_card', { cardId: id, t: hiResNow() + serverOffset, precision });
 }
 
 // ── Player chips ──────────────────────────────────────────
@@ -1540,6 +1599,14 @@ socket.on('players_updated', players => {
   if (liveData) liveData.players = players;
   updateChips(players);
   if (!$('oLobby').classList.contains('hidden')) renderLobbyList(players);
+});
+
+socket.on('houses_assigned', ({ houses, players }) => {
+  currentHouses = houses;
+  if (liveData) liveData.players = players;
+  livePlayers = players;
+  myHouse = players[myId] ? players[myId].house : null;
+  renderHouseList(houses, players);
 });
 
 socket.on('host_changed', ({ hostId }) => {

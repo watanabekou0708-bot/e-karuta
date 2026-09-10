@@ -15,6 +15,14 @@
     <p class="ov-sub">プレイヤー名を入力して参加しましょう</p>
     <input id="nameInput" class="name-input" type="text"
            placeholder="あなたの名前（最大15字）" maxlength="15" autofocus>
+    <div class="grade-course-row">
+      <select id="gradeSelect" class="grade-select" onchange="updateCourseOptions()">
+        <option value="3">3年生</option>
+        <option value="2" selected>2年生</option>
+        <option value="1">1年生</option>
+      </select>
+      <select id="courseSelect" class="course-select"></select>
+    </div>
     <button class="btn btn-green" onclick="doJoin()">参加する</button>
   </div>
 </div>
@@ -55,6 +63,13 @@
         <button class="surv-btn" onclick="adjustSurvivorCount(1)">＋</button>
         <span class="surv-hint">人が次の試合へ</span>
       </div>
+    </div>
+    <!-- ホストのみ表示：ハウス編成（大会モード用） -->
+    <div id="lobbyHouseSection" class="lobby-house-section" style="display:none">
+      <div class="lobby-house-title">🏠 ハウス編成（大会モード）</div>
+      <p class="ov-sub" style="margin:.2rem 0 .5rem">出欠が確定したら押してください。学年・コースを横断して4ハウスに自動で均等配分します（何度でも再実行可）。</p>
+      <button class="btn btn-blue" onclick="assignHouses()">ハウスを編成する</button>
+      <div id="lobbyHouseList" class="lobby-house-list"></div>
     </div>
     <!-- 敗者復活戦セクション（最終試合後にアンロック） -->
     <div id="lobbyRevivalSection" class="lobby-revival-section locked">

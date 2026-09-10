@@ -690,6 +690,32 @@ body {
 :root { --subtext: #5a7aaa; }
 
 /* ── ロビー敗者復活戦セクション ───────────────────────── */
+/* ── Grade/course（名前入力画面）───────────────────────── */
+.grade-course-row { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.grade-select, .course-select {
+  flex: 1; padding: .6rem .5rem;
+  background: var(--surf); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: .9rem;
+}
+
+/* ── House assignment（ロビー・大会モード）───────────────── */
+.lobby-house-section {
+  width: 100%; margin: .8rem 0 .5rem;
+  padding: .8rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.lobby-house-title {
+  font-size: 1rem; font-weight: 700; color: var(--green);
+  margin-bottom: .25rem; letter-spacing: .03em;
+}
+.lobby-house-list { margin-top: .7rem; display: flex; flex-direction: column; gap: .5rem; max-height: 260px; overflow-y: auto; }
+.house-block { background: var(--surf); border: 1px solid var(--border); border-radius: 8px; padding: .5rem .6rem; }
+.house-block-title { font-size: .82rem; font-weight: 700; color: var(--accent); margin-bottom: .3rem; }
+.house-member { font-size: .78rem; color: var(--text); padding: .1rem 0; }
+.house-member small { color: var(--dim); }
+
 .lobby-revival-section {
   width: 100%; margin: .8rem 0 .5rem;
   padding: .8rem;
