@@ -70,6 +70,7 @@
       <p class="ov-sub" style="margin:.2rem 0 .5rem">出欠が確定したら押してください。学年・コースを横断して4ハウスに自動で均等配分します（何度でも再実行可）。</p>
       <button class="btn btn-blue" onclick="assignHouses()">ハウスを編成する</button>
       <div id="lobbyHouseList" class="lobby-house-list"></div>
+      <button id="lobbyEventStartBtn" class="btn btn-green" style="margin-top:.8rem;width:100%" onclick="startEvent()">🏁 大会モードを開始（第1試合）</button>
     </div>
     <!-- 敗者復活戦セクション（最終試合後にアンロック） -->
     <div id="lobbyRevivalSection" class="lobby-revival-section locked">
@@ -184,6 +185,24 @@
 
     <p id="rrGuestWait" class="ov-sub hidden">ホストが次の試合を開始するまでお待ちください</p>
     <button id="rrLobbyBtn" class="btn btn-blue hidden" onclick="requestLobby()">ロビーに戻る</button>
+  </div>
+</div>
+
+<!-- ── 大会モード：試合間インターバル ────────────────────── -->
+<div id="oEventResult" class="overlay hidden">
+  <div class="ov-card rr-card">
+    <div class="ov-title" id="evTitle">本戦 終了！</div>
+    <div class="rr-table" id="evTable"></div>
+    <div class="rr-my-status" id="evMyStatus"></div>
+
+    <!-- ホストのみ：次のアクション -->
+    <div id="evHostControls" class="hidden">
+      <button id="evMainBtn" class="btn btn-green" style="margin:.3rem" onclick="advanceEvent('main')">本戦を行う</button>
+      <button id="evRevivalBtn" class="btn btn-revival" style="margin:.3rem" onclick="advanceEvent('revival')">敗者復活戦を行う</button>
+      <button id="evNextBtn" class="btn btn-green hidden" style="margin:.3rem" onclick="advanceEvent()">▶ 次へ進む</button>
+    </div>
+    <p id="evGuestWait" class="ov-sub hidden">ホストが次の試合を開始するまでお待ちください</p>
+    <button id="evLobbyBtn" class="btn btn-blue hidden" onclick="requestLobby()">ロビーに戻る</button>
   </div>
 </div>
 

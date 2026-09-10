@@ -67,7 +67,7 @@ const ROUND_CARD_IDS = {
 // 序盤は低く、中盤・終盤に向けて上昇。試合回が上がるほど全体の水準も上がる。
 function getDecoyChance() {
   if (gs.difficulty === 'easy') return 0;
-  const total   = ROUND_CARD_IDS[gs.round] ? ROUND_CARD_IDS[gs.round].length : 10;
+  const total   = gs.cardOrder.length || 10;
   const played  = total - gs.remaining.size;
   const progress = played / total;               // 0.0（序盤）→ 1.0（終盤）
   const rates = {
@@ -170,6 +170,20 @@ const gs = {
 
   // ── ハウス編成（大会モード）──────────────────────────────
   houses: null,   // { A: [id,...], B: [...], C: [...], D: [...] } または null（未編成）
+
+  // ── 大会モード（1/8本番用・一発勝負のブラケット進行）────────
+  event: {
+    active:         false,
+    stage:          null,   // 'main' | 'revival' | 'semis' | 'final5' | 'thirdplace' | 'championship' | 'done'
+    mainPool:       new Set(),   // 本戦の系譜にまだ残っている人
+    revivalCandidates: new Set(), // 敗者復活戦にまだ挑戦していない／再挑戦権が残っている人（累積）
+    gamesPlayed:    {},          // id → 消化した試合数
+    participantIds: new Set(),   // 現在進行中の試合の参加者
+    finalists:      [],          // 決勝5人（final5 実施後に確定）
+    top2:           [],          // 決勝戦の対象2人
+    restThree:      [],          // 3位決定戦の対象3人
+    lastResult:     null,        // 直近ステージの結果（ホストUI表示用）
+  },
 };
 let memorizeTimer     = null;
 let decoyTimer        = null;
@@ -319,7 +333,7 @@ function processCorrectGrab(grabberId, card) {
       gs.phase = 'waiting';
       io.emit('game_waiting', {
         remaining, players: gs.players, hostId: gs.hostId, difficulty: gs.difficulty,
-        round: gs.round, totalCards: ROUND_CARD_IDS[gs.round] ? ROUND_CARD_IDS[gs.round].length : 10,
+        round: gs.round, totalCards: gs.cardOrder.length || 10,
         isRevival: gs.isRevival,
       });
     } else {
@@ -401,7 +415,7 @@ function triggerTimeUp(card) {
     gs.phase = 'waiting';
     io.emit('game_waiting', {
       remaining, players: gs.players, hostId: gs.hostId, difficulty: gs.difficulty,
-      round: gs.round, totalCards: ROUND_CARD_IDS[gs.round] ? ROUND_CARD_IDS[gs.round].length : 10,
+      round: gs.round, totalCards: gs.cardOrder.length || 10,
       isRevival: gs.isRevival,
     });
   } else {
@@ -426,7 +440,7 @@ function armDecoyTimeout() {
       gs.phase = 'waiting';
       io.emit('game_waiting', {
         remaining, players: gs.players, hostId: gs.hostId, difficulty: gs.difficulty,
-        round: gs.round, totalCards: ROUND_CARD_IDS[gs.round] ? ROUND_CARD_IDS[gs.round].length : 10,
+        round: gs.round, totalCards: gs.cardOrder.length || 10,
         isRevival: gs.isRevival,
       });
     } else {
@@ -457,6 +471,9 @@ function startDecoyRead() {
 
 // 試合終了処理
 function endRound() {
+  // ── 大会モード（1/8本番用）終了処理 ─────────────────────────
+  if (gs.event.active) { endEventRound(); return; }
+
   // 結果送信時に players スナップショットを取る（CPUが後で削除されても結果画面に表示される）
   const snap = () => Object.assign({}, gs.players);
 
@@ -707,6 +724,167 @@ function endRound() {
   }, 3000);
 }
 
+// ── 大会モード（1/8本番用）───────────────────────────────────
+const EVENT_SEMIS_THRESHOLD = 12;  // mainPool がこの人数以下になったら「決勝5人選抜」に切り替える
+const EVENT_FINALIST_COUNT  = 5;
+const EVENT_MIN_GAMES       = 3;   // 全員がこれだけの試合数を消化できることを保証する
+
+const EVENT_STAGE_LABELS = {
+  main: '本戦', revival: '敗者復活戦', semis: '決勝進出決定戦',
+  final5: '決勝ラウンド', thirdplace: '3位決定戦', championship: '決勝戦',
+};
+
+// 通過人数・敗退人数を約1/3ずつに分ける（最低1人は通過・最低0人は敗退）
+function eventCutCounts(poolSize) {
+  const pass = Math.max(1, Math.min(poolSize, Math.round(poolSize / 3)));
+  return { pass, lose: poolSize - pass };
+}
+
+// 大会モードの1試合を開始する（暗記フェーズから）。cardTier は 1〜3（ROUND_CARD_IDS のキー）。
+function startEventMatch(participantIds, cardTier) {
+  gs.event.participantIds = new Set(participantIds);
+  removeCpuPlayers();
+  participantIds.forEach(id => {
+    if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].misses = 0; }
+  });
+
+  const cardIds = ROUND_CARD_IDS[cardTier] || ROUND_CARD_IDS[1];
+  const cards   = KARUTA.filter(k => cardIds.includes(k.id));
+  gs.remaining      = new Set(cardIds);
+  gs.cardOrder      = shuffle(cardIds);
+  gs.currentCard    = null;
+  gs.currentDecoy   = null;
+  gs.phase          = 'memorizing';
+  gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
+
+  const { humanCount, cpuCount, totalCount } = computeHeadcount({ participantIds: gs.event.participantIds });
+  io.emit('event_memorize_start', {
+    cardOrder:      gs.cardOrder,
+    cards,
+    players:        gs.players,
+    endsAt:         gs.memorizeEndsAt,
+    stage:          gs.event.stage,
+    stageLabel:     EVENT_STAGE_LABELS[gs.event.stage] || '大会モード',
+    participantIds: [...gs.event.participantIds],
+    gamesPlayed:    gs.event.gamesPlayed,
+    humanCount, cpuCount, totalCount,
+  });
+  memorizeTimer = setTimeout(doStartPlaying, MEMO_SECONDS * 1000);
+}
+
+// 現在のステージの参加者を games played にカウントし、次に打てる手（本戦／敗者復活戦の
+// どちらが可能か、あるいは大会が終了したか）をホストへ通知する。
+function notifyEventStageReady() {
+  const mainReady    = gs.event.mainPool.size > 0
+    && !['final5', 'thirdplace', 'championship', 'done'].includes(gs.event.stage);
+  const revivalReady = gs.event.revivalCandidates.size > 0;
+  io.emit('event_stage_ready', {
+    stage:            gs.event.stage,
+    mainPoolSize:     gs.event.mainPool.size,
+    revivalPoolSize:  gs.event.revivalCandidates.size,
+    mainReady,
+    revivalReady,
+    finalists:        gs.event.finalists,
+    top2:             gs.event.top2,
+    restThree:        gs.event.restThree,
+    gamesPlayed:      gs.event.gamesPlayed,
+    players:          gs.players,
+  });
+}
+
+// 大会モードの1試合終了処理。ステージごとに通過／敗退／敗者復活行きを振り分ける。
+function endEventRound() {
+  gs.phase = 'round_finished';
+  const stage = gs.event.stage;
+
+  const active = [...gs.event.participantIds]
+    .filter(id => gs.players[id] && gs.players[id].joined)
+    .map(id => [id, gs.players[id]])
+    .sort(([, a], [, b]) => b.score - a.score);
+
+  // 参加者全員の消化試合数を加算
+  active.forEach(([id]) => {
+    gs.event.gamesPlayed[id] = (gs.event.gamesPlayed[id] || 0) + 1;
+  });
+
+  const playersSnap = Object.assign({}, gs.players);
+
+  if (stage === 'final5') {
+    const sorted = active.map(([id]) => id);
+    gs.event.top2       = sorted.slice(0, 2);
+    gs.event.restThree  = sorted.slice(2, 5);
+    gs.event.stage       = 'thirdplace';
+    gs.event.lastResult  = { stage, finalRanking: sorted, players: playersSnap };
+    setTimeout(() => {
+      io.emit('event_round_finished', { stage, finalRanking: sorted, players: playersSnap });
+      notifyEventStageReady();
+    }, 3000);
+    return;
+  }
+
+  if (stage === 'thirdplace' || stage === 'championship') {
+    const sorted = active.map(([id]) => id);
+    gs.event.stage      = stage === 'thirdplace' ? 'championship' : 'done';
+    gs.event.lastResult = { stage, ranking: sorted, players: playersSnap };
+    setTimeout(() => {
+      io.emit('event_round_finished', { stage, ranking: sorted, players: playersSnap });
+      notifyEventStageReady();
+    }, 3000);
+    return;
+  }
+
+  // ── main / semis / revival 共通の通過・敗退振り分け ─────────
+  const ids = active.map(([id]) => id);
+
+  if (stage === 'revival') {
+    const { pass } = eventCutCounts(ids.length);
+    const revived   = ids.slice(0, pass);
+    const stillOut  = ids.slice(pass);
+    revived.forEach(id => gs.event.mainPool.add(id));
+    // 敗者復活戦にも負けた人：まだ3試合未満なら次の敗者復活戦に必ず再挑戦させる
+    stillOut.forEach(id => {
+      if ((gs.event.gamesPlayed[id] || 0) < EVENT_MIN_GAMES) gs.event.revivalCandidates.add(id);
+    });
+    gs.event.lastResult = { stage, revived, stillOut, players: playersSnap };
+    setTimeout(() => {
+      io.emit('event_round_finished', { stage, revived, stillOut, players: playersSnap });
+      notifyEventStageReady();
+    }, 3000);
+    return;
+  }
+
+  // stage === 'main' または 'semis'（どちらで実施するかは開始時に advance_event 側で決定済み）
+  if (stage === 'semis') {
+    const n = Math.min(EVENT_FINALIST_COUNT, ids.length);
+    const finalists = ids.slice(0, n);
+    const losers    = ids.slice(n);
+    gs.event.mainPool = new Set(finalists);
+    losers.forEach(id => {
+      if ((gs.event.gamesPlayed[id] || 0) < EVENT_MIN_GAMES) gs.event.revivalCandidates.add(id);
+    });
+    gs.event.finalists  = finalists;
+    gs.event.stage       = 'final5';
+    gs.event.lastResult  = { stage: 'semis', finalists, losers, players: playersSnap };
+    setTimeout(() => {
+      io.emit('event_round_finished', { stage: 'semis', finalists, losers, players: playersSnap });
+      notifyEventStageReady();
+    }, 3000);
+    return;
+  }
+
+  const { pass } = eventCutCounts(ids.length);
+  const passers = ids.slice(0, pass);
+  const losers   = ids.slice(pass);
+  gs.event.mainPool  = new Set(passers);
+  losers.forEach(id => gs.event.revivalCandidates.add(id));
+  gs.event.stage      = 'main';
+  gs.event.lastResult = { stage: 'main', passers, losers, players: playersSnap };
+  setTimeout(() => {
+    io.emit('event_round_finished', { stage: 'main', passers, losers, players: playersSnap });
+    notifyEventStageReady();
+  }, 3000);
+}
+
 // 暗記フェーズ終了後に waiting フェーズへ移行
 function doStartPlaying() {
   if (memorizeTimer) { clearTimeout(memorizeTimer); memorizeTimer = null; }
@@ -720,13 +898,17 @@ function doStartPlaying() {
     hostId:              gs.hostId,
     difficulty:          gs.difficulty,
     round:               gs.round,
-    totalCards:          ROUND_CARD_IDS[gs.round] ? ROUND_CARD_IDS[gs.round].length : 10,
+    totalCards:          gs.cardOrder.length || 10,
     isRevival:           gs.isRevival,
     isGroupMatch:        gs.isGroupMatch,
     groupTier:           gs.groupTier,
     groupParticipantIds: [...gs.groupParticipantIds],
     groupRound:          gs.groupRound,
     groupMaxRounds:      gs.groupMaxRounds,
+    isEvent:             gs.event.active,
+    eventStage:          gs.event.stage,
+    eventStageLabel:     EVENT_STAGE_LABELS[gs.event.stage] || null,
+    eventParticipantIds: [...gs.event.participantIds],
   });
 }
 
@@ -797,10 +979,16 @@ io.on('connection', socket => {
     cumulativeScores:    gs.cumulativeScores,
     eliminatedPlayers:   [...gs.eliminatedPlayers],
     lastRoundResult:     gs.lastRoundResult,
-    totalCards:          ROUND_CARD_IDS[gs.round] ? ROUND_CARD_IDS[gs.round].length : 10,
+    totalCards:          gs.cardOrder.length || 10,
     postTournament:      gs.postTournament,
     bottomGroupWinners:  gs.bottomGroupWinners,
     middleGroupWinners:  gs.middleGroupWinners,
+    houses:              gs.houses,
+    isEvent:             gs.event.active,
+    eventStage:          gs.event.stage,
+    eventStageLabel:     EVENT_STAGE_LABELS[gs.event.stage] || null,
+    eventParticipantIds: [...gs.event.participantIds],
+    eventGamesPlayed:    gs.event.gamesPlayed,
   });
 
   socket.broadcast.emit('player_joined', { id: socket.id, player: gs.players[socket.id], players: gs.players });
@@ -942,7 +1130,10 @@ io.on('connection', socket => {
     if (!gs.players[socket.id]) return;
     if (socket.id === gs.hostId) return;
 
-    if (gs.isGroupMatch) {
+    if (gs.event.active) {
+      // 大会モード: 現在のステージの参加者のみ取れる
+      if (!gs.event.participantIds.has(socket.id)) return;
+    } else if (gs.isGroupMatch) {
       // グループ戦: そのグループの参加者のみ（中間ラウンドで脱落済みは除く）
       if (!gs.groupParticipantIds.has(socket.id)) return;
       if (gs.groupEliminated.has(socket.id)) return;
@@ -1327,11 +1518,72 @@ io.on('connection', socket => {
     io.emit('revival_count_updated', { revivalCount: gs.revivalCount });
   });
 
+  // ── 大会モードを開始（ホストのみ）─────────────────────────
+  // その時点で参加登録済み（joined）の人間プレイヤー全員を対象に第1試合を開始する。
+  socket.on('start_event', () => {
+    if (socket.id !== gs.hostId || gs.phase !== 'lobby') return;
+    const participantIds = Object.entries(gs.players)
+      .filter(([id, p]) => id !== gs.hostId && !p.isBot && p.joined)
+      .map(([id]) => id);
+    if (participantIds.length === 0) return;
+
+    gs.event.active            = true;
+    gs.event.mainPool          = new Set(participantIds);
+    gs.event.revivalCandidates = new Set();
+    gs.event.gamesPlayed       = {};
+    gs.event.finalists         = [];
+    gs.event.top2              = [];
+    gs.event.restThree         = [];
+    gs.event.lastResult        = null;
+    gs.event.stage = participantIds.length <= EVENT_SEMIS_THRESHOLD ? 'semis' : 'main';
+
+    removeCpuPlayers();
+    startEventMatch(participantIds, gs.event.stage === 'semis' ? 3 : 1);
+  });
+
+  // ── 大会モードの次の試合へ進む（ホストのみ）───────────────
+  // which: 'main'（本戦/準決勝プールの続き）または 'revival'（敗者復活戦）。
+  // 決勝5人・3位決定戦・決勝戦は自動的にどちらか一方しか選べないため which を無視する。
+  socket.on('advance_event', ({ which } = {}) => {
+    if (socket.id !== gs.hostId || !gs.event.active || gs.phase !== 'round_finished') return;
+
+    const stage = gs.event.stage;
+    if (stage === 'final5')       { startEventMatch(gs.event.finalists,  3); return; }
+    if (stage === 'thirdplace')   { startEventMatch(gs.event.restThree,  3); return; }
+    if (stage === 'championship') { startEventMatch(gs.event.top2,       3); return; }
+    if (stage === 'done') return;
+
+    if (which === 'revival') {
+      if (gs.event.revivalCandidates.size === 0) return;
+      const pool = [...gs.event.revivalCandidates];
+      gs.event.revivalCandidates = new Set();
+      gs.event.stage = 'revival';
+      startEventMatch(pool, 2);
+      return;
+    }
+
+    if (gs.event.mainPool.size === 0) return;
+    const pool = [...gs.event.mainPool];
+    gs.event.stage = pool.length <= EVENT_SEMIS_THRESHOLD ? 'semis' : 'main';
+    startEventMatch(pool, gs.event.stage === 'semis' ? 3 : 1);
+  });
+
   // ── Back to lobby ────────────────────────────────────────
   socket.on('go_to_lobby', () => {
     if (['reading', 'decoy', 'announcing'].includes(gs.phase)) return;
     clearAllTimers();
     removeCpuPlayers();
+
+    gs.event.active            = false;
+    gs.event.stage              = null;
+    gs.event.mainPool           = new Set();
+    gs.event.revivalCandidates  = new Set();
+    gs.event.gamesPlayed        = {};
+    gs.event.participantIds     = new Set();
+    gs.event.finalists          = [];
+    gs.event.top2               = [];
+    gs.event.restThree          = [];
+    gs.event.lastResult         = null;
 
     gs.round               = 1;
     gs.survivorCount       = 3;
