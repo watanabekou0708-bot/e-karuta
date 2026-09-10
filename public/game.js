@@ -800,11 +800,14 @@ function updateHostNotice() {
   const notice = $('hostNotice');
   if (!notice) return;
   notice.classList.toggle('hidden', !(myIsHost && gameStarted));
+  const amSpectating = (myIsSpectator || myIsRevivalSpectator || myIsGroupSpectator) && !myIsHost && gameStarted;
   const grid = $('grid');
   if (grid) {
     grid.classList.toggle('host-locked', myIsHost && gameStarted);
-    grid.classList.toggle('spectator-locked', (myIsSpectator || myIsRevivalSpectator || myIsGroupSpectator) && gameStarted);
+    grid.classList.toggle('hidden', amSpectating);
   }
+  const specPanel = $('specPanel');
+  if (specPanel) specPanel.classList.toggle('hidden', !amSpectating);
   const debugBtn    = $('debugEndBtn');
   const debugCpuBtn = $('debugCpuBtn');
   if (debugBtn)    debugBtn.style.display    = (myIsHost && gameStarted) ? '' : 'none';
@@ -820,8 +823,7 @@ function updateHostNotice() {
     rb.textContent = roundLabel;
     rb.classList.toggle('hidden', !gameStarted);
   }
-  const isWatching = (myIsSpectator || myIsRevivalSpectator || myIsGroupSpectator) && !myIsHost && gameStarted;
-  if (sb) sb.classList.toggle('hidden', !isWatching);
+  if (sb) sb.classList.toggle('hidden', !amSpectating);
   const rl = $('roundLabel');
   if (rl) rl.textContent = roundLabel;
 }

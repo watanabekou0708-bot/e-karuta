@@ -269,6 +269,13 @@
 
 <div class="grid" id="grid"></div>
 
+<!-- ── 観戦パネル（敗退者は自動でこちらに切り替わる）───────── -->
+<div id="specPanel" class="spec-panel hidden">
+  <div class="spec-panel-title">👀 あなたは観戦中です</div>
+  <p class="spec-panel-sub">上のランキングと読み上げ状況で試合の行方を見守りましょう。<br>次の試合に復帰したら自動で盤面に戻ります。</p>
+  <div id="specHouseScores" class="spec-house-scores"></div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script src="game.js"></script>
 </body>

@@ -690,6 +690,18 @@ body {
 :root { --subtext: #5a7aaa; }
 
 /* ── ロビー敗者復活戦セクション ───────────────────────── */
+/* ── Spectator panel（敗退者の自動観戦画面）───────────────── */
+.spec-panel {
+  margin: 3rem auto; max-width: 560px; text-align: center;
+  padding: 2rem 1.5rem;
+  background: var(--surf); border: 1px dashed var(--border);
+  border-radius: 16px;
+}
+.spec-panel.hidden { display: none; }
+.spec-panel-title { font-size: 1.4rem; font-weight: 800; color: var(--accent); margin-bottom: .6rem; }
+.spec-panel-sub { color: var(--dim); font-size: .88rem; line-height: 1.6; }
+.spec-house-scores { margin-top: 1.2rem; display: flex; flex-direction: column; gap: .4rem; }
+
 /* ── Grade/course（名前入力画面）───────────────────────── */
 .grade-course-row { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .grade-select, .course-select {
