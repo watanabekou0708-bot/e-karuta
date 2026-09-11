@@ -84,6 +84,46 @@ function stopSpeech() {
   if (window.speechSynthesis) speechSynthesis.cancel();
 }
 
+// ── DJ 実況（札取得・順位の実況を各自のイヤホンへ）─────────────
+// サーバーから届いたコメントをキューに積み、詠み上げ・正解発表の音声が
+// 完全に終わったタイミング（finishAnnouncing/finishTimeUp）でのみ再生する。
+// 次の詠み上げ等が始まる瞬間は stopDjSpeech() で即座に打ち切り、絶対に
+// 重ならないようにする（多少実況が途中で切れるのは許容する）。
+let djQueue    = [];
+let djSpeaking = false;
+
+function enqueueDjComment(text) {
+  if (!text) return;
+  djQueue.push(text);
+  tryPlayDjQueue();
+}
+
+function stopDjSpeech() {
+  djQueue = [];
+  djSpeaking = false;
+  if (window.speechSynthesis) speechSynthesis.cancel();
+}
+
+function tryPlayDjQueue() {
+  if (djSpeaking || !djQueue.length) return;
+  // 正解発表（そこまで／上の句／下の句）の音声が流れている間は絶対に重ねない。
+  // isAnnouncing が false に戻った瞬間（finishAnnouncing/finishTimeUp）に
+  // 呼び直されるので、そこで実際に再生される。
+  if (isAnnouncing) return;
+  if (!window.speechSynthesis) { djQueue = []; return; }
+  djSpeaking = true;
+  const text = djQueue.shift();
+  const utt  = new SpeechSynthesisUtterance(text);
+  utt.lang   = 'ja-JP';
+  utt.rate   = 1.1;
+  utt.pitch  = 1.15;
+  if (ttsVoice) utt.voice = ttsVoice;
+  const done = () => { djSpeaking = false; tryPlayDjQueue(); };
+  utt.onend   = done;
+  utt.onerror = done;
+  speechSynthesis.speak(utt);
+}
+
 // ── Web Audio API（精密同期再生）────────────────────────────
 let audioCtx      = null;
 let audioBuffers  = {};   // 数値キー: 上の句MP3 / 'intro': 読み上げますMP3
@@ -1875,6 +1915,7 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
 // イントロ（読み上げます）→ 上の句 MP3 を Web Audio で精密同期再生
 // playAt = イントロ開始時刻（全 PC でハードウェアレベルで同期）
 socket.on('read_card', ({ card, remaining, playAt }) => {
+  stopDjSpeech();
   currentPhase = 'reading';
   hideReadBtn();
   $('leftCount').textContent = remaining.length;
@@ -1892,6 +1933,7 @@ socket.on('read_card', ({ card, remaining, playAt }) => {
 // 再生（「これは盤面にない札でした」の案内まで含む）が完全に終わるまで待ち、
 // ホスト端末がその完了を decoy_finished でサーバーに通知する。
 socket.on('decoy_read', ({ id, yomi, playAt }) => {
+  stopDjSpeech();
   currentPhase = 'decoy';
   hideReadBtn();
   $('readingText').textContent = '📢 読み上げ中...';
@@ -1911,6 +1953,8 @@ socket.on('decoy_read', ({ id, yomi, playAt }) => {
 // にフォールバックする。
 socket.on('announce_taken', ({ name, color, card, playAt }) => {
   stopAllAudio();   // ここで世代カウンタをインクリメントする
+  // DJ の取得コメントは card_taken の時点でキュー済みなのでここでは消さない
+  // （isAnnouncing が true の間 tryPlayDjQueue() 側が待機させている）。
   const gen = audioGeneration;
   currentPhase = 'announcing';
   showTakenNotif(name, color || '#4a9eff');
@@ -1924,6 +1968,7 @@ socket.on('announce_taken', ({ name, color, card, playAt }) => {
     finished = true;
     isAnnouncing = false;
     updateReadBtnAvailability();
+    tryPlayDjQueue();
   };
 
   if (!card) { finishAnnouncing(); return; }
@@ -1954,6 +1999,8 @@ socket.on('announce_taken', ({ name, color, card, playAt }) => {
 // 制限時間（10秒）超過。「そこまで」と案内した後、上の句・下の句で正解を発表する
 socket.on('time_up', ({ card, decoy, playAt }) => {
   stopAllAudio();   // ここで世代カウンタをインクリメントする
+  // time_up は必ず read_card/decoy_read の後に起きるため、DJ キューは
+  // そちらの stopDjSpeech() で既にクリア済み。
   const gen = audioGeneration;
   currentPhase = 'announcing';
   showTimeUpNotif();
@@ -1967,6 +2014,7 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
     finished = true;
     isAnnouncing = false;
     updateReadBtnAvailability();
+    tryPlayDjQueue();
   };
 
   if (!card) {
@@ -2046,11 +2094,19 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
   }, ttsStartBuf);
 });
 
+// DJ 実況コメント。詠み上げ・正解発表の音声とは重ならないよう
+// tryPlayDjQueue() 側で待機させる（キューに積むだけならいつ届いても良い）。
+socket.on('dj_comment', ({ text }) => enqueueDjComment(text));
+
 socket.on('card_taken', ({ cardId, by, players }) => {
   const el = $(`card-${cardId}`);
   if (!el) return;
   updateChips(players);
   hideReadBtn();
+  // announce_taken（そこまで／上の句／下の句）が少し遅れて届くまでの間も
+  // DJ が喋り出さないよう、取得直後からアナウンス中扱いにしておく。
+  isAnnouncing = true;
+  updateReadBtnAvailability();
   if (by.id === myId) {
     showFloat(el, '+100', '#00e5a0');
     el.classList.add('correct-mine');

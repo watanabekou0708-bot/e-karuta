@@ -302,6 +302,37 @@ function computeHeadcount({ excludeEliminated = false, participantIds = null } =
   return { humanCount, cpuCount, totalCount: humanCount + cpuCount };
 }
 
+// DJ 実況：札取得のたびにランダムでコメントを選ぶ（毎回同じ文言だと単調なため）
+const DJ_TAKE_TEMPLATES = [
+  (name, score) => `${name}さんが札をとりました！`,
+  (name, score) => `${name}さん、ナイスキャッチ！ 現在${score}ポイントです。`,
+  (name, score) => `お見事、${name}さん！`,
+  (name, score) => `${name}さんが1枚ゲットです！`,
+];
+function pickDjTakeLine(name, score) {
+  const f = DJ_TAKE_TEMPLATES[Math.floor(Math.random() * DJ_TAKE_TEMPLATES.length)];
+  return f(name, score);
+}
+
+// ホストを除いた参加者をスコア降順で並べる（表示用ランキングと同じ並び）
+function rankedNonHost() {
+  return Object.entries(gs.players)
+    .filter(([id]) => id !== gs.hostId)
+    .sort(([, a], [, b]) => b.score - a.score);
+}
+
+// 2位が1位に1枚分（100点）以内まで詰め寄った「その瞬間」だけ実況する。
+// beforeGap（今回の得点加算前の1位・2位差）と比べて、しきい値を新たに
+// 下回った時だけ発火するため、同じ状況が続いても連呼しない。
+function checkNearFirstPlace(beforeGap) {
+  const sorted = rankedNonHost();
+  if (sorted.length < 2) return;
+  const afterGap = sorted[0][1].score - sorted[1][1].score;
+  if (afterGap <= 100 && (beforeGap === null || beforeGap > 100)) {
+    io.emit('dj_comment', { text: `${sorted[1][1].name}さん、あと少しで1位です！` });
+  }
+}
+
 // 正解取得の共通処理（人間・CPU 共用）
 function processCorrectGrab(grabberId, card) {
   if (!gs.remaining.has(card.id)) return;
@@ -310,6 +341,10 @@ function processCorrectGrab(grabberId, card) {
 
   const player = gs.players[grabberId];
   if (!player) return;
+
+  const beforeSorted = rankedNonHost();
+  const beforeGap = beforeSorted.length < 2 ? null : beforeSorted[0][1].score - beforeSorted[1][1].score;
+
   player.score += 100;
   gs.remaining.delete(card.id);
 
@@ -324,6 +359,8 @@ function processCorrectGrab(grabberId, card) {
     by:      { id: grabberId, name: takerName, color: takerColor },
     players: gs.players,
   });
+  io.emit('dj_comment', { text: pickDjTakeLine(takerName, player.score) });
+  checkNearFirstPlace(beforeGap);
 
   const nextCard  = gs.currentCard;
   const remaining = [...gs.remaining];
