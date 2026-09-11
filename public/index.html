@@ -251,9 +251,13 @@
       <span class="memo-timer" id="memoTimer">02:30</span>
       <span class="memo-timer-label">後にゲーム開始</span>
     </div>
-    <p class="ov-sub">カードを2枚順にクリックすると位置を入れ替えられます。<br>自分の取りやすい配置に整えましょう！</p>
+    <p class="ov-sub">下半分のカードだけドラッグ＆ドロップで動かせます。<br>自分の取りやすい配置に整えましょう！</p>
     <div class="memo-headcount" id="memoHeadcount"></div>
-    <div class="arrange-grid" id="arrangeGrid"></div>
+    <div class="arrange-board">
+      <div class="arrange-grid locked" id="arrangeGridTop"></div>
+      <div class="arrange-divider"><span>↓ ここから下だけ動かせます ↓</span></div>
+      <div class="arrange-grid" id="arrangeGridBottom"></div>
+    </div>
     <!-- ホストのみ表示 -->
     <button id="memoSkipBtn" class="btn btn-debug" onclick="skipMemorize()" style="display:none">⏭ スキップ（デバッグ用）</button>
   </div>

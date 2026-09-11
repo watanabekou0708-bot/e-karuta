@@ -1136,8 +1136,7 @@ function leaveLobby() {
 
 // ── Memorization phase（盤面整理タイム）─────────────────────
 let memoInterval = null;
-let myCardOrder       = [];    // 自分が並べ替えたカード順（試合ごとにリセット）
-let arrangeSelectedId = null;  // 入れ替え元として選択中のカードID
+let myCardOrder  = [];    // 自分が並べ替えたカード順（試合ごとにリセット）
 
 function openMemorize(cardOrder, cards, endsAt, players, round, mode) {
   if (round) currentRound = round;
@@ -1175,41 +1174,100 @@ function effectiveCardOrder(serverOrder) {
   return serverOrder;
 }
 
-// 盤面整理タイム用のグリッド。2枚を順にクリックすると位置が入れ替わる。
+// 盤面整理タイム用のグリッド。下半分だけドラッグ＆ドロップで入れ替えられる
+// （実際のかるたで自分の陣地しか動かせないのを再現）。上半分は固定表示。
+// カードは現実のかるたのように最初はバラバラの向きで置かれており、
+// 下半分のカードは動かす（＝ドロップする）と正面向きに整う。
 // ここで決めた並び（myCardOrder）が、そのまま本番の対局グリッドの並びになる。
+let arrangeTopIds    = [];
+let arrangeBottomIds = [];
+let cardRotations    = {};   // id → 度数（上半分は固定、下半分は動かすと0にリセット）
+let dragSourceId     = null;
+
 function renderArrangeGrid(cardOrder) {
   myCardOrder = [...cardOrder];
-  arrangeSelectedId = null;
-  const grid = $('arrangeGrid');
-  if (!grid) return;
-  grid.innerHTML = '';
-  myCardOrder.forEach(id => {
-    const k = KMAP[id];
-    if (!k) return;
-    const el = document.createElement('div');
-    el.className = 'card';
-    el.dataset.id = id;
-    el.textContent = k.tori;
-    el.addEventListener('click', () => onArrangeCardClick(id, el));
-    grid.appendChild(el);
-  });
+  const half = Math.ceil(myCardOrder.length / 2);
+  arrangeTopIds    = myCardOrder.slice(0, half);
+  arrangeBottomIds = myCardOrder.slice(half);
+  cardRotations = {};
+  // フルの0〜360度だと窮屈なグリッド内で重なり過ぎるため、控えめな傾き（±16度）にとどめる
+  myCardOrder.forEach(id => { cardRotations[id] = Math.round(Math.random() * 32 - 16); });
+  renderArrangeHalves();
 }
 
-function onArrangeCardClick(id, el) {
-  if (arrangeSelectedId === null) {
-    arrangeSelectedId = id;
-    el.classList.add('arrange-selected');
-    return;
+function renderArrangeHalves() {
+  const topEl = $('arrangeGridTop');
+  const botEl = $('arrangeGridBottom');
+  if (topEl) {
+    topEl.innerHTML = '';
+    arrangeTopIds.forEach(id => topEl.appendChild(buildArrangeCard(id, false)));
   }
-  if (arrangeSelectedId === id) {
-    el.classList.remove('arrange-selected');
-    arrangeSelectedId = null;
-    return;
+  if (botEl) {
+    botEl.innerHTML = '';
+    arrangeBottomIds.forEach(id => botEl.appendChild(buildArrangeCard(id, true)));
   }
-  const i = myCardOrder.indexOf(arrangeSelectedId);
-  const j = myCardOrder.indexOf(id);
-  if (i !== -1 && j !== -1) [myCardOrder[i], myCardOrder[j]] = [myCardOrder[j], myCardOrder[i]];
-  renderArrangeGrid(myCardOrder);
+}
+
+function buildArrangeCard(id, movable) {
+  const k = KMAP[id];
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.dataset.id = id;
+  el.textContent = k ? k.tori : '';
+  el.style.transform = `rotate(${cardRotations[id] || 0}deg)`;
+  if (movable) {
+    el.draggable = true;
+    el.addEventListener('dragstart', onArrangeDragStart);
+    el.addEventListener('dragover', onArrangeDragOver);
+    el.addEventListener('dragleave', onArrangeDragLeave);
+    el.addEventListener('drop', onArrangeDrop);
+    el.addEventListener('dragend', onArrangeDragEnd);
+  }
+  return el;
+}
+
+function onArrangeDragStart(e) {
+  dragSourceId = Number(e.currentTarget.dataset.id);
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(dragSourceId));
+}
+
+function onArrangeDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onArrangeDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function clearArrangeDragOver() {
+  const bot = $('arrangeGridBottom');
+  if (bot) bot.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+
+function onArrangeDrop(e) {
+  e.preventDefault();
+  clearArrangeDragOver();
+  const targetId = Number(e.currentTarget.dataset.id);
+  if (dragSourceId === null || targetId === dragSourceId) return;
+  const i = arrangeBottomIds.indexOf(dragSourceId);
+  const j = arrangeBottomIds.indexOf(targetId);
+  if (i === -1 || j === -1) return;
+  [arrangeBottomIds[i], arrangeBottomIds[j]] = [arrangeBottomIds[j], arrangeBottomIds[i]];
+  cardRotations[dragSourceId] = 0;
+  cardRotations[targetId]     = 0;
+  myCardOrder = [...arrangeTopIds, ...arrangeBottomIds];
+  dragSourceId = null;
+  renderArrangeHalves();
+}
+
+function onArrangeDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  clearArrangeDragOver();
+  dragSourceId = null;
 }
 
 // ── Round Result Overlay ─────────────────────────────────
