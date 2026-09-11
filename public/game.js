@@ -527,6 +527,7 @@ function escHtml(s) {
 
 
 // ── Host UI ───────────────────────────────────────────────
+let lobbyMode             = null;   // null | 'practice' | 'event'（ロビーでホストが選ぶモード）
 let selectedDifficulty    = 'normal';
 let selectedCpuDifficulty = 'normal';
 
@@ -754,18 +755,34 @@ function renderHouseList(houses, players) {
   }).join('');
 }
 
+// ── ロビーのモード選択（練習モード／大会モード）─────────────
+function chooseLobbyMode(mode) {
+  lobbyMode = mode;
+  updateLobbyUI();
+}
+
+function backToLobbyModeSelect() {
+  lobbyMode = null;
+  updateLobbyUI();
+}
+
 function updateLobbyUI() {
-  const startBtn   = $('lobbyStartBtn');
-  const waiting    = $('lobbyWaiting');
-  const diffPick   = $('lobbyDiffPicker');
-  const cpuPick    = $('lobbyCpuPicker');
-  const survPick   = $('lobbySurvivorPicker');
-  const housePick  = $('lobbyHouseSection');
-  if (housePick) housePick.style.display = myIsHost ? '' : 'none';
+  const startBtn      = $('lobbyStartBtn');
+  const waiting        = $('lobbyWaiting');
+  const modeSelect      = $('lobbyModeSelect');
+  const practiceSection = $('lobbyPracticeSection');
+  const eventSection    = $('lobbyEventSection');
   const eventBtn = $('lobbyEventStartBtn');
   if (eventBtn) eventBtn.disabled = false;
+
+  // 最終試合後（postTournament）に戻ってきた場合は練習モードへ自動遷移
+  if (myIsHost && postTournament && !lobbyMode) lobbyMode = 'practice';
+
+  if (modeSelect)      modeSelect.style.display      = (myIsHost && !lobbyMode) ? '' : 'none';
+  if (practiceSection) practiceSection.style.display = (myIsHost && lobbyMode === 'practice') ? '' : 'none';
+  if (eventSection)    eventSection.style.display    = (myIsHost && lobbyMode === 'event') ? '' : 'none';
+
   if (startBtn) {
-    startBtn.style.display = myIsHost ? '' : 'none';
     startBtn.disabled = false;
     if (myIsHost) {
       if (postTournament) {
@@ -776,10 +793,12 @@ function updateLobbyUI() {
       }
     }
   }
-  if (waiting)   waiting.style.display   = myIsHost ? 'none' : '';
-  if (diffPick)  diffPick.style.display  = myIsHost ? '' : 'none';
-  if (cpuPick)   cpuPick.style.display   = myIsHost ? '' : 'none';
-  if (survPick)  survPick.style.display  = myIsHost ? '' : 'none';
+  if (waiting) {
+    waiting.style.display = myIsHost ? 'none' : '';
+    waiting.textContent = lobbyMode
+      ? 'ホストがゲームを開始するまでお待ちください'
+      : 'ホストがモードを選択するまでお待ちください';
+  }
   const survInput = $('survivorInput');
   if (survInput) survInput.value = survivorCount;
 }
@@ -1079,6 +1098,7 @@ function openLobby(players) {
   eventStage           = null;
   eventParticipantIds  = new Set();
   myIsEventSpectator   = false;
+  lobbyMode            = null;
   $('lobbyUrl').textContent = window.location.href;
   renderLobbyList(players);
   hide('oName'); hide('oGameOver'); hide('oMemorize'); hide('oRoundResult'); hide('oCeremony'); hide('oEventResult');

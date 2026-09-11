@@ -35,64 +35,86 @@
     <div class="lobby-url-label">接続URL</div>
     <div class="lobby-url" id="lobbyUrl" title="クリックで選択"></div>
     <div class="lobby-players" id="lobbyList"></div>
-    <!-- ホストのみ表示：難易度選択 -->
-    <div id="lobbyDiffPicker" class="diff-picker" style="display:none">
-      <div class="diff-label">難易度（ダミー読み）</div>
-      <div class="diff-btns">
-        <button class="diff-btn"        data-diff="easy"   onclick="selectDifficulty('easy')">かんたん</button>
-        <button class="diff-btn active" data-diff="normal" onclick="selectDifficulty('normal')">ふつう</button>
-        <button class="diff-btn"        data-diff="hard"   onclick="selectDifficulty('hard')">難しい</button>
-      </div>
-    </div>
-    <!-- ホストのみ表示：CPU の強さ -->
-    <div id="lobbyCpuPicker" class="diff-picker" style="display:none">
-      <div class="diff-label">CPU の強さ</div>
-      <div class="diff-btns">
-        <button class="diff-btn"        data-cpudiff="easy"   onclick="selectCpuDifficulty('easy')">弱い</button>
-        <button class="diff-btn active" data-cpudiff="normal" onclick="selectCpuDifficulty('normal')">ふつう</button>
-        <button class="diff-btn"        data-cpudiff="hard"   onclick="selectCpuDifficulty('hard')">強い</button>
-      </div>
-    </div>
-    <!-- ホストのみ表示：通過人数 -->
-    <div id="lobbySurvivorPicker" class="diff-picker" style="display:none">
-      <div class="diff-label">各試合の通過人数（CPU含む）</div>
-      <div class="survivor-row">
-        <button class="surv-btn" onclick="adjustSurvivorCount(-1)">－</button>
-        <input type="number" id="survivorInput" class="survivor-input" min="1" max="9999" value="3"
-               oninput="setSurvivorCount(this.value)">
-        <button class="surv-btn" onclick="adjustSurvivorCount(1)">＋</button>
-        <span class="surv-hint">人が次の試合へ</span>
-      </div>
-    </div>
-    <!-- ホストのみ表示：ハウス編成（大会モード用） -->
-    <div id="lobbyHouseSection" class="lobby-house-section" style="display:none">
-      <div class="lobby-house-title">🏠 ハウス編成（大会モード）</div>
-      <p class="ov-sub" style="margin:.2rem 0 .5rem">出欠が確定したら押してください。学年・コースを横断して4ハウスに自動で均等配分します（何度でも再実行可）。</p>
-      <button class="btn btn-blue" onclick="assignHouses()">ハウスを編成する</button>
-      <div id="lobbyHouseList" class="lobby-house-list"></div>
-      <button id="lobbyEventStartBtn" class="btn btn-green" style="margin-top:.8rem;width:100%" onclick="startEvent()">🏁 大会モードを開始（第1試合）</button>
-    </div>
-    <!-- 敗者復活戦セクション（最終試合後にアンロック） -->
-    <div id="lobbyRevivalSection" class="lobby-revival-section locked">
-      <div class="lobby-revival-title">敗者復活戦</div>
-      <div class="lobby-revival-desc" id="lobbyRevivalDesc">最終試合終了後に解放されます</div>
-      <div class="group-btns" id="lobbyGroupBtns">
-        <button class="btn btn-group-bottom" onclick="startGroupMatch('bottom')" id="lobbyGroupBtnBottom">
-          🥉 下位グループ戦<br><small id="lobbyGroupDescBottom">弱CPU25人と対戦</small>
+
+    <!-- ホストのみ表示：モード選択 -->
+    <div id="lobbyModeSelect" class="lobby-mode-select" style="display:none">
+      <div class="diff-label">モードを選択してください</div>
+      <div class="lobby-mode-btns">
+        <button class="btn-mode" onclick="chooseLobbyMode('practice')">
+          🎮 練習モード<br><small>個人戦・CPU対戦で自由に練習</small>
         </button>
-        <button class="btn btn-group-middle" onclick="startGroupMatch('middle')" id="lobbyGroupBtnMiddle">
-          🥈 中位グループ戦<br><small id="lobbyGroupDescMiddle">中CPU25人と対戦</small>
-        </button>
-        <button class="btn btn-group-top" onclick="startGroupMatch('top')" id="lobbyGroupBtnTop">
-          🥇 上位グループ戦<br><small id="lobbyGroupDescTop">強CPU25人と対戦</small>
+        <button class="btn-mode" onclick="chooseLobbyMode('event')">
+          🏁 大会モード<br><small>1/8本番用・ハウス対抗トーナメント</small>
         </button>
       </div>
-      <div id="lobbyPromotedList" class="lobby-promoted-list" style="display:none"></div>
     </div>
-    <!-- ホストのみ表示 -->
-    <button id="lobbyStartBtn" class="btn btn-green" onclick="startGame()" style="display:none">ゲームスタート（全3試合）</button>
+
+    <!-- ホストのみ表示：練習モード一式 -->
+    <div id="lobbyPracticeSection" style="display:none">
+      <button class="btn-back" onclick="backToLobbyModeSelect()">← モード選択に戻る</button>
+      <!-- 難易度選択 -->
+      <div id="lobbyDiffPicker" class="diff-picker">
+        <div class="diff-label">難易度（ダミー読み）</div>
+        <div class="diff-btns">
+          <button class="diff-btn"        data-diff="easy"   onclick="selectDifficulty('easy')">かんたん</button>
+          <button class="diff-btn active" data-diff="normal" onclick="selectDifficulty('normal')">ふつう</button>
+          <button class="diff-btn"        data-diff="hard"   onclick="selectDifficulty('hard')">難しい</button>
+        </div>
+      </div>
+      <!-- CPU の強さ -->
+      <div id="lobbyCpuPicker" class="diff-picker">
+        <div class="diff-label">CPU の強さ</div>
+        <div class="diff-btns">
+          <button class="diff-btn"        data-cpudiff="easy"   onclick="selectCpuDifficulty('easy')">弱い</button>
+          <button class="diff-btn active" data-cpudiff="normal" onclick="selectCpuDifficulty('normal')">ふつう</button>
+          <button class="diff-btn"        data-cpudiff="hard"   onclick="selectCpuDifficulty('hard')">強い</button>
+        </div>
+      </div>
+      <!-- 通過人数 -->
+      <div id="lobbySurvivorPicker" class="diff-picker">
+        <div class="diff-label">各試合の通過人数（CPU含む）</div>
+        <div class="survivor-row">
+          <button class="surv-btn" onclick="adjustSurvivorCount(-1)">－</button>
+          <input type="number" id="survivorInput" class="survivor-input" min="1" max="9999" value="3"
+                 oninput="setSurvivorCount(this.value)">
+          <button class="surv-btn" onclick="adjustSurvivorCount(1)">＋</button>
+          <span class="surv-hint">人が次の試合へ</span>
+        </div>
+      </div>
+      <!-- 敗者復活戦セクション（最終試合後にアンロック） -->
+      <div id="lobbyRevivalSection" class="lobby-revival-section locked">
+        <div class="lobby-revival-title">敗者復活戦</div>
+        <div class="lobby-revival-desc" id="lobbyRevivalDesc">最終試合終了後に解放されます</div>
+        <div class="group-btns" id="lobbyGroupBtns">
+          <button class="btn btn-group-bottom" onclick="startGroupMatch('bottom')" id="lobbyGroupBtnBottom">
+            🥉 下位グループ戦<br><small id="lobbyGroupDescBottom">弱CPU25人と対戦</small>
+          </button>
+          <button class="btn btn-group-middle" onclick="startGroupMatch('middle')" id="lobbyGroupBtnMiddle">
+            🥈 中位グループ戦<br><small id="lobbyGroupDescMiddle">中CPU25人と対戦</small>
+          </button>
+          <button class="btn btn-group-top" onclick="startGroupMatch('top')" id="lobbyGroupBtnTop">
+            🥇 上位グループ戦<br><small id="lobbyGroupDescTop">強CPU25人と対戦</small>
+          </button>
+        </div>
+        <div id="lobbyPromotedList" class="lobby-promoted-list" style="display:none"></div>
+      </div>
+      <button id="lobbyStartBtn" class="btn btn-green" onclick="startGame()">ゲームスタート（全3試合）</button>
+    </div>
+
+    <!-- ホストのみ表示：大会モード一式 -->
+    <div id="lobbyEventSection" style="display:none">
+      <button class="btn-back" onclick="backToLobbyModeSelect()">← モード選択に戻る</button>
+      <div id="lobbyHouseSection" class="lobby-house-section">
+        <div class="lobby-house-title">🏠 ハウス編成（大会モード）</div>
+        <p class="ov-sub" style="margin:.2rem 0 .5rem">出欠が確定したら押してください。学年・コースを横断して4ハウスに自動で均等配分します（何度でも再実行可）。</p>
+        <button class="btn btn-blue" onclick="assignHouses()">ハウスを編成する</button>
+        <div id="lobbyHouseList" class="lobby-house-list"></div>
+        <button id="lobbyEventStartBtn" class="btn btn-green" style="margin-top:.8rem;width:100%" onclick="startEvent()">🏁 大会モードを開始（第1試合）</button>
+      </div>
+    </div>
+
     <!-- ゲスト向けメッセージ -->
-    <p id="lobbyWaiting" class="ov-sub" style="margin-top:.8rem">ホストがゲームを開始するまでお待ちください</p>
+    <p id="lobbyWaiting" class="ov-sub" style="margin-top:.8rem">ホストがモードを選択するまでお待ちください</p>
     <button class="btn btn-leave" onclick="leaveLobby()">🚪 退室する</button>
   </div>
 </div>

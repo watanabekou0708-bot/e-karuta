@@ -702,6 +702,24 @@ body {
 .spec-panel-sub { color: var(--dim); font-size: .88rem; line-height: 1.6; }
 .spec-house-scores { margin-top: 1.2rem; display: flex; flex-direction: column; gap: .4rem; }
 
+/* ── Lobby mode select ────────────────────────────────── */
+.lobby-mode-select { margin: .6rem 0 1rem; }
+.lobby-mode-btns { display: flex; gap: .7rem; margin-top: .5rem; }
+.btn-mode {
+  flex: 1; padding: 1.1rem .8rem; border-radius: 12px;
+  background: var(--surf); border: 1px solid var(--border);
+  color: var(--text); font-size: .95rem; font-weight: 700;
+  cursor: pointer; transition: all .15s; line-height: 1.6;
+}
+.btn-mode:hover { border-color: var(--accent); filter: brightness(1.15); transform: translateY(-1px); }
+.btn-mode small { display: block; color: var(--dim); font-size: .72rem; font-weight: 400; margin-top: .15rem; }
+.btn-back {
+  display: inline-block; margin-bottom: .8rem; padding: .35rem .8rem;
+  background: transparent; border: 1px solid var(--border); border-radius: 8px;
+  color: var(--dim); font-size: .78rem; cursor: pointer; transition: all .15s;
+}
+.btn-back:hover { color: var(--text); border-color: var(--accent); }
+
 /* ── Grade/course（名前入力画面）───────────────────────── */
 .grade-course-row { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .grade-select, .course-select {
