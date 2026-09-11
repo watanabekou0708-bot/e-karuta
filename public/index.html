@@ -70,16 +70,10 @@
           <button class="diff-btn"        data-cpudiff="hard"   onclick="selectCpuDifficulty('hard')">強い</button>
         </div>
       </div>
-      <!-- 通過人数 -->
+      <!-- 通過人数（自動決定・参加人数に応じてホストが試合を開始すると決まる） -->
       <div id="lobbySurvivorPicker" class="diff-picker">
-        <div class="diff-label">各試合の通過人数（CPU含む）</div>
-        <div class="survivor-row">
-          <button class="surv-btn" onclick="adjustSurvivorCount(-1)">－</button>
-          <input type="number" id="survivorInput" class="survivor-input" min="1" max="9999" value="3"
-                 oninput="setSurvivorCount(this.value)">
-          <button class="surv-btn" onclick="adjustSurvivorCount(1)">＋</button>
-          <span class="surv-hint">人が次の試合へ</span>
-        </div>
+        <div class="diff-label">各試合の通過人数</div>
+        <p class="ov-sub" style="margin:.2rem 0 0">参加人数に応じて自動で決まります（試合開始後に表示）</p>
       </div>
       <!-- 敗者復活戦セクション（最終試合後にアンロック） -->
       <div id="lobbyRevivalSection" class="lobby-revival-section locked">
@@ -133,75 +127,29 @@
       <button id="rrTabRevival" class="rr-tab" onclick="switchRrMode('revival')">敗者復活戦</button>
     </div>
 
-    <!-- [本戦モード] 通過人数設定 + 次の試合ボタン -->
+    <!-- [本戦モード] 次の試合ボタン（通過人数は自動決定・試合開始後に表示） -->
     <div id="rrMainSection" class="hidden">
-      <div id="rrSurvivorPicker" class="diff-picker" style="margin:.5rem 0 .6rem">
-        <div class="diff-label">第<span id="rrNextRoundNum">2</span>試合への通過人数（CPU含む）</div>
-        <div class="survivor-row">
-          <button class="surv-btn" onclick="adjustSurvivorCount(-1)">－</button>
-          <input type="number" id="rrSurvInput" class="survivor-input" min="1" max="9999" value="3"
-                 oninput="setSurvivorCount(this.value)">
-          <button class="surv-btn" onclick="adjustSurvivorCount(1)">＋</button>
-          <span class="surv-hint">人が進出</span>
-        </div>
-      </div>
       <button id="rrNextBtn" class="btn btn-green" onclick="startNextRound()">第<span id="rrNextRoundLabel">2</span>試合を開始 →</button>
     </div>
 
-    <!-- [グループ戦中間ラウンド] 次ラウンド設定 + 開始ボタン（ホストのみ） -->
+    <!-- [グループ戦中間ラウンド] 開始ボタン（ホストのみ・通過人数は自動決定） -->
     <div id="rrGroupInterSection" class="hidden">
       <div class="rr-revival-progress" id="rrGroupRoundLabel">下位グループ 第1ラウンド終了 → 第2ラウンドへ</div>
-      <div class="diff-picker" style="margin:.5rem 0 .6rem">
-        <div class="diff-label">次ラウンドの通過人数</div>
-        <div class="survivor-row">
-          <button class="surv-btn" onclick="adjustGroupSurvivorCount(-1)">－</button>
-          <input type="number" id="rrGroupInterSurvInput" class="survivor-input" min="1" max="99" value="3"
-                 oninput="setGroupSurvivorCount(this.value)">
-          <button class="surv-btn" onclick="adjustGroupSurvivorCount(1)">＋</button>
-          <span class="surv-hint">人が通過</span>
-        </div>
-      </div>
       <button class="btn btn-blue" onclick="startNextGroupRound()">▶ 次のラウンドを開始</button>
     </div>
 
-    <!-- [復活戦中間ラウンド] 次ラウンド設定 + 開始ボタン（ホストのみ） -->
+    <!-- [復活戦中間ラウンド] 開始ボタン（ホストのみ・通過人数は自動決定） -->
     <div id="rrRevivalInterSection" class="hidden">
       <div class="rr-revival-progress" id="rrRevivalRoundLabel">復活戦 第1ラウンド終了 → 第2ラウンドへ</div>
-      <div id="rrRevivalSurvivorPicker" class="diff-picker" style="margin:.5rem 0 .6rem">
-        <div class="diff-label">次ラウンドの通過人数</div>
-        <div class="survivor-row">
-          <button class="surv-btn" onclick="adjustRevivalSurvivorCount(-1)">－</button>
-          <input type="number" id="rrRevivalInterSurvInput" class="survivor-input" min="1" max="99" value="3"
-                 oninput="setRevivalSurvivorCount(this.value)">
-          <button class="surv-btn" onclick="adjustRevivalSurvivorCount(1)">＋</button>
-          <span class="surv-hint">人が通過</span>
-        </div>
-      </div>
       <button class="btn btn-revival" onclick="startNextRevivalRound()">🔄 次の復活戦ラウンドを開始</button>
     </div>
 
-    <!-- [敗者復活戦モード] ユーザー選択 + 復活人数 + 開始ボタン -->
+    <!-- [敗者復活戦モード] ユーザー選択 + 開始ボタン（通過人数・本戦復帰人数は自動決定） -->
     <div id="rrRevivalSection" class="hidden">
       <div class="rr-divider"></div>
       <div class="diff-label" style="margin-bottom:.4rem">復活戦の参加者を選択</div>
       <div id="rrRevivalUsers" class="rr-user-list"></div>
       <button class="btn btn-sm" style="margin:.3rem 0 .5rem" onclick="toggleAllRevivalUsers()">全員切替</button>
-      <div class="survivor-row" style="margin-bottom:.4rem">
-        <span style="font-size:.82rem;color:var(--dim)">第1ラウンド通過：</span>
-        <button class="surv-btn" onclick="adjustRevivalSurvivorCount(-1)">－</button>
-        <input type="number" id="rrRevivalSurvInput" class="survivor-input" min="1" max="99" value="3"
-               oninput="setRevivalSurvivorCount(this.value)">
-        <button class="surv-btn" onclick="adjustRevivalSurvivorCount(1)">＋</button>
-        <span class="surv-hint">人</span>
-      </div>
-      <div class="survivor-row" style="margin-bottom:.5rem">
-        <span style="font-size:.82rem;color:var(--dim)">本戦復帰：</span>
-        <button class="surv-btn" onclick="adjustRevivalCount(-1)">－</button>
-        <input type="number" id="rrRevivalInput" class="survivor-input" min="1" max="20" value="1"
-               oninput="setRevivalCount(this.value)">
-        <button class="surv-btn" onclick="adjustRevivalCount(1)">＋</button>
-        <span class="surv-hint">人</span>
-      </div>
       <button class="btn btn-revival" onclick="startRevival()">🔄 敗者復活戦を開始（全3ラウンド）</button>
     </div>
 

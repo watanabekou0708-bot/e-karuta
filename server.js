@@ -10,38 +10,43 @@ const app  = express();
 const srv  = http.createServer(app);
 const io   = new Server(srv);
 
-// ── Karuta data（情報活用試験3級レベル）──────────────────
+// ── Karuta data（J検（情報活用試験）3級レベル＋Excel関数）─────
+// ids 1-10: 易しい（試合序盤） / 11-20: 普通（試合中盤） / 21-30: 難しい（試合終盤）
+// ROUND_CARD_IDS と対応。難易度は一般IT用語・Excel関数どちらも各帯で揃えている。
 const KARUTA = [
+  // 易しい（1〜10）
   { id:  1, yomi: 'コンピューターの頭脳と呼ばれ、計算と命令の処理を担う装置',             tori: 'CPU' },
   { id:  2, yomi: '電源を切ると消えてしまう、作業中のデータを一時的に保管する主記憶装置', tori: 'メモリ' },
   { id:  3, yomi: '電源を切っても消えない、写真や文書を永続的に記憶する補助記憶装置',     tori: 'ストレージ' },
-  { id:  4, yomi: 'ハードウェアを管理し、アプリケーションが動く土台となるソフトウェア',   tori: 'OS' },
-  { id:  5, yomi: '世界中のコンピューターをつないだ、巨大な情報通信ネットワーク',         tori: 'インターネット' },
-  { id:  6, yomi: '会社や学校など限られた範囲で、コンピューターをつなぐネットワーク',     tori: 'LAN' },
-  { id:  7, yomi: 'ネットワーク上の住所にあたる、コンピューターを識別するための番号',     tori: 'IPアドレス' },
-  { id:  8, yomi: 'ドメイン名をIPアドレスに変換する、インターネットの電話帳のような仕組み', tori: 'DNS' },
-  { id:  9, yomi: 'ウェブブラウザとサーバーがページをやり取りするための通信の規則',       tori: 'HTTP' },
-  { id: 10, yomi: 'URLを入力してウェブページを閲覧するためのソフトウェア',               tori: 'Webブラウザ' },
-  { id: 11, yomi: '外部からの不正アクセスを防ぐため、ネットワークの境界に設置する仕組み', tori: 'ファイアウォール' },
-  { id: 12, yomi: 'コンピューターに害を与える目的で作られた、悪意のあるソフトウェアの総称', tori: 'マルウェア' },
-  { id: 13, yomi: '推測されにくい文字列で、アカウントへの不正アクセスを防ぐ秘密の認証情報', tori: 'パスワード' },
-  { id: 14, yomi: 'パスワードに加えてスマートフォンなどで本人確認する、二段階の認証方式', tori: '二段階認証' },
-  { id: 15, yomi: '実在する企業を装った偽のメールやサイトで、個人情報を盗もうとする攻撃', tori: 'フィッシング詐欺' },
-  { id: 16, yomi: '氏名・住所・電話番号など、特定の個人を識別できる情報のこと',           tori: '個人情報' },
-  { id: 17, yomi: '他人が作った著作物を、許可なく複製・配布することを禁ずる権利',         tori: '著作権' },
-  { id: 18, yomi: 'デジタルデータを0と1の二つの数字だけで表す方法',                       tori: '二進数' },
-  { id: 19, yomi: 'デジタルデータの最小単位で、0か1かを表す一桁分の情報量',               tori: 'ビット' },
-  { id: 20, yomi: '8ビットをまとめたデータの単位で、ファイルサイズを表す基本単位',         tori: 'バイト' },
-  { id: 21, yomi: '大切なデータを失わないよう、別の場所にコピーを保存しておく作業',       tori: 'バックアップ' },
-  { id: 22, yomi: 'インターネット経由でサーバーやソフトウェアをサービスとして利用する形態', tori: 'クラウドコンピューティング' },
-  { id: 23, yomi: '友人や知人とつながり、メッセージや写真などを共有するインターネットサービス', tori: 'SNS' },
-  { id: 24, yomi: '行と列の表に数式を入力し、データの計算や分析を行うソフトウェア',       tori: '表計算ソフト' },
+  { id:  4, yomi: '世界中のコンピューターをつないだ、巨大な情報通信ネットワーク',         tori: 'インターネット' },
+  { id:  5, yomi: '推測されにくい文字列で、アカウントへの不正アクセスを防ぐ秘密の認証情報', tori: 'パスワード' },
+  { id:  6, yomi: 'Excelの表を構成する、行と列が交差する一つの升目',                     tori: 'セル' },
+  { id:  7, yomi: 'Excelでデータを入力する、複数集めるとブックになる1枚の作業画面',       tori: 'ワークシート' },
+  { id:  8, yomi: '指定した範囲の数値をすべて合計するExcelの基本関数',                   tori: 'SUM関数' },
+  { id:  9, yomi: '指定した範囲の数値の平均値を求めるExcel関数',                         tori: 'AVERAGE関数' },
+  { id: 10, yomi: 'セルの右下をドラッグすることで、連続データや数式を隣のセルへ自動入力する機能', tori: 'オートフィル' },
+  // 普通（11〜20）
+  { id: 11, yomi: 'ハードウェアを管理し、アプリケーションが動く土台となるソフトウェア',   tori: 'OS' },
+  { id: 12, yomi: '会社や学校など限られた範囲で、コンピューターをつなぐネットワーク',     tori: 'LAN' },
+  { id: 13, yomi: 'パスワードに加えてスマートフォンなどで本人確認する、二段階の認証方式', tori: '二段階認証' },
+  { id: 14, yomi: '他人が作った著作物を、許可なく複製・配布することを禁ずる権利',         tori: '著作権' },
+  { id: 15, yomi: 'コンピューターに害を与える目的で作られた、悪意のあるソフトウェアの総称', tori: 'マルウェア' },
+  { id: 16, yomi: '数式をコピーすると、参照するセルの位置が自動的にずれるExcelの標準的な参照方式', tori: '相対参照' },
+  { id: 17, yomi: '数式をコピーしてもセルの参照先が変わらないようにする、$記号を使ったExcelの指定方法', tori: '絶対参照' },
+  { id: 18, yomi: '条件を満たすかどうかで異なる結果を返す、Excelの代表的な条件分岐関数', tori: 'IF関数' },
+  { id: 19, yomi: '指定した条件に一致するセルの個数を数えるExcel関数',                   tori: 'COUNTIF関数' },
+  { id: 20, yomi: '指定した桁数で数値を四捨五入するExcel関数',                           tori: 'ROUND関数' },
+  // 難しい（21〜30）
+  { id: 21, yomi: 'ネットワーク上の住所にあたる、コンピューターを識別するための番号',     tori: 'IPアドレス' },
+  { id: 22, yomi: 'ドメイン名をIPアドレスに変換する、インターネットの電話帳のような仕組み', tori: 'DNS' },
+  { id: 23, yomi: '実在する企業を装った偽のメールやサイトで、個人情報を盗もうとする攻撃', tori: 'フィッシング詐欺' },
+  { id: 24, yomi: 'インターネット経由でサーバーやソフトウェアをサービスとして利用する形態', tori: 'クラウドコンピューティング' },
   { id: 25, yomi: '大量のデータを整理して保存し、素早く検索・更新・抽出できる仕組み',     tori: 'データベース' },
-  { id: 26, yomi: 'カメラで読み取る、白黒のドットで情報を表す二次元コード',               tori: 'QRコード' },
-  { id: 27, yomi: '身の回りの家電や機器がインターネットにつながり、連携する仕組み',       tori: 'IoT' },
-  { id: 28, yomi: '大量のデータをもとにコンピューターが自ら学習し、判断する技術',         tori: 'AI' },
-  { id: 29, yomi: 'スライドを作成して画面に映し、視覚的に情報を伝えるためのソフトウェア', tori: 'プレゼンテーションソフト' },
-  { id: 30, yomi: 'インターネットで商品の売買や代金の決済を行う、オンラインの商取引',     tori: '電子商取引' },
+  { id: 26, yomi: '指定した範囲の左端の列を縦方向に検索し、対応する値を返すExcelの検索関数', tori: 'VLOOKUP関数' },
+  { id: 27, yomi: '指定した条件に一致するセルの数値だけを合計するExcel関数',             tori: 'SUMIF関数' },
+  { id: 28, yomi: '数式がエラーになった場合に、代わりの値を表示させるExcel関数',         tori: 'IFERROR関数' },
+  { id: 29, yomi: '指定した範囲の中から、行と列の番号で位置を指定してデータを取り出すExcel関数', tori: 'INDEX関数' },
+  { id: 30, yomi: '大量のデータを集計・分析し、視点を変えて自在に表を組み替えられるExcelの機能', tori: 'ピボットテーブル' },
 ];
 
 // 難易度を上げた際に登場するダミーの読み（盤面のどの札にも対応しない）。
@@ -56,12 +61,23 @@ const DECOYS = [
   { id: 'decoy8', yomi: '第三者に通信内容を読み取られないよう、データを別の形式に変換すること', tori: '暗号化' },
 ];
 
-// 試合ごとに使用する札のID（試合の難易度順に分割）
+// 難易度帯ごとの札ID（30枚を易しい／普通／難しいの3帯に分割）
 const ROUND_CARD_IDS = {
-  1: [1, 2, 3, 5, 10, 13, 16, 23, 26, 28],   // 易しい: CPU, メモリ, ストレージ, インターネット, Webブラウザ, パスワード, 個人情報, SNS, QRコード, AI
-  2: [4, 6, 12, 14, 17, 21, 24, 27, 29, 30],  // 普通: OS, LAN, マルウェア, 二段階認証, 著作権, バックアップ, 表計算ソフト, IoT, プレゼンテーションソフト, 電子商取引
-  3: [7, 8, 9, 11, 15, 18, 19, 20, 22, 25],   // 難しい: IPアドレス, DNS, HTTP, ファイアウォール, フィッシング詐欺, 二進数, ビット, バイト, クラウドコンピューティング, データベース
+  1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  2: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+  3: [21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
 };
+
+// 1試合で読み上げる30枚の並び順を作る。易→普通→難の帯順に並べ、
+// 各帯の中だけシャッフルすることで、試合が進む（終盤に近づく）ほど
+// 難易度の高い用語が出るようにする。
+function buildDifficultyOrderedCardIds() {
+  return [
+    ...shuffle(ROUND_CARD_IDS[1]),
+    ...shuffle(ROUND_CARD_IDS[2]),
+    ...shuffle(ROUND_CARD_IDS[3]),
+  ];
+}
 
 // ダミー読みの発生確率を試合進行に応じて動的に計算する
 // 序盤は低く、中盤・終盤に向けて上昇。試合回が上がるほど全体の水準も上がる。
@@ -255,9 +271,13 @@ function assignHouses() {
   return houses;
 }
 
+// gs.cardOrder（易→普通→難の順に並んでいる）に沿って、まだ残っている
+// 最初の札を返す。ランダムに選ぶと終盤ほど難しくなる並びが崩れてしまうため、
+// 必ずこの順で読み上げる。
 function pickNext() {
-  const avail = KARUTA.filter(k => gs.remaining.has(k.id));
-  return avail.length ? avail[Math.floor(Math.random() * avail.length)] : null;
+  const nextId = gs.cardOrder.find(id => gs.remaining.has(id));
+  if (nextId === undefined) return null;
+  return KARUTA.find(k => k.id === nextId) || null;
 }
 
 // ── CPU helpers ───────────────────────────────────────────
@@ -777,18 +797,18 @@ function eventCutCounts(poolSize) {
   return { pass, lose: poolSize - pass };
 }
 
-// 大会モードの1試合を開始する（暗記フェーズから）。cardTier は 1〜3（ROUND_CARD_IDS のキー）。
-function startEventMatch(participantIds, cardTier) {
+// 大会モードの1試合を開始する（暗記フェーズから）。30枚すべてを易→難の順で使う。
+function startEventMatch(participantIds) {
   gs.event.participantIds = new Set(participantIds);
   removeCpuPlayers();
   participantIds.forEach(id => {
     if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].misses = 0; }
   });
 
-  const cardIds = ROUND_CARD_IDS[cardTier] || ROUND_CARD_IDS[1];
+  const cardIds = buildDifficultyOrderedCardIds();
   const cards   = KARUTA.filter(k => cardIds.includes(k.id));
   gs.remaining      = new Set(cardIds);
-  gs.cardOrder      = shuffle(cardIds);
+  gs.cardOrder      = cardIds;
   gs.currentCard    = null;
   gs.currentDecoy   = null;
   gs.phase          = 'memorizing';
@@ -1073,10 +1093,6 @@ io.on('connection', socket => {
     const cpuDiff = opts && opts.cpuDifficulty;
     gs.difficulty     = ['easy', 'normal', 'hard'].includes(diff)    ? diff    : 'normal';
     gs.cpuDifficulty  = ['easy', 'normal', 'hard'].includes(cpuDiff) ? cpuDiff : 'normal';
-    if (opts && opts.survivorCount) {
-      const n = parseInt(opts.survivorCount, 10);
-      if (!isNaN(n) && n >= 1) gs.survivorCount = n;
-    }
 
     // トーナメント状態をフルリセット
     gs.round               = 1;
@@ -1097,12 +1113,13 @@ io.on('connection', socket => {
 
     addCpuPlayers();
     const { humanCount, cpuCount, totalCount } = computeHeadcount();
+    gs.survivorCount = eventCutCounts(totalCount).pass;
 
-    const roundCardIds = ROUND_CARD_IDS[1];
+    const roundCardIds = buildDifficultyOrderedCardIds();
     const roundCards   = KARUTA.filter(k => roundCardIds.includes(k.id));
     gs.phase          = 'memorizing';
     gs.remaining      = new Set(roundCardIds);
-    gs.cardOrder      = shuffle(roundCardIds);
+    gs.cardOrder      = roundCardIds;
     gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
 
     io.emit('memorize_start', {
@@ -1231,14 +1248,6 @@ io.on('connection', socket => {
     io.emit('players_updated', gs.players);
   });
 
-  // ── 通過人数設定（ホストのみ）────────────────────────────
-  socket.on('set_survivor_count', ({ count }) => {
-    if (socket.id !== gs.hostId) return;
-    const n = parseInt(count, 10);
-    if (!isNaN(n) && n >= 1) gs.survivorCount = n;
-    io.emit('survivor_count_updated', { survivorCount: gs.survivorCount });
-  });
-
   // ── 次の試合を開始（ホストのみ）─────────────────────────
   socket.on('start_next_round', () => {
     if (socket.id !== gs.hostId || gs.phase !== 'round_finished') return;
@@ -1256,10 +1265,10 @@ io.on('connection', socket => {
 
     removeCpuPlayers();
 
-    const roundCardIds = ROUND_CARD_IDS[gs.round];
+    const roundCardIds = buildDifficultyOrderedCardIds();
     const roundCards   = KARUTA.filter(k => roundCardIds.includes(k.id));
     gs.remaining      = new Set(roundCardIds);
-    gs.cardOrder      = shuffle(roundCardIds);
+    gs.cardOrder      = roundCardIds;
     gs.currentCard    = null;
     gs.currentDecoy   = null;
 
@@ -1267,6 +1276,7 @@ io.on('connection', socket => {
 
     addCpuPlayers();
     const { humanCount, cpuCount, totalCount } = computeHeadcount({ excludeEliminated: true });
+    gs.survivorCount = eventCutCounts(totalCount).pass;
 
     gs.phase          = 'memorizing';
     gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
@@ -1287,7 +1297,7 @@ io.on('connection', socket => {
   });
 
   // ── 敗者復活戦を開始（ホストのみ）———任意ユーザー選択対応
-  socket.on('start_revival', ({ selectedIds, revivalSurvivorCount: clientSurv } = {}) => {
+  socket.on('start_revival', ({ selectedIds } = {}) => {
     if (socket.id !== gs.hostId || gs.phase !== 'round_finished') return;
 
     const allEliminated = Object.entries(gs.players)
@@ -1301,12 +1311,12 @@ io.on('connection', socket => {
     if (participants.length === 0) return;
 
     // 復活戦トーナメント初期化
+    // 通過人数は自動算出（中間ラウンドは6割・最終ラウンドの本戦復帰は約1/3）。
     gs.isRevival            = true;
     gs.revivalRound         = 1;
     gs.revivalMaxRounds     = 3;
-    gs.revivalSurvivorCount = (clientSurv && !isNaN(parseInt(clientSurv, 10)))
-      ? Math.max(1, parseInt(clientSurv, 10))
-      : Math.max(1, Math.ceil(participants.length * 0.6));
+    gs.revivalSurvivorCount = Math.max(1, Math.ceil(participants.length * 0.6));
+    gs.revivalCount         = eventCutCounts(participants.length).pass;
     gs.revivalEliminated    = new Set();
     gs.lastRoundResult      = null;
 
@@ -1316,10 +1326,10 @@ io.on('connection', socket => {
     });
     const { humanCount, cpuCount, totalCount } = computeHeadcount({ participantIds: new Set(participants) });
 
-    const revivalCardIds = ROUND_CARD_IDS[1];
+    const revivalCardIds = buildDifficultyOrderedCardIds();
     const revivalCards   = KARUTA.filter(k => revivalCardIds.includes(k.id));
     gs.remaining      = new Set(revivalCardIds);
-    gs.cardOrder      = shuffle(revivalCardIds);
+    gs.cardOrder      = revivalCardIds;
     gs.currentCard    = null;
     gs.currentDecoy   = null;
 
@@ -1346,13 +1356,10 @@ io.on('connection', socket => {
   });
 
   // ── 次の復活戦ラウンドを開始（ホストのみ）─────────────────
-  socket.on('start_next_revival_round', ({ revivalSurvivorCount } = {}) => {
+  socket.on('start_next_revival_round', () => {
     if (socket.id !== gs.hostId || gs.phase !== 'round_finished' || !gs.isRevival) return;
 
     gs.revivalRound++;
-    if (revivalSurvivorCount && !isNaN(parseInt(revivalSurvivorCount, 10))) {
-      gs.revivalSurvivorCount = Math.max(1, parseInt(revivalSurvivorCount, 10));
-    }
     gs.lastRoundResult = null;
 
     removeCpuPlayers();
@@ -1363,11 +1370,14 @@ io.on('connection', socket => {
       .map(([id]) => id);
     activeRevivalIds.forEach(id => { gs.players[id].score = 0; gs.players[id].misses = 0; });
     const { humanCount, cpuCount, totalCount } = computeHeadcount({ participantIds: new Set(activeRevivalIds) });
+    // 通過人数は自動算出（このラウンドが最終ラウンドなら本戦復帰人数として使う）
+    gs.revivalSurvivorCount = Math.max(1, Math.ceil(activeRevivalIds.length * 0.6));
+    gs.revivalCount         = eventCutCounts(activeRevivalIds.length).pass;
 
-    const cardIds = ROUND_CARD_IDS[Math.min(gs.revivalRound, 3)];
+    const cardIds = buildDifficultyOrderedCardIds();
     const cards   = KARUTA.filter(k => cardIds.includes(k.id));
     gs.remaining      = new Set(cardIds);
-    gs.cardOrder      = shuffle(cardIds);
+    gs.cardOrder      = cardIds;
     gs.currentCard    = null;
     gs.currentDecoy   = null;
     gs.phase          = 'memorizing';
@@ -1392,16 +1402,6 @@ io.on('connection', socket => {
     memorizeTimer = setTimeout(doStartPlaying, MEMO_SECONDS * 1000);
   });
 
-  // ── 復活戦通過人数を更新（ホストのみ）─────────────────────
-  socket.on('set_revival_survivor_count', ({ revivalSurvivorCount: n }) => {
-    if (socket.id !== gs.hostId || !gs.isRevival) return;
-    const v = parseInt(n, 10);
-    if (!isNaN(v) && v >= 1) {
-      gs.revivalSurvivorCount = v;
-      io.emit('revival_survivor_count_updated', { revivalSurvivorCount: gs.revivalSurvivorCount });
-    }
-  });
-
   // ── グループ戦を開始（ホストのみ、最終試合後またはロビーから）──────────────
   socket.on('start_group_match', ({ tier }) => {
     if (socket.id !== gs.hostId) return;
@@ -1417,7 +1417,6 @@ io.on('connection', socket => {
     gs.groupTier           = tier;
     gs.groupRound          = 1;
     gs.groupMaxRounds      = 3;
-    gs.groupSurvivorCount  = 3;
     gs.groupEliminated     = new Set();
     gs.lastRoundResult     = null;
 
@@ -1443,11 +1442,12 @@ io.on('connection', socket => {
     gs.groupParticipantIds = new Set([...humanIds, ...tierCpuIds]);
     addGroupCpuPlayers();
     const { cpuCount: groupCpuCount } = computeHeadcount({ participantIds: gs.groupParticipantIds });
+    gs.groupSurvivorCount = eventCutCounts(gs.groupParticipantIds.size).pass;
 
-    const cardIds = ROUND_CARD_IDS[1];
+    const cardIds = buildDifficultyOrderedCardIds();
     const cards   = KARUTA.filter(k => cardIds.includes(k.id));
     gs.remaining      = new Set(cardIds);
-    gs.cardOrder      = shuffle(cardIds);
+    gs.cardOrder      = cardIds;
     gs.currentCard    = null;
     gs.currentDecoy   = null;
     gs.phase          = 'memorizing';
@@ -1480,13 +1480,10 @@ io.on('connection', socket => {
   });
 
   // ── グループ戦次ラウンド開始（ホストのみ）───────────────────
-  socket.on('start_next_group_round', ({ groupSurvivorCount: clientSurv } = {}) => {
+  socket.on('start_next_group_round', () => {
     if (socket.id !== gs.hostId || gs.phase !== 'round_finished' || !gs.isGroupMatch) return;
 
     gs.groupRound++;
-    if (clientSurv && !isNaN(parseInt(clientSurv, 10))) {
-      gs.groupSurvivorCount = Math.max(1, parseInt(clientSurv, 10));
-    }
     gs.lastRoundResult = null;
 
     removeCpuPlayers();
@@ -1502,11 +1499,12 @@ io.on('connection', socket => {
     gs.groupParticipantIds = new Set([...activeHumanIds, ...tierCpuIds]);
     addGroupCpuPlayers();
     const { cpuCount: groupCpuCount } = computeHeadcount({ participantIds: gs.groupParticipantIds });
+    gs.groupSurvivorCount = eventCutCounts(gs.groupParticipantIds.size).pass;
 
-    const cardIds = ROUND_CARD_IDS[Math.min(gs.groupRound, 3)];
+    const cardIds = buildDifficultyOrderedCardIds();
     const cards   = KARUTA.filter(k => cardIds.includes(k.id));
     gs.remaining      = new Set(cardIds);
-    gs.cardOrder      = shuffle(cardIds);
+    gs.cardOrder      = cardIds;
     gs.currentCard    = null;
     gs.currentDecoy   = null;
     gs.phase          = 'memorizing';
@@ -1537,23 +1535,7 @@ io.on('connection', socket => {
     memorizeTimer = setTimeout(doStartPlaying, MEMO_SECONDS * 1000);
   });
 
-  // ── グループ戦通過人数設定（ホストのみ）──────────────────────
-  socket.on('set_group_survivor_count', ({ groupSurvivorCount: n }) => {
-    if (socket.id !== gs.hostId || !gs.isGroupMatch) return;
-    const v = parseInt(n, 10);
-    if (!isNaN(v) && v >= 1) {
-      gs.groupSurvivorCount = v;
-      io.emit('group_survivor_count_updated', { groupSurvivorCount: gs.groupSurvivorCount });
-    }
-  });
 
-  // ── 復活人数設定（ホストのみ）────────────────────────────
-  socket.on('set_revival_count', ({ count }) => {
-    if (socket.id !== gs.hostId) return;
-    const n = parseInt(count, 10);
-    if (!isNaN(n) && n >= 1) gs.revivalCount = n;
-    io.emit('revival_count_updated', { revivalCount: gs.revivalCount });
-  });
 
   // ── 大会モードを開始（ホストのみ）─────────────────────────
   // その時点で参加登録済み（joined）の人間プレイヤー全員を対象に第1試合を開始する。
@@ -1575,7 +1557,7 @@ io.on('connection', socket => {
     gs.event.stage = participantIds.length <= EVENT_SEMIS_THRESHOLD ? 'semis' : 'main';
 
     removeCpuPlayers();
-    startEventMatch(participantIds, gs.event.stage === 'semis' ? 3 : 1);
+    startEventMatch(participantIds);
   });
 
   // ── 大会モードの次の試合へ進む（ホストのみ）───────────────
@@ -1585,9 +1567,9 @@ io.on('connection', socket => {
     if (socket.id !== gs.hostId || !gs.event.active || gs.phase !== 'round_finished') return;
 
     const stage = gs.event.stage;
-    if (stage === 'final5')       { startEventMatch(gs.event.finalists,  3); return; }
-    if (stage === 'thirdplace')   { startEventMatch(gs.event.restThree,  3); return; }
-    if (stage === 'championship') { startEventMatch(gs.event.top2,       3); return; }
+    if (stage === 'final5')       { startEventMatch(gs.event.finalists); return; }
+    if (stage === 'thirdplace')   { startEventMatch(gs.event.restThree); return; }
+    if (stage === 'championship') { startEventMatch(gs.event.top2);      return; }
     if (stage === 'done') return;
 
     if (which === 'revival') {
@@ -1595,14 +1577,14 @@ io.on('connection', socket => {
       const pool = [...gs.event.revivalCandidates];
       gs.event.revivalCandidates = new Set();
       gs.event.stage = 'revival';
-      startEventMatch(pool, 2);
+      startEventMatch(pool);
       return;
     }
 
     if (gs.event.mainPool.size === 0) return;
     const pool = [...gs.event.mainPool];
     gs.event.stage = pool.length <= EVENT_SEMIS_THRESHOLD ? 'semis' : 'main';
-    startEventMatch(pool, gs.event.stage === 'semis' ? 3 : 1);
+    startEventMatch(pool);
   });
 
   // ── Back to lobby ────────────────────────────────────────

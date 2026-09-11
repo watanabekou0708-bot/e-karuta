@@ -1,37 +1,42 @@
 'use strict';
 
-// ── Karuta data ───────────────────────────────────────────
+// ── Karuta data（J検（情報活用試験）3級レベル＋Excel関数）─────
+// ids 1-10: 易しい（試合序盤） / 11-20: 普通（試合中盤） / 21-30: 難しい（試合終盤）
+// サーバー側 server.js の KARUTA と内容を一致させること。
 const KARUTA = [
+  // 易しい（1〜10）
   { id:  1, yomi: 'コンピューターの頭脳と呼ばれ、計算と命令の処理を担う装置',             tori: 'CPU' },
   { id:  2, yomi: '電源を切ると消えてしまう、作業中のデータを一時的に保管する主記憶装置', tori: 'メモリ' },
   { id:  3, yomi: '電源を切っても消えない、写真や文書を永続的に記憶する補助記憶装置',     tori: 'ストレージ' },
-  { id:  4, yomi: 'ハードウェアを管理し、アプリケーションが動く土台となるソフトウェア',   tori: 'OS' },
-  { id:  5, yomi: '世界中のコンピューターをつないだ、巨大な情報通信ネットワーク',         tori: 'インターネット' },
-  { id:  6, yomi: '会社や学校など限られた範囲で、コンピューターをつなぐネットワーク',     tori: 'LAN' },
-  { id:  7, yomi: 'ネットワーク上の住所にあたる、コンピューターを識別するための番号',     tori: 'IPアドレス' },
-  { id:  8, yomi: 'ドメイン名をIPアドレスに変換する、インターネットの電話帳のような仕組み', tori: 'DNS' },
-  { id:  9, yomi: 'ウェブブラウザとサーバーがページをやり取りするための通信の規則',       tori: 'HTTP' },
-  { id: 10, yomi: 'URLを入力してウェブページを閲覧するためのソフトウェア',               tori: 'Webブラウザ' },
-  { id: 11, yomi: '外部からの不正アクセスを防ぐため、ネットワークの境界に設置する仕組み', tori: 'ファイアウォール' },
-  { id: 12, yomi: 'コンピューターに害を与える目的で作られた、悪意のあるソフトウェアの総称', tori: 'マルウェア' },
-  { id: 13, yomi: '推測されにくい文字列で、アカウントへの不正アクセスを防ぐ秘密の認証情報', tori: 'パスワード' },
-  { id: 14, yomi: 'パスワードに加えてスマートフォンなどで本人確認する、二段階の認証方式', tori: '二段階認証' },
-  { id: 15, yomi: '実在する企業を装った偽のメールやサイトで、個人情報を盗もうとする攻撃', tori: 'フィッシング詐欺' },
-  { id: 16, yomi: '氏名・住所・電話番号など、特定の個人を識別できる情報のこと',           tori: '個人情報' },
-  { id: 17, yomi: '他人が作った著作物を、許可なく複製・配布することを禁ずる権利',         tori: '著作権' },
-  { id: 18, yomi: 'デジタルデータを0と1の二つの数字だけで表す方法',                       tori: '二進数' },
-  { id: 19, yomi: 'デジタルデータの最小単位で、0か1かを表す一桁分の情報量',               tori: 'ビット' },
-  { id: 20, yomi: '8ビットをまとめたデータの単位で、ファイルサイズを表す基本単位',         tori: 'バイト' },
-  { id: 21, yomi: '大切なデータを失わないよう、別の場所にコピーを保存しておく作業',       tori: 'バックアップ' },
-  { id: 22, yomi: 'インターネット経由でサーバーやソフトウェアをサービスとして利用する形態', tori: 'クラウドコンピューティング' },
-  { id: 23, yomi: '友人や知人とつながり、メッセージや写真などを共有するインターネットサービス', tori: 'SNS' },
-  { id: 24, yomi: '行と列の表に数式を入力し、データの計算や分析を行うソフトウェア',       tori: '表計算ソフト' },
+  { id:  4, yomi: '世界中のコンピューターをつないだ、巨大な情報通信ネットワーク',         tori: 'インターネット' },
+  { id:  5, yomi: '推測されにくい文字列で、アカウントへの不正アクセスを防ぐ秘密の認証情報', tori: 'パスワード' },
+  { id:  6, yomi: 'Excelの表を構成する、行と列が交差する一つの升目',                     tori: 'セル' },
+  { id:  7, yomi: 'Excelでデータを入力する、複数集めるとブックになる1枚の作業画面',       tori: 'ワークシート' },
+  { id:  8, yomi: '指定した範囲の数値をすべて合計するExcelの基本関数',                   tori: 'SUM関数' },
+  { id:  9, yomi: '指定した範囲の数値の平均値を求めるExcel関数',                         tori: 'AVERAGE関数' },
+  { id: 10, yomi: 'セルの右下をドラッグすることで、連続データや数式を隣のセルへ自動入力する機能', tori: 'オートフィル' },
+  // 普通（11〜20）
+  { id: 11, yomi: 'ハードウェアを管理し、アプリケーションが動く土台となるソフトウェア',   tori: 'OS' },
+  { id: 12, yomi: '会社や学校など限られた範囲で、コンピューターをつなぐネットワーク',     tori: 'LAN' },
+  { id: 13, yomi: 'パスワードに加えてスマートフォンなどで本人確認する、二段階の認証方式', tori: '二段階認証' },
+  { id: 14, yomi: '他人が作った著作物を、許可なく複製・配布することを禁ずる権利',         tori: '著作権' },
+  { id: 15, yomi: 'コンピューターに害を与える目的で作られた、悪意のあるソフトウェアの総称', tori: 'マルウェア' },
+  { id: 16, yomi: '数式をコピーすると、参照するセルの位置が自動的にずれるExcelの標準的な参照方式', tori: '相対参照' },
+  { id: 17, yomi: '数式をコピーしてもセルの参照先が変わらないようにする、$記号を使ったExcelの指定方法', tori: '絶対参照' },
+  { id: 18, yomi: '条件を満たすかどうかで異なる結果を返す、Excelの代表的な条件分岐関数', tori: 'IF関数' },
+  { id: 19, yomi: '指定した条件に一致するセルの個数を数えるExcel関数',                   tori: 'COUNTIF関数' },
+  { id: 20, yomi: '指定した桁数で数値を四捨五入するExcel関数',                           tori: 'ROUND関数' },
+  // 難しい（21〜30）
+  { id: 21, yomi: 'ネットワーク上の住所にあたる、コンピューターを識別するための番号',     tori: 'IPアドレス' },
+  { id: 22, yomi: 'ドメイン名をIPアドレスに変換する、インターネットの電話帳のような仕組み', tori: 'DNS' },
+  { id: 23, yomi: '実在する企業を装った偽のメールやサイトで、個人情報を盗もうとする攻撃', tori: 'フィッシング詐欺' },
+  { id: 24, yomi: 'インターネット経由でサーバーやソフトウェアをサービスとして利用する形態', tori: 'クラウドコンピューティング' },
   { id: 25, yomi: '大量のデータを整理して保存し、素早く検索・更新・抽出できる仕組み',     tori: 'データベース' },
-  { id: 26, yomi: 'カメラで読み取る、白黒のドットで情報を表す二次元コード',               tori: 'QRコード' },
-  { id: 27, yomi: '身の回りの家電や機器がインターネットにつながり、連携する仕組み',       tori: 'IoT' },
-  { id: 28, yomi: '大量のデータをもとにコンピューターが自ら学習し、判断する技術',         tori: 'AI' },
-  { id: 29, yomi: 'スライドを作成して画面に映し、視覚的に情報を伝えるためのソフトウェア', tori: 'プレゼンテーションソフト' },
-  { id: 30, yomi: 'インターネットで商品の売買や代金の決済を行う、オンラインの商取引',     tori: '電子商取引' },
+  { id: 26, yomi: '指定した範囲の左端の列を縦方向に検索し、対応する値を返すExcelの検索関数', tori: 'VLOOKUP関数' },
+  { id: 27, yomi: '指定した条件に一致するセルの数値だけを合計するExcel関数',             tori: 'SUMIF関数' },
+  { id: 28, yomi: '数式がエラーになった場合に、代わりの値を表示させるExcel関数',         tori: 'IFERROR関数' },
+  { id: 29, yomi: '指定した範囲の中から、行と列の番号で位置を指定してデータを取り出すExcel関数', tori: 'INDEX関数' },
+  { id: 30, yomi: '大量のデータを集計・分析し、視点を変えて自在に表を組み替えられるExcelの機能', tori: 'ピボットテーブル' },
 ];
 const KMAP = Object.fromEntries(KARUTA.map(k => [k.id, k]));
 
@@ -586,21 +591,6 @@ function selectCpuDifficulty(d) {
   });
 }
 
-function setSurvivorCount(val) {
-  const newVal = Math.max(1, parseInt(val, 10) || 1);
-  survivorCount = newVal;
-  // ロビー・ラウンド結果の両方の入力欄を同期
-  const lobbyEl = $('survivorInput');
-  const rrEl    = $('rrSurvInput');
-  if (lobbyEl && document.activeElement !== lobbyEl) lobbyEl.value = newVal;
-  if (rrEl    && document.activeElement !== rrEl)    rrEl.value    = newVal;
-  socket.emit('set_survivor_count', { count: newVal });
-}
-
-function adjustSurvivorCount(delta) {
-  setSurvivorCount(survivorCount + delta);
-}
-
 function startGame() {
   const btn = $('lobbyStartBtn');
   if (btn) btn.disabled = true;
@@ -611,7 +601,6 @@ function startGame() {
     socket.emit('start_game', {
       difficulty:    selectedDifficulty,
       cpuDifficulty: selectedCpuDifficulty,
-      survivorCount,
     });
   }
 }
@@ -621,54 +610,15 @@ function startNextRound() {
 }
 
 function startRevival() {
-  const inp = $('rrRevivalSurvInput');
-  if (inp) revivalSurvivorCount = Math.max(1, parseInt(inp.value, 10) || revivalSurvivorCount);
-  socket.emit('start_revival', { selectedIds: [...revivalSelectedIds], revivalSurvivorCount });
+  socket.emit('start_revival', { selectedIds: [...revivalSelectedIds] });
 }
 
 function startNextRevivalRound() {
-  const inp = $('rrRevivalInterSurvInput');
-  if (inp) revivalSurvivorCount = Math.max(1, parseInt(inp.value, 10) || revivalSurvivorCount);
-  socket.emit('start_next_revival_round', { revivalSurvivorCount });
+  socket.emit('start_next_revival_round');
 }
 
 function startNextGroupRound() {
-  const inp = $('rrGroupInterSurvInput');
-  if (inp) groupSurvivorCount = Math.max(1, parseInt(inp.value, 10) || groupSurvivorCount);
-  socket.emit('start_next_group_round', { groupSurvivorCount });
-}
-
-function setGroupSurvivorCount(v) {
-  const n = parseInt(v, 10);
-  if (!isNaN(n) && n >= 1) {
-    groupSurvivorCount = n;
-    const inp = $('rrGroupInterSurvInput');
-    if (inp && document.activeElement !== inp) inp.value = n;
-    socket.emit('set_group_survivor_count', { groupSurvivorCount: n });
-  }
-}
-
-function adjustGroupSurvivorCount(delta) {
-  const inp = $('rrGroupInterSurvInput');
-  const current = inp ? parseInt(inp.value, 10) || groupSurvivorCount : groupSurvivorCount;
-  setGroupSurvivorCount(Math.max(1, current + delta));
-}
-
-function setRevivalSurvivorCount(v) {
-  const n = parseInt(v, 10);
-  if (!isNaN(n) && n >= 1) {
-    revivalSurvivorCount = n;
-    const i1 = $('rrRevivalSurvInput');      if (i1 && document.activeElement !== i1) i1.value = n;
-    const i2 = $('rrRevivalInterSurvInput'); if (i2 && document.activeElement !== i2) i2.value = n;
-    socket.emit('set_revival_survivor_count', { revivalSurvivorCount: n });
-  }
-}
-
-function adjustRevivalSurvivorCount(delta) {
-  const inp = $('rrRevivalInterSurvInput') || $('rrRevivalSurvInput');
-  const current = inp ? parseInt(inp.value, 10) || revivalSurvivorCount : revivalSurvivorCount;
-  const next = Math.max(1, current + delta);
-  setRevivalSurvivorCount(next);
+  socket.emit('start_next_group_round');
 }
 
 // ── 大会モード（1/8本番用）ホスト操作 ───────────────────────
@@ -762,18 +712,6 @@ function renderRevivalUserList(players) {
   }
 }
 
-function setRevivalCount(val) {
-  const newVal = Math.max(1, parseInt(val, 10) || 1);
-  revivalCount = newVal;
-  const el = $('rrRevivalInput');
-  if (el && document.activeElement !== el) el.value = newVal;
-  socket.emit('set_revival_count', { count: newVal });
-}
-
-function adjustRevivalCount(delta) {
-  setRevivalCount(revivalCount + delta);
-}
-
 // ── House assignment（ハウス編成・大会モード）───────────────
 const HOUSE_LABELS = { A: '🔴 Aハウス', B: '🔵 Bハウス', C: '🟢 Cハウス', D: '🟡 Dハウス' };
 let myHouse        = null;
@@ -840,8 +778,6 @@ function updateLobbyUI() {
       ? 'ホストがゲームを開始するまでお待ちください'
       : 'ホストがモードを選択するまでお待ちください';
   }
-  const survInput = $('survivorInput');
-  if (survInput) survInput.value = survivorCount;
 }
 
 function updateLobbyRevivalUI() {
@@ -930,8 +866,10 @@ function updateHostNotice() {
   const roundLabel = isEventMode
     ? (eventStageLabel || '大会モード')
     : isGroupMatch
-    ? `${groupTierName}グループ戦 R${groupRound}／${groupMaxRounds}${groupHumanCount > 0 ? ` (${groupHumanCount}人)` : ''}`
-    : isRevivalMode ? `敗者復活戦 R${revivalRound}／${revivalMaxRounds}` : `第${currentRound}試合`;
+    ? `${groupTierName}グループ戦 R${groupRound}／${groupMaxRounds}${groupHumanCount > 0 ? ` (${groupHumanCount}人)` : ''}（通過${groupSurvivorCount}人）`
+    : isRevivalMode
+    ? `敗者復活戦 R${revivalRound}／${revivalMaxRounds}（通過${revivalRound >= revivalMaxRounds ? revivalCount : revivalSurvivorCount}人）`
+    : `第${currentRound}試合（通過${survivorCount}人）`;
   if (rb) {
     rb.textContent = roundLabel;
     rb.classList.toggle('hidden', !gameStarted || isArranging);
@@ -1197,6 +1135,8 @@ let arrangeInterval = null;
 let cardLayout = {};   // id → { xPct, yPct, rot, zone: 'top'|'bottom' }（試合ごとにリセット）
 
 // 上半分・下半分それぞれの帯の中で、間隔・位置・向きがバラバラになるよう配置する。
+// 30枚（各半分15枚）を1行に並べると重なってしまうため、列×行のグリッドに
+// ざっくり割り付けたうえでジッターを加えて「きれいに整列しすぎない」見た目にする。
 function generateCardLayout(cardOrder) {
   cardLayout = {};
   const half   = Math.ceil(cardOrder.length / 2);
@@ -1204,11 +1144,17 @@ function generateCardLayout(cardOrder) {
   const botIds = cardOrder.slice(half);
   const place = (ids, zone, yMin, yMax) => {
     const n = ids.length || 1;
+    const cols = Math.min(n, Math.max(1, Math.ceil(Math.sqrt(n * 2))));
+    const rows = Math.ceil(n / cols);
+    const colW = 100 / cols;
+    const rowH = (yMax - yMin) / rows;
     ids.forEach((id, i) => {
-      const slotW    = 100 / n;
-      const jitterX  = (Math.random() - 0.5) * slotW * 0.6;
-      const xPct     = Math.min(95, Math.max(5, slotW * i + slotW / 2 + jitterX));
-      const yPct     = yMin + Math.random() * (yMax - yMin);
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const jitterX = (Math.random() - 0.5) * colW * 0.3;
+      const jitterY = (Math.random() - 0.5) * rowH * 0.3;
+      const xPct = Math.min(97, Math.max(3, colW * col + colW / 2 + jitterX));
+      const yPct = Math.min(yMax - 1, Math.max(yMin + 1, yMin + rowH * row + rowH / 2 + jitterY));
       // 上半分（相手側）は自分から見て逆さま、下半分は本物のかるたのように全方向バラバラ
       const rot = zone === 'top'
         ? 180 + Math.round(Math.random() * 24 - 12)
@@ -1216,8 +1162,8 @@ function generateCardLayout(cardOrder) {
       cardLayout[id] = { xPct, yPct, rot, zone };
     });
   };
-  place(topIds, 'top', 6, 34);
-  place(botIds, 'bottom', 66, 94);
+  place(topIds, 'top', 4, 47);
+  place(botIds, 'bottom', 53, 96);
 }
 
 // 現在の cardOrder に対応する配置が無ければ新規生成する（未整理での参加・ホストなど）
@@ -1458,20 +1404,14 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
   const modeTabs      = $('rrModeTabs');
   const mainSec       = $('rrMainSection');
   const revivalSec    = $('rrRevivalSection');
-  const survivorPicker= $('rrSurvivorPicker');
   const guestWait     = $('rrGuestWait');
   const lobbyBtn      = $('rrLobbyBtn');
   const nextLabel     = $('rrNextRoundLabel');
-  const nextNum       = $('rrNextRoundNum');
-  const rrSurvInp     = $('rrSurvInput');
-  const rrRevInp      = $('rrRevivalInput');
 
   const revivalInterSec  = $('rrRevivalInterSection');
   const rrRevRoundLbl    = $('rrRevivalRoundLabel');
-  const rrRevSurvInp     = $('rrRevivalInterSurvInput');
   const groupInterSec    = $('rrGroupInterSection');
   const rrGroupRoundLbl  = $('rrGroupRoundLabel');
-  const rrGroupSurvInp   = $('rrGroupInterSurvInput');
 
   // 全セクションを初期化（hidden）
   [modeTabs, mainSec, revivalSec, revivalInterSec, groupInterSec].forEach(el => el && el.classList.add('hidden'));
@@ -1480,19 +1420,17 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
 
   const tierLblForCtrl = currentGroupTier === 'top' ? '上位' : currentGroupTier === 'middle' ? '中位' : '下位';
   if (isGroupMatchIntermediate) {
-    // グループ戦中間ラウンド後
+    // グループ戦中間ラウンド後（通過人数は自動決定・次ラウンド開始後に表示）
     const nextR = (gRound || groupRound) + 1;
     if (rrGroupRoundLbl) rrGroupRoundLbl.textContent = `${tierLblForCtrl}グループ 第${gRound || groupRound}ラウンド終了 → 第${nextR}ラウンドへ`;
-    if (rrGroupSurvInp)  rrGroupSurvInp.value = groupSurvivorCount;
     if (myIsHost) {
       if (groupInterSec) groupInterSec.classList.remove('hidden');
     } else {
       if (guestWait) guestWait.classList.remove('hidden');
     }
   } else if (isRevivalIntermediate) {
-    // 復活戦中間ラウンド後
+    // 復活戦中間ラウンド後（通過人数は自動決定・次ラウンド開始後に表示）
     if (rrRevRoundLbl) rrRevRoundLbl.textContent = `復活戦 第${rRound || revivalRound}ラウンド終了 → 第${(rRound || revivalRound) + 1}ラウンドへ`;
-    if (rrRevSurvInp)  rrRevSurvInp.value = revivalSurvivorCount;
     if (myIsHost) {
       if (revivalInterSec) revivalInterSec.classList.remove('hidden');
     } else {
@@ -1514,18 +1452,15 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
       return;
     }
   } else if (isRevival) {
-    // 復活戦後：次試合モードのみ（ホスト）
+    // 復活戦後：次試合モードのみ（ホスト）。通過人数は自動決定・次試合開始後に表示。
     if (myIsHost) {
       if (mainSec) mainSec.classList.remove('hidden');
       if (nextLabel) nextLabel.textContent = round + 1;
-      if (nextNum)   nextNum.textContent   = round + 1;
-      if (rrSurvInp) rrSurvInp.value       = survivorCount;
-      if (survivorPicker) survivorPicker.classList.remove('hidden');
     } else {
       if (guestWait) guestWait.classList.remove('hidden');
     }
   } else {
-    // 通常試合後：モードタブ（ホスト）
+    // 通常試合後：モードタブ（ホスト）。通過人数は自動決定・次試合開始後に表示。
     if (myIsHost) {
       const hasElim = Object.entries(players)
         .some(([id, p]) => liveEliminatedIds.has(id) && !p.isBot && p.joined && id !== liveHostId);
@@ -1533,12 +1468,8 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
       if (hasElim && modeTabs) modeTabs.classList.remove('hidden');
       if (mainSec) mainSec.classList.remove('hidden');
       if (nextLabel) nextLabel.textContent = round + 1;
-      if (nextNum)   nextNum.textContent   = round + 1;
-      if (rrSurvInp) rrSurvInp.value       = survivorCount;
-      if (survivorPicker) survivorPicker.classList.remove('hidden');
 
       if (hasElim) renderRevivalUserList(players);
-      if (rrRevInp) rrRevInp.value = revivalCount;
 
       const tabMain = $('rrTabMain');
       const tabRevival = $('rrTabRevival');
@@ -1851,8 +1782,6 @@ socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRoun
   }
   if (!ir && !ig && sc !== undefined) {
     survivorCount = sc;
-    const sv = $('survivorInput'); if (sv) sv.value = sc;
-    const rv = $('rrSurvInput');   if (rv) rv.value = sc;
   }
   myIsRevivalSpectator = ir && (!liveEliminatedIds.has(myId) || revivalEliminatedIds.has(myId)) && !myIsHost;
   myIsGroupSpectator   = ig && !myIsHost && (!groupParticipantIds.has(myId) || groupEliminatedIds.has(myId));
@@ -2273,24 +2202,6 @@ socket.on('round_finished', ({ round, players, survivorIds, eliminatedIds, survi
   showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal, isRevival, ig, gt, isRevivalIntermediate, rRound, rMax, isGroupMatchIntermediate, gRound, gMax);
 });
 
-socket.on('survivor_count_updated', ({ survivorCount: sc }) => {
-  survivorCount = sc;
-  const sv = $('survivorInput');  if (sv && document.activeElement !== sv) sv.value = sc;
-  const rr = $('rrSurvInput');   if (rr && document.activeElement !== rr) rr.value = sc;
-});
-
-socket.on('revival_survivor_count_updated', ({ revivalSurvivorCount: n }) => {
-  revivalSurvivorCount = n;
-  const i1 = $('rrRevivalSurvInput');      if (i1 && document.activeElement !== i1) i1.value = n;
-  const i2 = $('rrRevivalInterSurvInput'); if (i2 && document.activeElement !== i2) i2.value = n;
-});
-
-socket.on('group_survivor_count_updated', ({ groupSurvivorCount: n }) => {
-  groupSurvivorCount = n;
-  const inp = $('rrGroupInterSurvInput');
-  if (inp && document.activeElement !== inp) inp.value = n;
-});
-
 socket.on('back_to_lobby', ({ players, postTournament: pt, humanGroups: hg, bottomGroupWinners: bw, middleGroupWinners: mw }) => {
   gameStarted          = false;
   myIsSpectator        = false;
@@ -2310,12 +2221,6 @@ socket.on('back_to_lobby', ({ players, postTournament: pt, humanGroups: hg, bott
   if (mw !== undefined) middleGroupWinners = mw;
   updateChips(players);
   openLobby(players);
-});
-
-socket.on('revival_count_updated', ({ revivalCount: rc }) => {
-  revivalCount = rc;
-  const el = $('rrRevivalInput');
-  if (el && document.activeElement !== el) el.value = rc;
 });
 
 socket.on('connect_error', () => {
