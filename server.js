@@ -120,7 +120,7 @@ function hiResNow() {
   return anchorDate + Number(process.hrtime.bigint() - anchorHr) / 1e6;
 }
 
-const MEMO_SECONDS    = 5 * 60;
+const MEMO_SECONDS    = 2.5 * 60;   // 盤面整理タイム（暗記ではなく、取りやすい配置に並べ替える時間）
 const READ_TIMEOUT_MS = 10 * 1000;   // 上の句 / ダミー読み完了後の制限時間
 const GRAB_WINDOW_MS  = 180;   // 正解の最初の申告からこの時間だけ他の候補も受け付ける
 const GRAB_BUCKET_MS  = 70;    // この時間差以内は「同時」とみなし、精度で決着する

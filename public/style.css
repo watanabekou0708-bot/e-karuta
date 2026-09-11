@@ -582,35 +582,14 @@ body {
   padding: .5rem .8rem; margin-bottom: .7rem;
 }
 
-.memo-list {
+.arrange-grid {
   flex: 1; overflow-y: auto; margin: .6rem 0;
-  border: 1px solid var(--border); border-radius: 8px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px;
   min-height: 0;
 }
-
-.memo-row {
-  display: flex; align-items: flex-start; gap: .6rem;
-  padding: .6rem .8rem; border-bottom: 1px solid var(--border);
-}
-.memo-row:last-child { border-bottom: none; }
-.memo-row:nth-child(even) { background: rgba(255,255,255,.03); }
-
-.memo-num {
-  flex-shrink: 0; width: 1.6rem; height: 1.6rem;
-  background: var(--surf2); border: 1px solid var(--border);
-  border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-size: .7rem; color: var(--dim); margin-top: .15rem;
-}
-
-.memo-body { flex: 1; min-width: 0; }
-.memo-yomi {
-  font-size: .82rem; color: var(--text); line-height: 1.5;
-  margin-bottom: .2rem;
-}
-.memo-tori {
-  font-size: .88rem; font-weight: 700; color: var(--accent);
-  background: rgba(74,158,255,.1); border: 1px solid rgba(74,158,255,.25);
-  border-radius: 6px; padding: .15rem .5rem; display: inline-block;
+.arrange-grid .card.arrange-selected {
+  border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent);
+  transform: translateY(-2px);
 }
 
 .btn-revival {

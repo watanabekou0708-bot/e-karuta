@@ -1033,7 +1033,7 @@ function applyInit(d) {
   } else if (['waiting', 'reading', 'decoy', 'announcing'].includes(d.phase)) {
     gameStarted = true;
     hide('oLobby'); hide('oGameOver'); hide('oMemorize'); hide('oRoundResult');
-    renderGrid(d.cardOrder, new Set(d.remaining));
+    renderGrid(effectiveCardOrder(d.cardOrder), new Set(d.remaining));
     renderTop3(d.players);
     $('leftCount').textContent = d.remaining.length;
     $('progFill').style.width = ((liveTotalCards - d.remaining.length) / liveTotalCards * 100).toFixed(1) + '%';
@@ -1134,14 +1134,16 @@ function leaveLobby() {
   location.reload();
 }
 
-// ── Memorization phase ────────────────────────────────────
+// ── Memorization phase（盤面整理タイム）─────────────────────
 let memoInterval = null;
+let myCardOrder       = [];    // 自分が並べ替えたカード順（試合ごとにリセット）
+let arrangeSelectedId = null;  // 入れ替え元として選択中のカードID
 
-function openMemorize(cards, endsAt, players, round, mode) {
+function openMemorize(cardOrder, cards, endsAt, players, round, mode) {
   if (round) currentRound = round;
   hide('oLobby'); hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
   updateChips(players);
-  renderMemoList(cards, round);
+  renderArrangeGrid(cardOrder && cardOrder.length ? cardOrder : cards.map(k => k.id));
   renderMemoHeadcount();
   startMemoCountdown(endsAt);
   const skipBtn = $('memoSkipBtn');
@@ -1150,10 +1152,10 @@ function openMemorize(cards, endsAt, players, round, mode) {
   const title = document.querySelector('#oMemorize .ov-title');
   if (title) {
     const tierLabel = groupTier === 'top' ? '上位' : groupTier === 'middle' ? '中位' : '下位';
-    title.textContent = mode === 'group'   ? `🏆 ${tierLabel}グループ戦 — 暗記タイム`
-                      : mode === 'revival' ? '🔄 敗者復活戦 — 暗記タイム'
-                      : mode === 'event'   ? `🏁 ${eventStageLabel || '大会モード'} — 暗記タイム`
-                      : `🃏 第${currentRound}試合 — 暗記タイム`;
+    title.textContent = mode === 'group'   ? `🏆 ${tierLabel}グループ戦 — 盤面整理タイム`
+                      : mode === 'revival' ? '🔄 敗者復活戦 — 盤面整理タイム'
+                      : mode === 'event'   ? `🏁 ${eventStageLabel || '大会モード'} — 盤面整理タイム`
+                      : `🃏 第${currentRound}試合 — 盤面整理タイム`;
   }
 }
 
@@ -1164,20 +1166,50 @@ function renderMemoHeadcount() {
   el.textContent = `👥 参加者: 人間 ${humanCount}人 + CPU ${cpuCount}人 = 合計 ${totalCount}人`;
 }
 
-function renderMemoList(cards) {
-  const list = $('memoList');
-  list.innerHTML = '';
-  [...cards].sort((a, b) => a.id - b.id).forEach((k, i) => {
-    const row = document.createElement('div');
-    row.className = 'memo-row';
-    row.innerHTML = `
-      <div class="memo-num">${i + 1}</div>
-      <div class="memo-body">
-        <div class="memo-yomi">📢 ${escHtml(k.yomi)}</div>
-        <div class="memo-tori">🃏 ${escHtml(k.tori)}</div>
-      </div>`;
-    list.appendChild(row);
+// 自分が整理した並び（myCardOrder）がこのラウンドの札と一致していればそれを使い、
+// そうでなければ（未整理・ホストなど）サーバーから届いた並びにフォールバックする。
+function effectiveCardOrder(serverOrder) {
+  if (myCardOrder.length === serverOrder.length && myCardOrder.every(id => serverOrder.includes(id))) {
+    return myCardOrder;
+  }
+  return serverOrder;
+}
+
+// 盤面整理タイム用のグリッド。2枚を順にクリックすると位置が入れ替わる。
+// ここで決めた並び（myCardOrder）が、そのまま本番の対局グリッドの並びになる。
+function renderArrangeGrid(cardOrder) {
+  myCardOrder = [...cardOrder];
+  arrangeSelectedId = null;
+  const grid = $('arrangeGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  myCardOrder.forEach(id => {
+    const k = KMAP[id];
+    if (!k) return;
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.dataset.id = id;
+    el.textContent = k.tori;
+    el.addEventListener('click', () => onArrangeCardClick(id, el));
+    grid.appendChild(el);
   });
+}
+
+function onArrangeCardClick(id, el) {
+  if (arrangeSelectedId === null) {
+    arrangeSelectedId = id;
+    el.classList.add('arrange-selected');
+    return;
+  }
+  if (arrangeSelectedId === id) {
+    el.classList.remove('arrange-selected');
+    arrangeSelectedId = null;
+    return;
+  }
+  const i = myCardOrder.indexOf(arrangeSelectedId);
+  const j = myCardOrder.indexOf(id);
+  if (i !== -1 && j !== -1) [myCardOrder[i], myCardOrder[j]] = [myCardOrder[j], myCardOrder[i]];
+  renderArrangeGrid(myCardOrder);
 }
 
 // ── Round Result Overlay ─────────────────────────────────
@@ -1705,7 +1737,7 @@ socket.on('host_changed', ({ hostId }) => {
   updateHostNotice();
 });
 
-socket.on('memorize_start', ({ cards, players, endsAt, round, maxRounds: mr, survivorCount: sc, isRevival: ir, revivalCount: rc, revivalRound: rRound, revivalMaxRounds: rMax, revivalSurvivorCount: rSurv, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, humanGroups: hg, groupRound: gRound, groupMaxRounds: gMax, groupSurvivorCount: gSurv, groupHumanCount: ghc, humanCount: hc, cpuCount: cc, totalCount: tc }) => {
+socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRounds: mr, survivorCount: sc, isRevival: ir, revivalCount: rc, revivalRound: rRound, revivalMaxRounds: rMax, revivalSurvivorCount: rSurv, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, humanGroups: hg, groupRound: gRound, groupMaxRounds: gMax, groupSurvivorCount: gSurv, groupHumanCount: ghc, humanCount: hc, cpuCount: cc, totalCount: tc }) => {
   matchHeadcount = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   if (round)            currentRound  = round;
   if (mr)               maxRounds     = mr;
@@ -1747,11 +1779,11 @@ socket.on('memorize_start', ({ cards, players, endsAt, round, maxRounds: mr, sur
     const b = $(id); if (b) b.style.filter = '';
   });
   updateChips(players);
-  openMemorize(cards, endsAt, players, round, ir || ig ? (ig ? 'group' : 'revival') : false);
+  openMemorize(cardOrder, cards, endsAt, players, round, ir || ig ? (ig ? 'group' : 'revival') : false);
 });
 
 // ── 大会モード：試合開始（暗記フェーズ）───────────────────
-socket.on('event_memorize_start', ({ cards, players, endsAt, stage, stageLabel, participantIds, gamesPlayed, humanCount: hc, cpuCount: cc, totalCount: tc }) => {
+socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, stageLabel, participantIds, gamesPlayed, humanCount: hc, cpuCount: cc, totalCount: tc }) => {
   matchHeadcount      = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   isEventMode         = true;
   eventStage          = stage;
@@ -1760,7 +1792,7 @@ socket.on('event_memorize_start', ({ cards, players, endsAt, stage, stageLabel, 
   eventGamesPlayed    = gamesPlayed || {};
   myIsEventSpectator  = !myIsHost && !eventParticipantIds.has(myId);
   updateChips(players);
-  openMemorize(cards, endsAt, players, currentRound, 'event');
+  openMemorize(cardOrder, cards, endsAt, players, currentRound, 'event');
 });
 
 socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, totalCards, isRevival: ir, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, groupRound: gRound, groupMaxRounds: gMax, isEvent: iev, eventStage: es, eventStageLabel: esl, eventParticipantIds: epi }) => {
@@ -1790,7 +1822,7 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
     gameStarted = true;
     closeMemo();
     hide('oLobby'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
-    if (cardOrder) renderGrid(cardOrder, new Set(remaining));
+    if (cardOrder) renderGrid(effectiveCardOrder(cardOrder), new Set(remaining));
     startTimer();
     renderTop3(players);
   }
