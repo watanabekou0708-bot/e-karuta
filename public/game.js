@@ -451,6 +451,7 @@ let timerInt    = null;
 let seconds     = 0;
 let serverOffset = 0;
 let gameStarted = false;
+let isArranging = false;   // 盤面整理タイム中か（対局画面の上で行う）
 
 // ── トーナメント状態 ──────────────────────────────────────
 let currentRound    = 1;
@@ -868,22 +869,23 @@ function updateLobbyRevivalUI() {
 function updateHostNotice() {
   const notice = $('hostNotice');
   if (!notice) return;
-  notice.classList.toggle('hidden', !(myIsHost && gameStarted));
+  notice.classList.toggle('hidden', !(myIsHost && gameStarted) || isArranging);
   const amSpectating = (myIsSpectator || myIsRevivalSpectator || myIsGroupSpectator || myIsEventSpectator) && !myIsHost && gameStarted;
   const grid = $('grid');
   if (grid) {
-    grid.classList.toggle('host-locked', myIsHost && gameStarted);
+    grid.classList.toggle('host-locked', myIsHost && gameStarted && !isArranging);
     grid.classList.toggle('hidden', amSpectating);
   }
   const specPanel = $('specPanel');
-  if (specPanel) specPanel.classList.toggle('hidden', !amSpectating);
+  if (specPanel) specPanel.classList.toggle('hidden', !amSpectating || isArranging);
   const debugBtn    = $('debugEndBtn');
   const debugCpuBtn = $('debugCpuBtn');
   if (debugBtn)    debugBtn.style.display    = (myIsHost && gameStarted) ? '' : 'none';
-  if (debugCpuBtn) debugCpuBtn.style.display = (myIsHost && gameStarted) ? '' : 'none';
-  // ラウンドバッジ・観戦バッジ
+  if (debugCpuBtn) debugCpuBtn.style.display = (myIsHost && gameStarted && !isArranging) ? '' : 'none';
+  // ラウンドバッジ・観戦バッジ・盤面整理バッジ
   const rb = $('roundBadge');
   const sb = $('spectatorBadge');
+  const ab = $('arrangeBadge');
   const groupTierName = groupTier === 'top' ? '上位' : groupTier === 'middle' ? '中位' : '下位';
   const roundLabel = isEventMode
     ? (eventStageLabel || '大会モード')
@@ -892,17 +894,27 @@ function updateHostNotice() {
     : isRevivalMode ? `敗者復活戦 R${revivalRound}／${revivalMaxRounds}` : `第${currentRound}試合`;
   if (rb) {
     rb.textContent = roundLabel;
-    rb.classList.toggle('hidden', !gameStarted);
+    rb.classList.toggle('hidden', !gameStarted || isArranging);
   }
+  if (ab) ab.classList.toggle('hidden', !isArranging);
   if (sb) sb.classList.toggle('hidden', !amSpectating);
   const rl = $('roundLabel');
   if (rl) rl.textContent = roundLabel;
-}
 
-// デバッグ用：現在のスコアでゲームを即終了する（ホストのみ）
-function debugEndGame() {
-  if (!myIsHost || !gameStarted) return;
-  socket.emit('debug_end_game');
+  // 盤面整理タイム中はカード以外の情報を出さない（即終了デバッグボタンのみ残す）
+  const chips       = $('chips');
+  const progWrap     = $('progWrap');
+  const readingWrap  = document.querySelector('.reading-wrap');
+  const sideL = $('sideLeft');
+  const sideR = $('sideRight');
+  if (chips)       chips.classList.toggle('hidden', isArranging);
+  if (readingWrap) readingWrap.classList.toggle('hidden', isArranging);
+  if (sideL) sideL.classList.toggle('hidden', isArranging);
+  if (sideR) sideR.classList.toggle('hidden', isArranging);
+  // 残り枚数（進捗バー含む）はホストにのみ見せる
+  if (progWrap) progWrap.classList.toggle('hidden', isArranging || !myIsHost);
+  const leftCountWrap = $('leftCountWrap');
+  if (leftCountWrap) leftCountWrap.classList.toggle('hidden', !myIsHost);
 }
 
 // デバッグ用：CPUに0〜600のランダムポイントを与える（ホストのみ）
@@ -1029,11 +1041,13 @@ function applyInit(d) {
   if (d.phase === 'lobby') {
     openLobby(d.players);
   } else if (d.phase === 'memorizing') {
-    openMemorize(d.cards, d.endsAt, d.players, d.round, d.isRevival);
+    openArrangeScreen(d.cardOrder, d.cards, d.endsAt, d.players, d.round);
   } else if (['waiting', 'reading', 'decoy', 'announcing'].includes(d.phase)) {
     gameStarted = true;
-    hide('oLobby'); hide('oGameOver'); hide('oMemorize'); hide('oRoundResult');
-    renderGrid(effectiveCardOrder(d.cardOrder), new Set(d.remaining));
+    isArranging = false;
+    stopArrangeCountdown();
+    hide('oLobby'); hide('oGameOver'); hide('oRoundResult');
+    renderGrid(d.cardOrder, new Set(d.remaining), 'play');
     renderTop3(d.players);
     $('leftCount').textContent = d.remaining.length;
     $('progFill').style.width = ((liveTotalCards - d.remaining.length) / liveTotalCards * 100).toFixed(1) + '%';
@@ -1101,7 +1115,7 @@ function openLobby(players) {
   lobbyMode            = null;
   $('lobbyUrl').textContent = window.location.href;
   renderLobbyList(players);
-  hide('oName'); hide('oGameOver'); hide('oMemorize'); hide('oRoundResult'); hide('oCeremony'); hide('oEventResult');
+  hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oCeremony'); hide('oEventResult');
   show('oLobby');
   updateLobbyUI();
   updateLobbyRevivalUI();
@@ -1134,140 +1148,113 @@ function leaveLobby() {
   location.reload();
 }
 
-// ── Memorization phase（盤面整理タイム）─────────────────────
-let memoInterval = null;
-let myCardOrder  = [];    // 自分が並べ替えたカード順（試合ごとにリセット）
+// ── 盤面整理タイム（対局画面そのものの上で行う）─────────────
+// 別画面には遷移せず、対局と同じ #grid の上でカードを散らして表示する。
+// 上半分（相手側・固定）は自分から見て逆さま、下半分（自分側）だけ
+// ドラッグで自由に動かせる、実際の競技かるたのレイアウトを再現する。
+// 決めた位置・向き（cardLayout）が、そのまま本番の対局画面に引き継がれる。
+let arrangeInterval = null;
+let cardLayout = {};   // id → { xPct, yPct, rot, zone: 'top'|'bottom' }（試合ごとにリセット）
 
-function openMemorize(cardOrder, cards, endsAt, players, round, mode) {
+// 上半分・下半分それぞれの帯の中で、間隔・位置・向きがバラバラになるよう配置する。
+function generateCardLayout(cardOrder) {
+  cardLayout = {};
+  const half   = Math.ceil(cardOrder.length / 2);
+  const topIds = cardOrder.slice(0, half);
+  const botIds = cardOrder.slice(half);
+  const place = (ids, zone, yMin, yMax) => {
+    const n = ids.length || 1;
+    ids.forEach((id, i) => {
+      const slotW    = 100 / n;
+      const jitterX  = (Math.random() - 0.5) * slotW * 0.6;
+      const xPct     = Math.min(95, Math.max(5, slotW * i + slotW / 2 + jitterX));
+      const yPct     = yMin + Math.random() * (yMax - yMin);
+      // 上半分（相手側）は自分から見て逆さま、下半分は本物のかるたのように全方向バラバラ
+      const rot = zone === 'top'
+        ? 180 + Math.round(Math.random() * 24 - 12)
+        : Math.round(Math.random() * 360);
+      cardLayout[id] = { xPct, yPct, rot, zone };
+    });
+  };
+  place(topIds, 'top', 6, 34);
+  place(botIds, 'bottom', 66, 94);
+}
+
+// 現在の cardOrder に対応する配置が無ければ新規生成する（未整理での参加・ホストなど）
+function ensureCardLayout(cardOrder) {
+  const ok = cardOrder.length > 0 && cardOrder.every(id => cardLayout[id]);
+  if (!ok) generateCardLayout(cardOrder);
+}
+
+function openArrangeScreen(cardOrder, cards, endsAt, players, round) {
   if (round) currentRound = round;
+  gameStarted  = true;
+  isArranging  = true;
   hide('oLobby'); hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
   updateChips(players);
-  renderArrangeGrid(cardOrder && cardOrder.length ? cardOrder : cards.map(k => k.id));
-  renderMemoHeadcount();
-  startMemoCountdown(endsAt);
-  const skipBtn = $('memoSkipBtn');
-  if (skipBtn) skipBtn.style.display = myIsHost ? '' : 'none';
-  show('oMemorize');
-  const title = document.querySelector('#oMemorize .ov-title');
-  if (title) {
-    const tierLabel = groupTier === 'top' ? '上位' : groupTier === 'middle' ? '中位' : '下位';
-    title.textContent = mode === 'group'   ? `🏆 ${tierLabel}グループ戦 — 盤面整理タイム`
-                      : mode === 'revival' ? '🔄 敗者復活戦 — 盤面整理タイム'
-                      : mode === 'event'   ? `🏁 ${eventStageLabel || '大会モード'} — 盤面整理タイム`
-                      : `🃏 第${currentRound}試合 — 盤面整理タイム`;
-  }
+  const ids = cardOrder && cardOrder.length ? cardOrder : cards.map(k => k.id);
+  generateCardLayout(ids);
+  renderGrid(ids, null, 'arrange');
+  startArrangeCountdown(endsAt);
+  updateHostNotice();
 }
 
-function renderMemoHeadcount() {
-  const el = $('memoHeadcount');
-  if (!el) return;
-  const { humanCount, cpuCount, totalCount } = matchHeadcount;
-  el.textContent = `👥 参加者: 人間 ${humanCount}人 + CPU ${cpuCount}人 = 合計 ${totalCount}人`;
+function startArrangeCountdown(endsAt) {
+  if (arrangeInterval) clearInterval(arrangeInterval);
+  const tick = () => {
+    const secs = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+    const el = $('arrangeTimer');
+    if (el) el.textContent = fmtTime(secs);
+  };
+  tick();
+  arrangeInterval = setInterval(tick, 500);
 }
 
-// 自分が整理した並び（myCardOrder）がこのラウンドの札と一致していればそれを使い、
-// そうでなければ（未整理・ホストなど）サーバーから届いた並びにフォールバックする。
-function effectiveCardOrder(serverOrder) {
-  if (myCardOrder.length === serverOrder.length && myCardOrder.every(id => serverOrder.includes(id))) {
-    return myCardOrder;
-  }
-  return serverOrder;
+function stopArrangeCountdown() {
+  if (arrangeInterval) { clearInterval(arrangeInterval); arrangeInterval = null; }
 }
 
-// 盤面整理タイム用のグリッド。下半分だけドラッグ＆ドロップで入れ替えられる
-// （実際のかるたで自分の陣地しか動かせないのを再現）。上半分は固定表示。
-// カードは現実のかるたのように最初はバラバラの向きで置かれており、
-// 下半分のカードは動かす（＝ドロップする）と正面向きに整う。
-// ここで決めた並び（myCardOrder）が、そのまま本番の対局グリッドの並びになる。
-let arrangeTopIds    = [];
-let arrangeBottomIds = [];
-let cardRotations    = {};   // id → 度数（上半分は固定、下半分は動かすと0にリセット）
-let dragSourceId     = null;
+function skipMemorize() { socket.emit('skip_memorize'); }
 
-function renderArrangeGrid(cardOrder) {
-  myCardOrder = [...cardOrder];
-  const half = Math.ceil(myCardOrder.length / 2);
-  arrangeTopIds    = myCardOrder.slice(0, half);
-  arrangeBottomIds = myCardOrder.slice(half);
-  cardRotations = {};
-  // フルの0〜360度だと窮屈なグリッド内で重なり過ぎるため、控えめな傾き（±16度）にとどめる
-  myCardOrder.forEach(id => { cardRotations[id] = Math.round(Math.random() * 32 - 16); });
-  renderArrangeHalves();
+// ヘッダーの「即終了（デバッグ）」は、盤面整理タイム中はスキップ、
+// 対局中は即試合終了として働く単一のデバッグボタン。
+function debugSmartSkip() {
+  if (!myIsHost) return;
+  if (isArranging) { skipMemorize(); return; }
+  if (!gameStarted) return;
+  socket.emit('debug_end_game');
 }
 
-function renderArrangeHalves() {
-  const topEl = $('arrangeGridTop');
-  const botEl = $('arrangeGridBottom');
-  if (topEl) {
-    topEl.innerHTML = '';
-    arrangeTopIds.forEach(id => topEl.appendChild(buildArrangeCard(id, false)));
-  }
-  if (botEl) {
-    botEl.innerHTML = '';
-    arrangeBottomIds.forEach(id => botEl.appendChild(buildArrangeCard(id, true)));
-  }
-}
-
-function buildArrangeCard(id, movable) {
-  const k = KMAP[id];
-  const el = document.createElement('div');
-  el.className = 'card';
-  el.dataset.id = id;
-  el.textContent = k ? k.tori : '';
-  el.style.transform = `rotate(${cardRotations[id] || 0}deg)`;
-  if (movable) {
-    el.draggable = true;
-    el.addEventListener('dragstart', onArrangeDragStart);
-    el.addEventListener('dragover', onArrangeDragOver);
-    el.addEventListener('dragleave', onArrangeDragLeave);
-    el.addEventListener('drop', onArrangeDrop);
-    el.addEventListener('dragend', onArrangeDragEnd);
-  }
-  return el;
-}
-
-function onArrangeDragStart(e) {
-  dragSourceId = Number(e.currentTarget.dataset.id);
-  e.currentTarget.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', String(dragSourceId));
-}
-
-function onArrangeDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  e.currentTarget.classList.add('drag-over');
-}
-
-function onArrangeDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
-}
-
-function clearArrangeDragOver() {
-  const bot = $('arrangeGridBottom');
-  if (bot) bot.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-}
-
-function onArrangeDrop(e) {
-  e.preventDefault();
-  clearArrangeDragOver();
-  const targetId = Number(e.currentTarget.dataset.id);
-  if (dragSourceId === null || targetId === dragSourceId) return;
-  const i = arrangeBottomIds.indexOf(dragSourceId);
-  const j = arrangeBottomIds.indexOf(targetId);
-  if (i === -1 || j === -1) return;
-  [arrangeBottomIds[i], arrangeBottomIds[j]] = [arrangeBottomIds[j], arrangeBottomIds[i]];
-  cardRotations[dragSourceId] = 0;
-  cardRotations[targetId]     = 0;
-  myCardOrder = [...arrangeTopIds, ...arrangeBottomIds];
-  dragSourceId = null;
-  renderArrangeHalves();
-}
-
-function onArrangeDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
-  clearArrangeDragOver();
-  dragSourceId = null;
+// 下半分のカードをマウスドラッグで自由に動かせるようにする。
+// 離した瞬間、正面向き（0度）に整える。
+function attachFreeDrag(el, id) {
+  el.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const gridEl = $('grid');
+    const rect = gridEl.getBoundingClientRect();
+    el.classList.add('dragging');
+    let moved = false;
+    const onMove = mv => {
+      moved = true;
+      let xPct = ((mv.clientX - rect.left) / rect.width) * 100;
+      let yPct = ((mv.clientY - rect.top) / rect.height) * 100;
+      xPct = Math.min(96, Math.max(4, xPct));
+      yPct = Math.min(97, Math.max(53, yPct));   // 下半分の帯にクランプ
+      cardLayout[id].xPct = xPct;
+      cardLayout[id].yPct = yPct;
+      el.style.left = `calc(${xPct}% - 58px)`;
+      el.style.top  = `calc(${yPct}% - 33px)`;
+    };
+    const onUp = () => {
+      if (moved) { cardLayout[id].rot = 0; el.style.transform = 'rotate(0deg)'; }
+      el.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 }
 
 // ── Round Result Overlay ─────────────────────────────────
@@ -1522,7 +1509,7 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
     }
   }
 
-  hide('oLobby'); hide('oMemorize'); hide('oGameOver');
+  hide('oLobby'); hide('oGameOver');
   show('oRoundResult');
 }
 
@@ -1541,7 +1528,7 @@ function startCeremony(sortedHumans, players, onComplete) {
   _ceremonyQueue = sortedHumans.slice(0, 3).reverse();
   _ceremonyIndex = 0;
 
-  hide('oLobby'); hide('oMemorize'); hide('oGameOver'); hide('oRoundResult');
+  hide('oLobby'); hide('oGameOver'); hide('oRoundResult');
   show('oCeremony');
   _showCeremonyStep();
 }
@@ -1594,37 +1581,34 @@ function _endCeremony() {
 
 function skipCeremony() { _endCeremony(); }
 
-function startMemoCountdown(endsAt) {
-  if (memoInterval) clearInterval(memoInterval);
-  const tick = () => {
-    const secs = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
-    $('memoTimer').textContent = fmtTime(secs);
-  };
-  tick();
-  memoInterval = setInterval(tick, 500);
-}
-
-function skipMemorize() { socket.emit('skip_memorize'); }
-
-function closeMemo() {
-  if (memoInterval) { clearInterval(memoInterval); memoInterval = null; }
-  hide('oMemorize');
-}
-
-// ── Card grid ─────────────────────────────────────────────
-function renderGrid(cardOrder, remainingSet) {
+// ── Card grid（盤面整理タイム／対局中で共用）───────────────
+// mode: 'arrange'（下半分だけドラッグ可） | 'play'（クリックで札を取る）
+// cardLayout に保存された位置・向きをそのまま使うので、整理した配置が
+// 対局画面にそのまま引き継がれる。
+function renderGrid(cardOrder, remainingSet, mode) {
   const grid = $('grid');
   grid.innerHTML = '';
-  const order = cardOrder.length ? cardOrder : KARUTA.map(k => k.id);
+  const order = cardOrder && cardOrder.length ? cardOrder : KARUTA.map(k => k.id);
+  ensureCardLayout(order);
   order.forEach(id => {
-    const k  = KMAP[id];
+    const k = KMAP[id];
     if (!k) return;
+    const layout = cardLayout[id] || { xPct: 50, yPct: 50, rot: 0, zone: 'bottom' };
     const el = document.createElement('div');
-    el.className   = 'card' + (remainingSet.has(id) ? '' : ' removed');
+    const removed = remainingSet && !remainingSet.has(id);
+    el.className   = 'card' + (removed ? ' removed' : '');
     el.id          = `card-${id}`;
     el.dataset.id  = id;
     el.textContent = k.tori;
-    el.addEventListener('click', ev => onCardClick(id, el, ev));
+    el.style.left      = `calc(${layout.xPct}% - 58px)`;
+    el.style.top       = `calc(${layout.yPct}% - 33px)`;
+    el.style.transform = `rotate(${layout.rot}deg)`;
+    if (mode === 'arrange') {
+      el.classList.add(layout.zone === 'top' ? 'zone-top' : 'draggable');
+      if (layout.zone === 'bottom') attachFreeDrag(el, id);
+    } else {
+      el.addEventListener('click', ev => onCardClick(id, el, ev));
+    }
     grid.appendChild(el);
   });
 }
@@ -1745,7 +1729,7 @@ function showGameOver(players) {
     });
     wrap.appendChild(othersWrap);
   }
-  hide('oLobby'); hide('oMemorize'); hide('oRoundResult');
+  hide('oLobby'); hide('oRoundResult');
   show('oGameOver');
 }
 
@@ -1837,7 +1821,7 @@ socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRoun
     const b = $(id); if (b) b.style.filter = '';
   });
   updateChips(players);
-  openMemorize(cardOrder, cards, endsAt, players, round, ir || ig ? (ig ? 'group' : 'revival') : false);
+  openArrangeScreen(cardOrder, cards, endsAt, players, round);
 });
 
 // ── 大会モード：試合開始（暗記フェーズ）───────────────────
@@ -1850,7 +1834,7 @@ socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, s
   eventGamesPlayed    = gamesPlayed || {};
   myIsEventSpectator  = !myIsHost && !eventParticipantIds.has(myId);
   updateChips(players);
-  openMemorize(cardOrder, cards, endsAt, players, currentRound, 'event');
+  openArrangeScreen(cardOrder, cards, endsAt, players, currentRound);
 });
 
 socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, totalCards, isRevival: ir, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, groupRound: gRound, groupMaxRounds: gMax, isEvent: iev, eventStage: es, eventStageLabel: esl, eventParticipantIds: epi }) => {
@@ -1876,11 +1860,12 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
   $('readingText').textContent = '— 準備中 —';
   showReadBtn();
 
-  if (!gameStarted) {
+  if (isArranging || !gameStarted) {
     gameStarted = true;
-    closeMemo();
+    isArranging = false;
+    stopArrangeCountdown();
     hide('oLobby'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
-    if (cardOrder) renderGrid(effectiveCardOrder(cardOrder), new Set(remaining));
+    if (cardOrder) renderGrid(cardOrder, new Set(remaining), 'play');
     startTimer();
     renderTop3(players);
   }
@@ -2156,7 +2141,7 @@ socket.on('event_round_finished', (data) => {
   }
   if (myStatus) myStatus.textContent = myMsg;
 
-  hide('oLobby'); hide('oRoundResult'); hide('oGameOver'); hide('oMemorize');
+  hide('oLobby'); hide('oRoundResult'); hide('oGameOver');
   show('oEventResult');
 });
 

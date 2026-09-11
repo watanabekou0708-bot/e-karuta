@@ -413,31 +413,37 @@ body {
 .reading-label { font-size: .6rem; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .18rem; }
 .reading-text  { font-size: 1.05rem; color: #fff; line-height: 1.55; }
 
-/* ── Card grid ───────────────────────────────────────────── */
+/* ── Card scatter board（盤面整理・対局共通）─────────────────
+   固定グリッドではなく、各カードを絶対配置（%指定）することで
+   「間隔・位置・向きがバラバラ」な現実のかるたの見た目を再現する。
+   position は left/top（%）、向きだけを transform: rotate() に持たせる
+   ことで、取得時のアニメーション（transform を上書きする）が起きても
+   カードの位置そのものはズレない。 ─────────────────────────── */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 7px; padding: .55rem 1rem 2rem;
-  max-width: 1060px; margin: 0 auto;
+  position: relative;
+  width: 100%; max-width: 980px; margin: .6rem auto 1.2rem;
+  height: 58vh; min-height: 440px; max-height: 640px;
 }
-@media (max-width: 900px) { .grid { grid-template-columns: repeat(5, 1fr); } }
-@media (max-width: 680px) { .grid { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 460px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 680px) { .grid { height: 66vh; min-height: 520px; } }
 
 .card {
+  position: absolute;
+  width: 116px; min-height: 66px;
   background: linear-gradient(160deg, #182848, #0d1a30);
   border: 1px solid var(--border); border-radius: 8px;
-  min-height: 68px; display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   text-align: center; padding: .4rem .35rem;
   font-size: .82rem; font-weight: 600; color: #b0c8f0;
   cursor: pointer; user-select: none;
-  transition: background .15s, border-color .15s, color .15s, transform .15s, box-shadow .15s;
-  word-break: break-word; position: relative; overflow: hidden;
+  transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
+  word-break: break-word; overflow: hidden;
 }
+.card.zone-top    { cursor: default; }
+.card.draggable    { cursor: grab; }
+.card.dragging     { opacity: .4; z-index: 5; }
 .card:hover:not(.removed):not(.correct-mine):not(.correct-other):not(.wrong) {
   background: linear-gradient(160deg, #223d6a, #112030);
   border-color: var(--accent); color: #fff;
-  transform: translateY(-3px) scale(1.02);
   box-shadow: 0 6px 20px rgba(74, 158, 255, .25); z-index: 2;
 }
 
@@ -556,49 +562,12 @@ body {
 .rank-others-name small { font-weight: 400; color: var(--dim); margin-left: .2rem; }
 .rank-others-score { color: var(--green); font-weight: 700; white-space: nowrap; }
 
-/* ── Memorization phase ──────────────────────────────────── */
-.memo-card {
-  max-width: 720px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.memo-timer-wrap {
-  display: flex; align-items: baseline; justify-content: center;
-  gap: .5rem; margin-bottom: .6rem;
-}
-.memo-timer {
-  font-size: 2.8rem; font-weight: 800;
-  color: var(--accent); font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 20px rgba(74,158,255,.5);
-}
-.memo-timer-label { font-size: .85rem; color: var(--dim); }
-
-.memo-headcount {
-  font-size: .82rem; color: var(--text); text-align: center;
-  background: var(--surf); border: 1px solid var(--border); border-radius: 8px;
-  padding: .5rem .8rem; margin-bottom: .7rem;
-}
-
-.arrange-board { flex: 1; overflow-y: auto; overflow-x: hidden; margin: .6rem 0; min-height: 0; padding: 0 .3rem; }
-.arrange-grid {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px 10px;
-}
-.arrange-grid.locked .card { cursor: default; }
-.arrange-divider {
-  display: flex; align-items: center; text-align: center;
-  color: var(--dim); font-size: .68rem; letter-spacing: .04em;
-  margin: .55rem 0;
-}
-.arrange-divider span { width: 100%; }
-.arrange-grid .card {
-  cursor: grab; transition: transform .15s, box-shadow .15s, border-color .15s;
-}
-.arrange-grid .card.dragging { opacity: .35; }
-.arrange-grid .card.drag-over {
-  border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent);
+/* ── 盤面整理タイム／対局中カウントダウン ──────────────────── */
+.arrange-badge {
+  font-size: .78rem; font-weight: 700; color: var(--bg);
+  background: linear-gradient(135deg, #ffd060, #ff9944);
+  border-radius: 10px; padding: .2rem .65rem; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .btn-revival {
@@ -791,28 +760,35 @@ body {
 .lobby-host { font-size: .7rem; color: var(--warn); margin-left: .2rem; }
 
 /* ── TOP10 ランキング（ゲーム中常時表示）────────────────── */
-.top3-wrap {
-  max-width: 900px; margin: .3rem auto .1rem; padding: 0 .75rem;
-  display: flex; align-items: flex-start; gap: .5rem;
+/* ── 対局画面のレイアウト（左：ランキング／中央：盤面／右：通知）── */
+.game-layout {
+  display: flex; align-items: flex-start; gap: 1rem;
+  max-width: 1360px; margin: 0 auto; padding: 0 1rem;
 }
+.game-main { flex: 1; min-width: 0; }
+.side-panel { width: 220px; flex-shrink: 0; padding-top: .7rem; }
+.side-panel.hidden { display: none; }
+.side-right { display: flex; flex-direction: column; align-items: stretch; }
+@media (max-width: 980px) {
+  .game-layout { flex-direction: column; }
+  .side-panel { width: 100%; }
+}
+
+.top3-wrap { margin: 0 0 .8rem; }
 .top3-label {
   font-size: .65rem; color: var(--dim);
   text-transform: uppercase; letter-spacing: .06em;
-  white-space: nowrap; flex-shrink: 0;
+  white-space: nowrap; margin-bottom: .35rem; display: block;
 }
 .top3-list {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: .25rem;
-  flex: 1;
 }
-.house-score-wrap {
-  max-width: 900px; margin: .1rem auto .3rem; padding: 0 .75rem;
-  display: flex; align-items: flex-start; gap: .5rem;
-}
+.house-score-wrap { margin: 0 0 .8rem; }
 .house-score-wrap.hidden { display: none; }
 .house-score-list {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: .25rem; flex: 1;
+  display: grid; grid-template-columns: 1fr; gap: .25rem;
 }
 .house-score-chip {
   display: flex; align-items: center; justify-content: space-between; gap: .3rem;
@@ -843,28 +819,26 @@ body {
 .t3-row.me .t3-name  { color: #e8f4ff; font-weight: 700; }
 .t3-row.me .t3-score { color: #7df; }
 
-/* ── 取得通知バナー ──────────────────────────────────────── */
+/* ── 取得通知バナー（右サイドパネルに常設）──────────────────── */
 .taken-notif {
-  position: fixed; top: 28%; left: 50%; transform: translateX(-50%);
-  z-index: 150; pointer-events: none;
-  display: flex; align-items: center; gap: .7rem;
+  pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: .4rem;
   background: rgba(10, 16, 40, .96);
   border: 2px solid var(--accent); border-radius: 14px;
-  padding: .75rem 1.6rem;
-  font-size: 1.15rem; font-weight: 700;
+  padding: 1rem .8rem;
+  font-size: 1rem; font-weight: 700; text-align: center;
   box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
   animation: tnSlideIn .3s cubic-bezier(.2, .8, .4, 1);
-  white-space: nowrap;
 }
 .taken-notif.hidden  { display: none; }
 .taken-notif.tn-fade { animation: tnSlideOut .5s ease forwards; }
 
 @keyframes tnSlideIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(-16px) scale(.92); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0)      scale(1);   }
+  from { opacity: 0; transform: translateY(-14px) scale(.92); }
+  to   { opacity: 1; transform: translateY(0)      scale(1);   }
 }
 @keyframes tnSlideOut {
-  to   { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(.95); }
+  to   { opacity: 0; transform: translateY(-10px) scale(.95); }
 }
 
 .tn-dot   { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }

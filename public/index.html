@@ -243,26 +243,6 @@
   </div>
 </div>
 
-<!-- ── Memorize（盤面整理タイム）──────────────────────────── -->
-<div id="oMemorize" class="overlay hidden">
-  <div class="ov-card memo-card">
-    <div class="ov-title">🃏 盤面整理タイム</div>
-    <div class="memo-timer-wrap">
-      <span class="memo-timer" id="memoTimer">02:30</span>
-      <span class="memo-timer-label">後にゲーム開始</span>
-    </div>
-    <p class="ov-sub">下半分のカードだけドラッグ＆ドロップで動かせます。<br>自分の取りやすい配置に整えましょう！</p>
-    <div class="memo-headcount" id="memoHeadcount"></div>
-    <div class="arrange-board">
-      <div class="arrange-grid locked" id="arrangeGridTop"></div>
-      <div class="arrange-divider"><span>↓ ここから下だけ動かせます ↓</span></div>
-      <div class="arrange-grid" id="arrangeGridBottom"></div>
-    </div>
-    <!-- ホストのみ表示 -->
-    <button id="memoSkipBtn" class="btn btn-debug" onclick="skipMemorize()" style="display:none">⏭ スキップ（デバッグ用）</button>
-  </div>
-</div>
-
 <!-- ── Game Over ──────────────────────────────────────── -->
 <div id="oGameOver" class="overlay hidden">
   <div class="ov-card">
@@ -277,54 +257,64 @@
   <div class="logo">💻 IT かるた</div>
   <div class="round-badge hidden" id="roundBadge">第1試合</div>
   <div class="spectator-badge hidden" id="spectatorBadge">👀 観戦中</div>
+  <div class="arrange-badge hidden" id="arrangeBadge">🃏 盤面整理タイム — <span id="arrangeTimer">02:30</span></div>
   <div class="chips" id="chips"></div>
   <div class="game-timer" id="timer">00:00</div>
   <button id="debugCpuBtn" class="btn btn-debug" onclick="debugGiveCpuPoints()" title="デバッグ用：CPUにランダムポイント" style="display:none">🎲 CPUポイント</button>
-  <button id="debugEndBtn" class="btn btn-debug" onclick="debugEndGame()" title="デバッグ用：即試合終了" style="display:none">⏹ 即終了（デバッグ）</button>
+  <button id="debugEndBtn" class="btn btn-debug" onclick="debugSmartSkip()" title="デバッグ用：即終了／盤面整理をスキップ" style="display:none">⏹ 即終了（デバッグ）</button>
 </header>
 
-<div class="prog">
-  <div class="prog-fill" id="progFill" style="width:0%"></div>
-</div>
-
-<div class="reading-wrap">
-  <div class="reading-box">
-    <div class="reading-icon">📢</div>
-    <div style="flex:1">
-      <div class="reading-label"><span id="roundLabel">第1試合</span> — 残り <span id="leftCount">10</span> 枚</div>
-      <div class="reading-text" id="readingText">ゲーム開始をお待ちください…</div>
-      <div class="host-notice hidden" id="hostNotice">👑 ホストは進行役です。札は取れません。</div>
+<div class="game-layout">
+  <!-- ── 左サイド：ランキング・ハウス得点（対局中のみ）───────── -->
+  <aside class="side-panel side-left" id="sideLeft">
+    <div class="top3-wrap">
+      <div class="top3-label">🏆 ランキング</div>
+      <div id="top3" class="top3-list"></div>
     </div>
-    <button id="readBtn" class="read-btn hidden" onclick="readNext()" title="次の上の句を読み上げる">▶ 読み上げ</button>
-  </div>
-</div>
+    <div id="houseScoreWrap" class="house-score-wrap hidden">
+      <div class="top3-label">🏠 ハウス得点</div>
+      <div id="houseScoreList" class="house-score-list"></div>
+    </div>
+  </aside>
 
-<!-- ── TOP3 ランキング（ゲーム中常時表示）───────────────── -->
-<div class="top3-wrap">
-  <div class="top3-label">🏆 ランキング</div>
-  <div id="top3" class="top3-list"></div>
-</div>
+  <main class="game-main">
+    <div class="prog" id="progWrap">
+      <div class="prog-fill" id="progFill" style="width:0%"></div>
+    </div>
 
-<!-- ── ハウス得点（ハウス編成済みの場合のみ表示）───────────── -->
-<div id="houseScoreWrap" class="house-score-wrap hidden">
-  <div class="top3-label">🏠 ハウス得点</div>
-  <div id="houseScoreList" class="house-score-list"></div>
-</div>
+    <div class="reading-wrap">
+      <div class="reading-box">
+        <div class="reading-icon">📢</div>
+        <div style="flex:1">
+          <div class="reading-label">
+            <span id="roundLabel">第1試合</span>
+            <span id="leftCountWrap"> — 残り <span id="leftCount">10</span> 枚</span>
+          </div>
+          <div class="reading-text" id="readingText">ゲーム開始をお待ちください…</div>
+          <div class="host-notice hidden" id="hostNotice">👑 ホストは進行役です。札は取れません。</div>
+        </div>
+        <button id="readBtn" class="read-btn hidden" onclick="readNext()" title="次の上の句を読み上げる">▶ 読み上げ</button>
+      </div>
+    </div>
 
-<!-- ── 取得通知（画面中央に一時表示）────────────────────── -->
-<div id="takenNotif" class="taken-notif hidden">
-  <span class="tn-dot"></span>
-  <span class="tn-name"></span>
-  <span class="tn-label">&nbsp;が獲得！</span>
-</div>
+    <div class="grid" id="grid"></div>
 
-<div class="grid" id="grid"></div>
+    <!-- ── 観戦パネル（敗退者は自動でこちらに切り替わる）───────── -->
+    <div id="specPanel" class="spec-panel hidden">
+      <div class="spec-panel-title">👀 あなたは観戦中です</div>
+      <p class="spec-panel-sub">左のランキングと読み上げ状況で試合の行方を見守りましょう。<br>次の試合に復帰したら自動で盤面に戻ります。</p>
+      <div id="specHouseScores" class="spec-house-scores"></div>
+    </div>
+  </main>
 
-<!-- ── 観戦パネル（敗退者は自動でこちらに切り替わる）───────── -->
-<div id="specPanel" class="spec-panel hidden">
-  <div class="spec-panel-title">👀 あなたは観戦中です</div>
-  <p class="spec-panel-sub">上のランキングと読み上げ状況で試合の行方を見守りましょう。<br>次の試合に復帰したら自動で盤面に戻ります。</p>
-  <div id="specHouseScores" class="spec-house-scores"></div>
+  <!-- ── 右サイド：取得通知 ────────────────────────────── -->
+  <aside class="side-panel side-right" id="sideRight">
+    <div id="takenNotif" class="taken-notif hidden">
+      <span class="tn-dot"></span>
+      <span class="tn-name"></span>
+      <span class="tn-label">&nbsp;が獲得！</span>
+    </div>
+  </aside>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
