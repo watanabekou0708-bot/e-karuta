@@ -1276,7 +1276,8 @@ io.on('connection', socket => {
 
     addCpuPlayers();
     const { humanCount, cpuCount, totalCount } = computeHeadcount({ excludeEliminated: true });
-    gs.survivorCount = eventCutCounts(totalCount).pass;
+    // 最終（3試合目）は必ず上位3名に絞り込む。それ以外は自動算出（約1/3）。
+    gs.survivorCount = (gs.round >= gs.maxRounds) ? 3 : eventCutCounts(totalCount).pass;
 
     gs.phase          = 'memorizing';
     gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;

@@ -144,68 +144,12 @@ function getAudioCtx() {
   return audioCtx;
 }
 
+// 30枚の新デッキ用に収録済みのMP3が無いため、音声素材が「一部は収録音声・
+// 一部はTTS」で混在しないよう、事前録音音声の読み込みは一切行わず全読み上げを
+// 音声合成（speechSynthesis）に統一する。将来 {id}.mp3 等を用意した場合に
+// 備え、preloadAudio 自体は残す（中身を空にするだけ）。
 async function preloadAudio() {
-  const ctx = getAudioCtx();
-  try {
-    const res = await fetch('/audio/intro.mp3');
-    if (res.ok) {
-      audioBuffers['intro'] = await ctx.decodeAudioData(await res.arrayBuffer());
-      console.log(`[Audio] intro.mp3 ロード (${audioBuffers['intro'].duration.toFixed(2)}s)`);
-    }
-  } catch(e) { console.warn('[Audio] intro.mp3 なし'); }
-
-  try {
-    const res = await fetch('/audio/decoy-notice.mp3');
-    if (res.ok) {
-      audioBuffers['decoy-notice'] = await ctx.decodeAudioData(await res.arrayBuffer());
-      console.log(`[Audio] decoy-notice.mp3 ロード (${audioBuffers['decoy-notice'].duration.toFixed(2)}s)`);
-    }
-  } catch(e) { console.warn('[Audio] decoy-notice.mp3 なし'); }
-
-  try {
-    const res = await fetch('/audio/timeup.mp3');
-    if (res.ok) {
-      audioBuffers['timeup'] = await ctx.decodeAudioData(await res.arrayBuffer());
-      console.log(`[Audio] timeup.mp3 ロード (${audioBuffers['timeup'].duration.toFixed(2)}s)`);
-    }
-  } catch(e) { console.warn('[Audio] timeup.mp3 なし'); }
-
-  const results = await Promise.allSettled(KARUTA.map(async k => {
-    const res = await fetch(`/audio/${k.id}.mp3`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    audioBuffers[k.id] = await ctx.decodeAudioData(await res.arrayBuffer());
-  }));
-  console.log(`[Audio] 上の句 ${results.filter(r => r.status === 'fulfilled').length}/30 ロード完了`);
-
-  // 正解発表用「上の句／下の句」音声。speechSynthesis を使わず Web Audio で
-  // 再生することで、ホスト機特有の音声デバイス切り替え遅延を回避する。
-  const announceResults = await Promise.allSettled(KARUTA.flatMap(k => [
-    (async () => {
-      const res = await fetch(`/audio/${k.id}-top.mp3`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      audioBuffers[`${k.id}-top`] = await ctx.decodeAudioData(await res.arrayBuffer());
-    })(),
-    (async () => {
-      const res = await fetch(`/audio/${k.id}-bottom.mp3`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      audioBuffers[`${k.id}-bottom`] = await ctx.decodeAudioData(await res.arrayBuffer());
-    })(),
-  ]));
-  console.log(`[Audio] 正解発表 ${announceResults.filter(r => r.status === 'fulfilled').length}/60 ロード完了`);
-
-  const decoyResults = await Promise.allSettled(DECOY_IDS.flatMap(id => [
-    (async () => {
-      const res = await fetch(`/audio/${id}.mp3`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      audioBuffers[id] = await ctx.decodeAudioData(await res.arrayBuffer());
-    })(),
-    (async () => {
-      const res = await fetch(`/audio/${id}-bottom.mp3`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      audioBuffers[`${id}-bottom`] = await ctx.decodeAudioData(await res.arrayBuffer());
-    })(),
-  ]));
-  console.log(`[Audio] ダミー読み ${decoyResults.filter(r => r.status === 'fulfilled').length}/${DECOY_IDS.length * 2} ロード完了`);
+  console.log('[Audio] 収録音声は使用せず、読み上げは全て音声合成に統一します');
 }
 
 // intro → yomi を Web Audio API でハードウェアスケジューリング
@@ -220,43 +164,20 @@ function scheduleReadCard(cardId, playAt, onDone) {
   if (curSource) { try { curSource.stop(); } catch(e) {} curSource = null; }
   if (curIntro)  { try { curIntro.stop();  } catch(e) {} curIntro  = null; }
 
-  const ctx      = getAudioCtx();
-  const delay    = Math.max(0.05, (playAt - hiResNow() - serverOffset) / 1000);
-  const introBuf = audioBuffers['intro'];
-  const yomiBuf  = audioBuffers[cardId];
-
+  const delay = Math.max(0.05, (playAt - hiResNow() - serverOffset) / 1000);
   const finishYomi = () => { if (gen === audioGeneration && onDone) onDone(); };
 
-  // イントロ（読み上げます）
-  if (introBuf) {
-    const src = ctx.createBufferSource();
-    src.buffer = introBuf;
-    src.connect(ctx.destination);
-    src.start(ctx.currentTime + delay);
-    curIntro = src;
-  }
-
-  // 上の句: イントロ終了直後に連続再生
-  const yomiDelay = delay + (introBuf ? introBuf.duration : 0);
-  if (yomiBuf) {
-    const src = ctx.createBufferSource();
-    src.buffer = yomiBuf;
-    src.connect(ctx.destination);
-    src.start(ctx.currentTime + yomiDelay);
-    src.onended = finishYomi;
-    curSource = src;
-  } else {
-    // フォールバック: TTS
-    setTimeout(() => {
-      if (gen !== audioGeneration) return;
-      stopSpeech();
-      const utt = new SpeechSynthesisUtterance(currentReadingYomiText || $('readingText').textContent);
-      utt.lang = 'ja-JP'; utt.rate = 0.6; utt.pitch = 1.05;
-      if (ttsVoice) utt.voice = ttsVoice;
-      utt.onend = finishYomi;
-      speechSynthesis.speak(utt);
-    }, yomiDelay * 1000);
-  }
+  // 収録音声は使わず「読み上げます」→ 本文を音声合成で連続して読む。
+  setTimeout(() => {
+    if (gen !== audioGeneration) return;
+    stopSpeech();
+    const intro = new SpeechSynthesisUtterance('読み上げます');
+    const body  = new SpeechSynthesisUtterance(currentReadingYomiText || $('readingText').textContent);
+    [intro, body].forEach(u => { u.lang = 'ja-JP'; u.rate = 0.6; u.pitch = 1.05; if (ttsVoice) u.voice = ttsVoice; });
+    body.onend = finishYomi;
+    speechSynthesis.speak(intro);
+    speechSynthesis.speak(body);
+  }, delay * 1000);
 }
 
 // ダミー読み（盤面に対応する札が無い読み上げ）を Web Audio で精密同期再生。
@@ -269,40 +190,19 @@ function scheduleDecoyRead(decoyId, playAt, fallbackText, onDone) {
   if (curSource) { try { curSource.stop(); } catch(e) {} curSource = null; }
   if (curIntro)  { try { curIntro.stop();  } catch(e) {} curIntro  = null; }
 
-  const ctx      = getAudioCtx();
-  const delay    = Math.max(0.05, (playAt - hiResNow() - serverOffset) / 1000);
-  const introBuf = audioBuffers['intro'];
-  const decoyBuf = audioBuffers[decoyId];
-
-  if (introBuf) {
-    const src = ctx.createBufferSource();
-    src.buffer = introBuf;
-    src.connect(ctx.destination);
-    src.start(ctx.currentTime + delay);
-    curIntro = src;
-  }
-
-  const decoyDelay = delay + (introBuf ? introBuf.duration : 0);
+  const delay = Math.max(0.05, (playAt - hiResNow() - serverOffset) / 1000);
   const finishDecoy = () => { if (gen === audioGeneration) onDone(); };
 
-  if (decoyBuf) {
-    const src = ctx.createBufferSource();
-    src.buffer = decoyBuf;
-    src.connect(ctx.destination);
-    src.start(ctx.currentTime + decoyDelay);
-    src.onended = finishDecoy;
-    curSource = src;
-  } else {
-    setTimeout(() => {
-      if (gen !== audioGeneration) return;
-      stopSpeech();
-      const utt = new SpeechSynthesisUtterance(fallbackText || $('readingText').textContent);
-      utt.lang = 'ja-JP'; utt.rate = 0.6; utt.pitch = 1.05;
-      if (ttsVoice) utt.voice = ttsVoice;
-      utt.onend = finishDecoy;
-      speechSynthesis.speak(utt);
-    }, decoyDelay * 1000);
-  }
+  setTimeout(() => {
+    if (gen !== audioGeneration) return;
+    stopSpeech();
+    const intro = new SpeechSynthesisUtterance('読み上げます');
+    const body  = new SpeechSynthesisUtterance(fallbackText || $('readingText').textContent);
+    [intro, body].forEach(u => { u.lang = 'ja-JP'; u.rate = 0.6; u.pitch = 1.05; if (ttsVoice) u.voice = ttsVoice; });
+    body.onend = finishDecoy;
+    speechSynthesis.speak(intro);
+    speechSynthesis.speak(body);
+  }, delay * 1000);
 }
 
 // 正解発表（上の句・下の句）を Web Audio で再生する。

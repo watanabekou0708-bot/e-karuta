@@ -121,12 +121,6 @@
     <div class="rr-table" id="rrTable"></div>
     <div class="rr-my-status" id="rrMyStatus"></div>
 
-    <!-- ホスト向けモードタブ（最終戦・グループ戦以外） -->
-    <div id="rrModeTabs" class="rr-mode-tabs hidden">
-      <button id="rrTabMain" class="rr-tab active" onclick="switchRrMode('main')">次の試合</button>
-      <button id="rrTabRevival" class="rr-tab" onclick="switchRrMode('revival')">敗者復活戦</button>
-    </div>
-
     <!-- [本戦モード] 次の試合ボタン（通過人数は自動決定・試合開始後に表示） -->
     <div id="rrMainSection" class="hidden">
       <button id="rrNextBtn" class="btn btn-green" onclick="startNextRound()">第<span id="rrNextRoundLabel">2</span>試合を開始 →</button>
@@ -136,21 +130,6 @@
     <div id="rrGroupInterSection" class="hidden">
       <div class="rr-revival-progress" id="rrGroupRoundLabel">下位グループ 第1ラウンド終了 → 第2ラウンドへ</div>
       <button class="btn btn-blue" onclick="startNextGroupRound()">▶ 次のラウンドを開始</button>
-    </div>
-
-    <!-- [復活戦中間ラウンド] 開始ボタン（ホストのみ・通過人数は自動決定） -->
-    <div id="rrRevivalInterSection" class="hidden">
-      <div class="rr-revival-progress" id="rrRevivalRoundLabel">復活戦 第1ラウンド終了 → 第2ラウンドへ</div>
-      <button class="btn btn-revival" onclick="startNextRevivalRound()">🔄 次の復活戦ラウンドを開始</button>
-    </div>
-
-    <!-- [敗者復活戦モード] ユーザー選択 + 開始ボタン（通過人数・本戦復帰人数は自動決定） -->
-    <div id="rrRevivalSection" class="hidden">
-      <div class="rr-divider"></div>
-      <div class="diff-label" style="margin-bottom:.4rem">復活戦の参加者を選択</div>
-      <div id="rrRevivalUsers" class="rr-user-list"></div>
-      <button class="btn btn-sm" style="margin:.3rem 0 .5rem" onclick="toggleAllRevivalUsers()">全員切替</button>
-      <button class="btn btn-revival" onclick="startRevival()">🔄 敗者復活戦を開始（全3ラウンド）</button>
     </div>
 
     <p id="rrGuestWait" class="ov-sub hidden">ホストが次の試合を開始するまでお待ちください</p>
