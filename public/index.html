@@ -75,23 +75,6 @@
         <div class="diff-label">各試合の通過人数</div>
         <p class="ov-sub" style="margin:.2rem 0 0">参加人数に応じて自動で決まります（試合開始後に表示）</p>
       </div>
-      <!-- 敗者復活戦セクション（最終試合後にアンロック） -->
-      <div id="lobbyRevivalSection" class="lobby-revival-section locked">
-        <div class="lobby-revival-title">敗者復活戦</div>
-        <div class="lobby-revival-desc" id="lobbyRevivalDesc">最終試合終了後に解放されます</div>
-        <div class="group-btns" id="lobbyGroupBtns">
-          <button class="btn btn-group-bottom" onclick="startGroupMatch('bottom')" id="lobbyGroupBtnBottom">
-            🥉 下位グループ戦<br><small id="lobbyGroupDescBottom">弱CPU25人と対戦</small>
-          </button>
-          <button class="btn btn-group-middle" onclick="startGroupMatch('middle')" id="lobbyGroupBtnMiddle">
-            🥈 中位グループ戦<br><small id="lobbyGroupDescMiddle">中CPU25人と対戦</small>
-          </button>
-          <button class="btn btn-group-top" onclick="startGroupMatch('top')" id="lobbyGroupBtnTop">
-            🥇 上位グループ戦<br><small id="lobbyGroupDescTop">強CPU25人と対戦</small>
-          </button>
-        </div>
-        <div id="lobbyPromotedList" class="lobby-promoted-list" style="display:none"></div>
-      </div>
       <button id="lobbyStartBtn" class="btn btn-green" onclick="startGame()">ゲームスタート（全3試合）</button>
     </div>
 
@@ -124,12 +107,6 @@
     <!-- [本戦モード] 次の試合ボタン（通過人数は自動決定・試合開始後に表示） -->
     <div id="rrMainSection" class="hidden">
       <button id="rrNextBtn" class="btn btn-green" onclick="startNextRound()">第<span id="rrNextRoundLabel">2</span>試合を開始 →</button>
-    </div>
-
-    <!-- [グループ戦中間ラウンド] 開始ボタン（ホストのみ・通過人数は自動決定） -->
-    <div id="rrGroupInterSection" class="hidden">
-      <div class="rr-revival-progress" id="rrGroupRoundLabel">下位グループ 第1ラウンド終了 → 第2ラウンドへ</div>
-      <button class="btn btn-blue" onclick="startNextGroupRound()">▶ 次のラウンドを開始</button>
     </div>
 
     <p id="rrGuestWait" class="ov-sub hidden">ホストが次の試合を開始するまでお待ちください</p>

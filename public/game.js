@@ -494,31 +494,14 @@ function selectCpuDifficulty(d) {
 function startGame() {
   const btn = $('lobbyStartBtn');
   if (btn) btn.disabled = true;
-  if (postTournament) {
-    const tier = !bottomGroupWinners ? 'bottom' : !middleGroupWinners ? 'middle' : 'top';
-    socket.emit('start_group_match', { tier });
-  } else {
-    socket.emit('start_game', {
-      difficulty:    selectedDifficulty,
-      cpuDifficulty: selectedCpuDifficulty,
-    });
-  }
+  socket.emit('start_game', {
+    difficulty:    selectedDifficulty,
+    cpuDifficulty: selectedCpuDifficulty,
+  });
 }
 
 function startNextRound() {
   socket.emit('start_next_round');
-}
-
-function startRevival() {
-  socket.emit('start_revival', { selectedIds: [...revivalSelectedIds] });
-}
-
-function startNextRevivalRound() {
-  socket.emit('start_next_revival_round');
-}
-
-function startNextGroupRound() {
-  socket.emit('start_next_group_round');
 }
 
 // ── 大会モード（1/8本番用）ホスト操作 ───────────────────────
@@ -531,17 +514,6 @@ function startEvent() {
 function advanceEvent(which) {
   ['evMainBtn', 'evRevivalBtn', 'evNextBtn'].forEach(id => { const b = $(id); if (b) b.disabled = true; });
   socket.emit('advance_event', which ? { which } : {});
-}
-
-function startGroupMatch(tier) {
-  // 全ボタンを無効化して重複開始を防ぐ（サーバーレスポンスまでの暫定フィードバック）
-  ['lobbyGroupBtnTop', 'lobbyGroupBtnMiddle', 'lobbyGroupBtnBottom'].forEach(id => {
-    const b = $(id); if (b) b.disabled = true;
-  });
-  const btnId = { top: 'lobbyGroupBtnTop', middle: 'lobbyGroupBtnMiddle', bottom: 'lobbyGroupBtnBottom' }[tier];
-  const btn = $(btnId);
-  if (btn) btn.style.filter = 'brightness(1.5)';
-  socket.emit('start_group_match', { tier });
 }
 
 function switchRrMode(mode) {
@@ -663,82 +635,13 @@ function updateLobbyUI() {
 
   if (startBtn) {
     startBtn.disabled = false;
-    if (myIsHost) {
-      if (postTournament) {
-        const tier = !bottomGroupWinners ? '下位' : !middleGroupWinners ? '中位' : '上位';
-        startBtn.textContent = `${tier}グループ戦を開始`;
-      } else {
-        startBtn.textContent = 'ゲームスタート（全3試合）';
-      }
-    }
+    if (myIsHost) startBtn.textContent = 'ゲームスタート（全3試合）';
   }
   if (waiting) {
     waiting.style.display = myIsHost ? 'none' : '';
     waiting.textContent = lobbyMode
       ? 'ホストがゲームを開始するまでお待ちください'
       : 'ホストがモードを選択するまでお待ちください';
-  }
-}
-
-function updateLobbyRevivalUI() {
-  const sec = $('lobbyRevivalSection');
-  if (!sec) return;
-  sec.style.display = myIsHost ? '' : 'none';
-  if (!myIsHost) return;
-
-  // グループ戦ボタンはゲームスタートボタンに統合したため非表示
-  const groupBtns = $('lobbyGroupBtns');
-  if (groupBtns) groupBtns.style.display = 'none';
-
-  if (postTournament) {
-    sec.classList.remove('locked');
-  } else {
-    sec.classList.add('locked');
-  }
-
-  const mainDesc  = $('lobbyRevivalDesc');
-  const promoList = $('lobbyPromotedList');
-
-  if (postTournament && humanGroups) {
-    const bottomDone  = bottomGroupWinners !== null;
-    const middleDone  = middleGroupWinners !== null;
-    const bottomCount = (humanGroups.bottom || []).length;
-    const middleCount = (humanGroups.middle || []).length;
-    const topCount    = (humanGroups.top    || []).length;
-
-    if (mainDesc) {
-      const lines = [
-        `🥉 下位グループ：${bottomCount}人` + (bottomDone ? ' ✓' : ''),
-        `🥈 中位グループ：${middleCount}人` + (middleDone ? ' ✓' : ''),
-        `🥇 上位グループ：${topCount}人`,
-      ];
-      mainDesc.innerHTML = lines.join('　') + '<br><small>「ゲームスタート」ボタンで順番に開始</small>';
-    }
-
-    if (promoList) {
-      const allPromoted = [
-        ...(bottomGroupWinners || []).map(id => ({ id, from: '下位グループ' })),
-        ...(middleGroupWinners || []).map(id => ({ id, from: '中位グループ' })),
-      ];
-      if (allPromoted.length > 0) {
-        promoList.style.display = '';
-        promoList.innerHTML = `<div class="lobby-promoted-list-title">⬆ 上位グループへの昇格者</div>`
-          + allPromoted.map(({ id, from }) => {
-            const p = livePlayers[id] || _ceremonyPlayers[id] || { name: id, color: '#888' };
-            return `<div class="lobby-promoted-item">
-              <span class="lobby-promoted-dot" style="background:${p.color}"></span>
-              <span>${escHtml(p.name)}</span>
-              <span style="color:var(--dim);font-size:.72rem;margin-left:.2rem">${from}</span>
-            </div>`;
-          }).join('');
-      } else {
-        promoList.style.display = 'none';
-        promoList.innerHTML = '';
-      }
-    }
-  } else {
-    if (mainDesc)  mainDesc.textContent  = '最終試合終了後に解放されます';
-    if (promoList) { promoList.style.display = 'none'; promoList.innerHTML = ''; }
   }
 }
 
@@ -996,7 +899,6 @@ function openLobby(players) {
   hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oCeremony'); hide('oEventResult');
   show('oLobby');
   updateLobbyUI();
-  updateLobbyRevivalUI();
   updateHostNotice();
 }
 
