@@ -11,10 +11,10 @@ const srv  = http.createServer(app);
 const io   = new Server(srv);
 
 // ── Karuta data（J検（情報活用試験）3級レベル＋Excel関数）─────
-// ids 1-10: 易しい（試合序盤） / 11-20: 普通（試合中盤） / 21-30: 難しい（試合終盤）
-// ROUND_CARD_IDS と対応。難易度は一般IT用語・Excel関数どちらも各帯で揃えている。
+// ids 1-15: 易しい / 16-30: 普通 / 31-45: 難しい（ROUND_CARD_IDS と対応）
+// 難易度は一般IT用語・Excel関数どちらも各帯で揃えている。
 const KARUTA = [
-  // 易しい（1〜10）
+  // 易しい（1〜15）
   { id:  1, yomi: 'コンピューターの頭脳と呼ばれ、計算と命令の処理を担う装置',             tori: 'CPU' },
   { id:  2, yomi: '電源を切ると消えてしまう、作業中のデータを一時的に保管する主記憶装置', tori: 'メモリ' },
   { id:  3, yomi: '電源を切っても消えない、写真や文書を永続的に記憶する補助記憶装置',     tori: 'ストレージ' },
@@ -25,28 +25,43 @@ const KARUTA = [
   { id:  8, yomi: '指定した範囲の数値をすべて合計するExcelの基本関数',                   tori: 'SUM関数' },
   { id:  9, yomi: '指定した範囲の数値の平均値を求めるExcel関数',                         tori: 'AVERAGE関数' },
   { id: 10, yomi: 'セルの右下をドラッグすることで、連続データや数式を隣のセルへ自動入力する機能', tori: 'オートフィル' },
-  // 普通（11〜20）
-  { id: 11, yomi: 'ハードウェアを管理し、アプリケーションが動く土台となるソフトウェア',   tori: 'OS' },
-  { id: 12, yomi: '会社や学校など限られた範囲で、コンピューターをつなぐネットワーク',     tori: 'LAN' },
-  { id: 13, yomi: 'パスワードに加えてスマートフォンなどで本人確認する、二段階の認証方式', tori: '二段階認証' },
-  { id: 14, yomi: '他人が作った著作物を、許可なく複製・配布することを禁ずる権利',         tori: '著作権' },
-  { id: 15, yomi: 'コンピューターに害を与える目的で作られた、悪意のあるソフトウェアの総称', tori: 'マルウェア' },
-  { id: 16, yomi: '数式をコピーすると、参照するセルの位置が自動的にずれるExcelの標準的な参照方式', tori: '相対参照' },
-  { id: 17, yomi: '数式をコピーしてもセルの参照先が変わらないようにする、$記号を使ったExcelの指定方法', tori: '絶対参照' },
-  { id: 18, yomi: '条件を満たすかどうかで異なる結果を返す、Excelの代表的な条件分岐関数', tori: 'IF関数' },
-  { id: 19, yomi: '指定した条件に一致するセルの個数を数えるExcel関数',                   tori: 'COUNTIF関数' },
-  { id: 20, yomi: '指定した桁数で数値を四捨五入するExcel関数',                           tori: 'ROUND関数' },
-  // 難しい（21〜30）
-  { id: 21, yomi: 'ネットワーク上の住所にあたる、コンピューターを識別するための番号',     tori: 'IPアドレス' },
-  { id: 22, yomi: 'ドメイン名をIPアドレスに変換する、インターネットの電話帳のような仕組み', tori: 'DNS' },
-  { id: 23, yomi: '実在する企業を装った偽のメールやサイトで、個人情報を盗もうとする攻撃', tori: 'フィッシング詐欺' },
-  { id: 24, yomi: 'インターネット経由でサーバーやソフトウェアをサービスとして利用する形態', tori: 'クラウドコンピューティング' },
-  { id: 25, yomi: '大量のデータを整理して保存し、素早く検索・更新・抽出できる仕組み',     tori: 'データベース' },
-  { id: 26, yomi: '指定した範囲の左端の列を縦方向に検索し、対応する値を返すExcelの検索関数', tori: 'VLOOKUP関数' },
-  { id: 27, yomi: '指定した条件に一致するセルの数値だけを合計するExcel関数',             tori: 'SUMIF関数' },
-  { id: 28, yomi: '数式がエラーになった場合に、代わりの値を表示させるExcel関数',         tori: 'IFERROR関数' },
-  { id: 29, yomi: '指定した範囲の中から、行と列の番号で位置を指定してデータを取り出すExcel関数', tori: 'INDEX関数' },
-  { id: 30, yomi: '大量のデータを集計・分析し、視点を変えて自在に表を組み替えられるExcelの機能', tori: 'ピボットテーブル' },
+  { id: 11, yomi: 'URLを入力してウェブページを閲覧するためのソフトウェア',               tori: 'Webブラウザ' },
+  { id: 12, yomi: 'ファイルやアプリを絵柄で分かりやすく表したもの',                       tori: 'アイコン' },
+  { id: 13, yomi: 'コピーやカットしたデータを一時的に保存しておく場所',                   tori: 'クリップボード' },
+  { id: 14, yomi: '複数のキーを同時に押すことで、素早く操作を実行する機能',               tori: 'ショートカットキー' },
+  { id: 15, yomi: 'ファイル名の末尾につく、そのファイルの種類を表す文字列',               tori: '拡張子' },
+  // 普通（16〜30）
+  { id: 16, yomi: 'ハードウェアを管理し、アプリケーションが動く土台となるソフトウェア',   tori: 'OS' },
+  { id: 17, yomi: '会社や学校など限られた範囲で、コンピューターをつなぐネットワーク',     tori: 'LAN' },
+  { id: 18, yomi: 'パスワードに加えてスマートフォンなどで本人確認する、二段階の認証方式', tori: '二段階認証' },
+  { id: 19, yomi: '他人が作った著作物を、許可なく複製・配布することを禁ずる権利',         tori: '著作権' },
+  { id: 20, yomi: 'コンピューターに害を与える目的で作られた、悪意のあるソフトウェアの総称', tori: 'マルウェア' },
+  { id: 21, yomi: '数式をコピーすると、参照するセルの位置が自動的にずれるExcelの標準的な参照方式', tori: '相対参照' },
+  { id: 22, yomi: '数式をコピーしてもセルの参照先が変わらないようにする、$記号を使ったExcelの指定方法', tori: '絶対参照' },
+  { id: 23, yomi: '条件を満たすかどうかで異なる結果を返す、Excelの代表的な条件分岐関数', tori: 'IF関数' },
+  { id: 24, yomi: '指定した条件に一致するセルの個数を数えるExcel関数',                   tori: 'COUNTIF関数' },
+  { id: 25, yomi: '指定した桁数で数値を四捨五入するExcel関数',                           tori: 'ROUND関数' },
+  { id: 26, yomi: '指定した範囲の中で最大の数値を求めるExcel関数',                       tori: 'MAX関数' },
+  { id: 27, yomi: '指定した範囲の中で最小の数値を求めるExcel関数',                       tori: 'MIN関数' },
+  { id: 28, yomi: '指定した条件を満たすセルだけ自動的に色や書式を変えるExcelの機能',     tori: '条件付き書式' },
+  { id: 29, yomi: '表の中から条件に合うデータだけを絞り込んで表示するExcelの機能',       tori: 'フィルター' },
+  { id: 30, yomi: 'インターネット上にファイルを保存し、複数の端末から利用できるサービス', tori: 'クラウドストレージ' },
+  // 難しい（31〜45）
+  { id: 31, yomi: 'ネットワーク上の住所にあたる、コンピューターを識別するための番号',     tori: 'IPアドレス' },
+  { id: 32, yomi: 'ドメイン名をIPアドレスに変換する、インターネットの電話帳のような仕組み', tori: 'DNS' },
+  { id: 33, yomi: '実在する企業を装った偽のメールやサイトで、個人情報を盗もうとする攻撃', tori: 'フィッシング詐欺' },
+  { id: 34, yomi: 'インターネット経由でサーバーやソフトウェアをサービスとして利用する形態', tori: 'クラウドコンピューティング' },
+  { id: 35, yomi: '大量のデータを整理して保存し、素早く検索・更新・抽出できる仕組み',     tori: 'データベース' },
+  { id: 36, yomi: '指定した範囲の左端の列を縦方向に検索し、対応する値を返すExcelの検索関数', tori: 'VLOOKUP関数' },
+  { id: 37, yomi: '指定した条件に一致するセルの数値だけを合計するExcel関数',             tori: 'SUMIF関数' },
+  { id: 38, yomi: '数式がエラーになった場合に、代わりの値を表示させるExcel関数',         tori: 'IFERROR関数' },
+  { id: 39, yomi: '指定した範囲の中から、行と列の番号で位置を指定してデータを取り出すExcel関数', tori: 'INDEX関数' },
+  { id: 40, yomi: '大量のデータを集計・分析し、視点を変えて自在に表を組み替えられるExcelの機能', tori: 'ピボットテーブル' },
+  { id: 41, yomi: '指定した範囲の中で、数値が何番目に大きい（小さい）かの順位を求めるExcel関数', tori: 'RANK関数' },
+  { id: 42, yomi: '指定した範囲の中から検索値を探し、その位置が何番目かを返すExcel関数', tori: 'MATCH関数' },
+  { id: 43, yomi: 'Excelでの一連の操作を記録し、自動的に再実行できるようにする機能',     tori: 'マクロ' },
+  { id: 44, yomi: '感染したパソコンのデータを暗号化し、復元と引き換えに金銭を要求する悪意のあるソフトウェア', tori: 'ランサムウェア' },
+  { id: 45, yomi: '特定の組織や個人を狙い、業務連絡などを装って送られる巧妙な不正アクセス', tori: '標的型攻撃' },
 ];
 
 // 難易度を上げた際に登場するダミーの読み（盤面のどの札にも対応しない）。
@@ -61,16 +76,43 @@ const DECOYS = [
   { id: 'decoy8', yomi: '第三者に通信内容を読み取られないよう、データを別の形式に変換すること', tori: '暗号化' },
 ];
 
-// 難易度帯ごとの札ID（30枚を易しい／普通／難しいの3帯に分割）
+// 難易度帯ごとの札ID（45枚を易しい／普通／難しいの3帯（各15枚）に分割）
 const ROUND_CARD_IDS = {
-  1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-  2: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-  3: [21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+  1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+  2: [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+  3: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
 };
 
-// 1試合で読み上げる30枚の並び順を作る。易→普通→難の帯順に並べ、
+// 大会モードの本戦ラウンドで使う「易・普通・難しい」の抽出枚数（1試合10枚）。
+// 回戦が進む（終盤に近づく）ほど難しい札の比重が増える。
+// 準決勝・決勝5人・3位決定戦・決勝戦は最後の要素（最難）を使う。
+const EVENT_ROUND_MIX = [
+  [10, 0, 0],
+  [7, 3, 0],
+  [5, 4, 1],
+  [3, 4, 3],
+  [1, 4, 5],
+  [0, 3, 7],
+  [0, 1, 9],
+];
+
+// 大会モードの本戦ラウンド用に、易・普通・難しいから指定枚数ずつ抽出してシャッフルする。
+function buildEventRoundCardIds(roundIndex) {
+  const mix = EVENT_ROUND_MIX[Math.min(Math.max(roundIndex, 1), EVENT_ROUND_MIX.length) - 1];
+  const pick = (tier, n) => shuffle(ROUND_CARD_IDS[tier]).slice(0, n);
+  return shuffle([...pick(1, mix[0]), ...pick(2, mix[1]), ...pick(3, mix[2])]);
+}
+
+// 練習モードのホストが選んだ難易度（easy/normal/hard）に対応する帯（1/2/3）のIDだけを
+// シャッフルして返す。この帯の札しか出題されない。
+function buildPracticeCardIds() {
+  const tier = gs.difficulty === 'easy' ? 1 : gs.difficulty === 'hard' ? 3 : 2;
+  return shuffle(ROUND_CARD_IDS[tier]);
+}
+
+// 1試合で読み上げる45枚の並び順を作る。易→普通→難の帯順に並べ、
 // 各帯の中だけシャッフルすることで、試合が進む（終盤に近づく）ほど
-// 難易度の高い用語が出るようにする。
+// 難易度の高い用語が出るようにする（練習モードの復活戦で使用）。
 function buildDifficultyOrderedCardIds() {
   return [
     ...shuffle(ROUND_CARD_IDS[1]),
@@ -191,6 +233,7 @@ const gs = {
   event: {
     active:         false,
     stage:          null,   // 'main' | 'revival' | 'semis' | 'final5' | 'thirdplace' | 'championship' | 'done'
+    mainRoundIndex: 0,      // 本戦（main）を行った回数。難易度配分（EVENT_ROUND_MIX）の選択に使う
     mainPool:       new Set(),   // 本戦の系譜にまだ残っている人
     revivalCandidates: new Set(), // 敗者復活戦にまだ挑戦していない／再挑戦権が残っている人（累積）
     gamesPlayed:    {},          // id → 消化した試合数
@@ -797,7 +840,16 @@ function eventCutCounts(poolSize) {
   return { pass, lose: poolSize - pass };
 }
 
-// 大会モードの1試合を開始する（暗記フェーズから）。30枚すべてを易→難の順で使う。
+// gs.event.stage を設定する。'main' に入るたびに回戦カウンタを+1し、
+// EVENT_ROUND_MIX（易→難の配分）を回すのに使う。
+function setEventStage(stage) {
+  gs.event.stage = stage;
+  if (stage === 'main') gs.event.mainRoundIndex++;
+}
+
+// 大会モードの1試合を開始する（暗記フェーズから）。
+// 本戦（main）は回戦カウンタに応じた易/普通/難しいの配分で10枚抽出、
+// 準決勝以降は最も難しい配分、敗者復活戦は45枚すべて易→難の順で使う。
 function startEventMatch(participantIds) {
   gs.event.participantIds = new Set(participantIds);
   removeCpuPlayers();
@@ -805,7 +857,11 @@ function startEventMatch(participantIds) {
     if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].misses = 0; }
   });
 
-  const cardIds = buildDifficultyOrderedCardIds();
+  const cardIds = gs.event.stage === 'revival'
+    ? buildDifficultyOrderedCardIds()
+    : gs.event.stage === 'main'
+    ? buildEventRoundCardIds(gs.event.mainRoundIndex)
+    : buildEventRoundCardIds(EVENT_ROUND_MIX.length); // 準決勝・決勝5人・3位決定戦・決勝戦は最難
   const cards   = KARUTA.filter(k => cardIds.includes(k.id));
   gs.remaining      = new Set(cardIds);
   gs.cardOrder      = cardIds;
@@ -1115,7 +1171,7 @@ io.on('connection', socket => {
     const { humanCount, cpuCount, totalCount } = computeHeadcount();
     gs.survivorCount = eventCutCounts(totalCount).pass;
 
-    const roundCardIds = buildDifficultyOrderedCardIds();
+    const roundCardIds = buildPracticeCardIds();
     const roundCards   = KARUTA.filter(k => roundCardIds.includes(k.id));
     gs.phase          = 'memorizing';
     gs.remaining      = new Set(roundCardIds);
@@ -1265,7 +1321,7 @@ io.on('connection', socket => {
 
     removeCpuPlayers();
 
-    const roundCardIds = buildDifficultyOrderedCardIds();
+    const roundCardIds = buildPracticeCardIds();
     const roundCards   = KARUTA.filter(k => roundCardIds.includes(k.id));
     gs.remaining      = new Set(roundCardIds);
     gs.cardOrder      = roundCardIds;
@@ -1555,7 +1611,8 @@ io.on('connection', socket => {
     gs.event.top2              = [];
     gs.event.restThree         = [];
     gs.event.lastResult        = null;
-    gs.event.stage = participantIds.length <= EVENT_SEMIS_THRESHOLD ? 'semis' : 'main';
+    gs.event.mainRoundIndex    = 0;
+    setEventStage(participantIds.length <= EVENT_SEMIS_THRESHOLD ? 'semis' : 'main');
 
     removeCpuPlayers();
     startEventMatch(participantIds);
@@ -1577,14 +1634,14 @@ io.on('connection', socket => {
       if (gs.event.revivalCandidates.size === 0) return;
       const pool = [...gs.event.revivalCandidates];
       gs.event.revivalCandidates = new Set();
-      gs.event.stage = 'revival';
+      setEventStage('revival');
       startEventMatch(pool);
       return;
     }
 
     if (gs.event.mainPool.size === 0) return;
     const pool = [...gs.event.mainPool];
-    gs.event.stage = pool.length <= EVENT_SEMIS_THRESHOLD ? 'semis' : 'main';
+    setEventStage(pool.length <= EVENT_SEMIS_THRESHOLD ? 'semis' : 'main');
     startEventMatch(pool);
   });
 

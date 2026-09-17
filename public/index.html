@@ -52,9 +52,9 @@
     <!-- ホストのみ表示：練習モード一式 -->
     <div id="lobbyPracticeSection" style="display:none">
       <button class="btn-back" onclick="backToLobbyModeSelect()">← モード選択に戻る</button>
-      <!-- 難易度選択 -->
+      <!-- 難易度選択：出題される札の帯（かんたん=易しい15枚／ふつう=普通15枚／難しい=難しい15枚）とダミー読みの頻度を兼ねる -->
       <div id="lobbyDiffPicker" class="diff-picker">
-        <div class="diff-label">難易度（ダミー読み）</div>
+        <div class="diff-label">難易度（出題される札・ダミー読み）</div>
         <div class="diff-btns">
           <button class="diff-btn"        data-diff="easy"   onclick="selectDifficulty('easy')">かんたん</button>
           <button class="diff-btn active" data-diff="normal" onclick="selectDifficulty('normal')">ふつう</button>
