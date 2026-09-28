@@ -43,7 +43,7 @@
         <button class="btn-mode" onclick="chooseLobbyMode('practice')">
           🎮 練習モード<br><small>個人戦・CPU対戦で自由に練習</small>
         </button>
-        <button class="btn-mode" onclick="chooseLobbyMode('event')">
+        <button id="btnModeEvent" class="btn-mode" onclick="chooseLobbyMode('event')">
           🏁 大会モード<br><small>1/8本番用・ハウス対抗トーナメント</small>
         </button>
       </div>
@@ -69,11 +69,6 @@
           <button class="diff-btn active" data-cpudiff="normal" onclick="selectCpuDifficulty('normal')">ふつう</button>
           <button class="diff-btn"        data-cpudiff="hard"   onclick="selectCpuDifficulty('hard')">強い</button>
         </div>
-      </div>
-      <!-- 通過人数（自動決定・参加人数に応じてホストが試合を開始すると決まる） -->
-      <div id="lobbySurvivorPicker" class="diff-picker">
-        <div class="diff-label">各試合の通過人数</div>
-        <p class="ov-sub" style="margin:.2rem 0 0">参加人数に応じて自動で決まります（試合開始後に表示）</p>
       </div>
       <button id="lobbyStartBtn" class="btn btn-green" onclick="startGame()">ゲームスタート（全3試合）</button>
     </div>
@@ -139,7 +134,7 @@
     <div class="ceremony-place" id="ceremonyPlace">🥉 第3位</div>
     <div class="ceremony-avatar" id="ceremonyAvatar"></div>
     <div class="ceremony-name" id="ceremonyName">—</div>
-    <div class="ceremony-score" id="ceremonyScore">— 点</div>
+    <div class="ceremony-score" id="ceremonyScore">— 枚</div>
     <div class="ceremony-promoted" id="ceremonyPromoted"></div>
     <div class="ceremony-actions">
       <button class="btn btn-sm ceremony-skip-btn" onclick="skipCeremony()">スキップ ›</button>
@@ -222,6 +217,7 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="tts.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

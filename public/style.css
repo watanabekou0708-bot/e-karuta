@@ -844,3 +844,13 @@ body {
 .tn-dot   { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
 .tn-name  { color: #fff; }
 .tn-label { color: var(--green); }
+
+/* お手付き中（次の札が読まれるまで取れない） */
+.grid.grab-locked .card { cursor: not-allowed !important; filter: grayscale(.6) brightness(.7); }
+.grid.grab-locked .card:hover { transform: none !important; box-shadow: none !important; }
+.lock-banner {
+  position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 60;
+  background: rgba(120, 30, 40, .92); color: #fff; padding: .45rem 1.1rem; border-radius: 999px;
+  font-weight: 700; font-size: .95rem; box-shadow: 0 4px 16px rgba(0, 0, 0, .4); pointer-events: none;
+}
+.lock-banner.hidden { display: none; }

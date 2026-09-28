@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>読み上げ確認 — ITかるた</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #0b1020; color: #dbe6ff; font-family: system-ui, "Yu Gothic UI", sans-serif; }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  .sub { color: #8fa3cc; font-size: .85rem; margin-bottom: 12px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  input[type=text], select, textarea { background: #141b33; color: #dbe6ff; border: 1px solid #2c3a66; border-radius: 6px; padding: 6px 8px; font: inherit; }
+  button { background: #22407a; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; }
+  button:hover { background: #2d55a3; }
+  button.sec { background: #2a3352; }
+  .voice { font-size: .85rem; padding: 6px 10px; border-radius: 6px; background: #14203f; }
+  .voice.warn { background: #5a2a1a; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { border-bottom: 1px solid #1f2a4d; padding: 6px 6px; text-align: left; vertical-align: top; }
+  th { position: sticky; top: 0; background: #0b1020; z-index: 1; }
+  .kana { color: #7fd6a8; font-size: .8rem; word-break: break-all; }
+  .tier { font-size: .75rem; padding: 1px 6px; border-radius: 4px; background: #24305a; white-space: nowrap; }
+  .memo { width: 12em; }
+  tr.bad { background: #3a1f2a; }
+  #out { width: 100%; min-height: 8em; }
+  .box { background: #10172e; border: 1px solid #22305a; border-radius: 8px; padding: 10px; margin-bottom: 14px; }
+  label.chk { white-space: nowrap; font-size: .8rem; }
+</style>
+</head>
+<body>
+<h1>読み上げ確認ページ</h1>
+<div class="sub">ゲームと同じ声・速さ・発音補正（tts.js）で全札を再生できます。誤読に聞こえたら「誤読」にチェックし、下の「誤読リストを作る」で出力した文章を共有してください。</div>
+
+<div class="bar">
+  <span id="voice" class="voice">声を確認中…</span>
+  <button id="stop" class="sec">■ 停止</button>
+</div>
+
+<div class="box">
+  <div><b>自由入力テスト</b>（DJ・順位読み上げなどの確認用）</div>
+  <div class="bar" style="margin-top:6px">
+    <input id="free" type="text" style="flex:1;min-width:16em" value="強CPU13さんが札をとりました！">
+    <button id="freePlay">▶ ゲーム音声で再生</button>
+    <button id="freeDj" class="sec">▶ DJの速さで再生</button>
+  </div>
+  <div class="kana" id="freeKana"></div>
+  <div class="bar" style="margin-top:6px">
+    <span style="font-size:.8rem;color:#8fa3cc">サンプル：</span>
+    <button class="sec sample">強CPU13さんが札をとりました！</button>
+    <button class="sec sample">ホストさん、ナイスキャッチ！ 現在3枚です。</button>
+    <button class="sec sample">ホストさん、あと少しで1位です！</button>
+    <button class="sec sample">おめでとうございます。あなたは5枚で1位です。</button>
+    <button class="sec sample">惜しい。あと2枚で3位でした。</button>
+    <button class="sec sample">1回戦終了です。お疲れ様でした。</button>
+  </div>
+</div>
+
+<div class="bar">
+  <input id="q" type="text" placeholder="検索（答え・文章）" style="min-width:14em">
+  <select id="tier">
+    <option value="">全ての難易度</option>
+    <option value="1">易しい</option>
+    <option value="2">普通</option>
+    <option value="3">難しい</option>
+  </select>
+  <label class="chk"><input type="checkbox" id="onlyBad"> 誤読チェック済みのみ</label>
+  <button id="makeList">誤読リストを作る</button>
+  <span id="count" class="sub"></span>
+</div>
+
+<textarea id="out" placeholder="「誤読リストを作る」を押すと、ここに誤読の一覧が出ます（コピーして共有してください）"></textarea>
+
+<table>
+  <thead><tr>
+    <th>ID</th><th>帯</th><th>読み札（上の句）</th><th>答え（取り札）</th><th>メモ（正しい読み方など）</th>
+  </tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<script src="tts.js"></script>
+<script>
+'use strict';
+const TIER_LABEL = { 1: '易', 2: '普', 3: '難' };
+const $ = id => document.getElementById(id);
+let voice = null;
+
+function pickVoice() {
+  const voices = speechSynthesis.getVoices();
+  voice = voices.find(v => /haruka/i.test(v.name) && v.lang.startsWith('ja')) || null;
+  const jp = voices.filter(v => v.lang.startsWith('ja')).map(v => v.name).join(' / ') || '（日本語の声が見つかりません）';
+  const el = $('voice');
+  el.textContent = voice ? `使用する声：${voice.name}（ゲームと同じ）` : `Haruka が見つかりません（ゲームとは違う声になります）。日本語の声：${jp}`;
+  el.classList.toggle('warn', !voice);
+}
+speechSynthesis.addEventListener('voiceschanged', pickVoice);
+pickVoice();
+
+function speak(text, dj) {
+  speechSynthesis.cancel();
+  setTimeout(() => {
+    const u = newUtterance(text);
+    u.lang = 'ja-JP';
+    u.rate = dj ? 1.1 : 0.6;
+    u.pitch = dj ? 1.15 : 1.05;
+    pickVoice();
+    if (voice) u.voice = voice;
+    speechSynthesis.speak(u);
+  }, 60);
+}
+
+$('stop').onclick = () => speechSynthesis.cancel();
+const showFreeKana = () => { $('freeKana').textContent = '実際に読ませる文字：' + speechText($('free').value); };
+$('free').oninput = showFreeKana; showFreeKana();
+$('freePlay').onclick = () => speak($('free').value, false);
+$('freeDj').onclick = () => speak($('free').value, true);
+document.querySelectorAll('.sample').forEach(b => b.onclick = () => { $('free').value = b.textContent; showFreeKana(); speak(b.textContent, true); });
+
+let cards = [];
+const bad = {};   // key: `${id}:${part}` → true
+const memo = {};  // id → text
+
+function tierOf(tiers, id) {
+  for (const t of [1, 2, 3]) if (tiers[t].includes(id)) return t;
+  return 0;
+}
+
+function cell(k, part, text) {
+  const key = `${k.id}:${part}`;
+  const td = document.createElement('td');
+  td.innerHTML = `<div><button class="play" title="再生">▶</button> <span class="t"></span></div>
+    <div class="kana"></div>
+    <label class="chk"><input type="checkbox" class="badchk"> 誤読</label>`;
+  td.querySelector('.t').textContent = text;
+  td.querySelector('.kana').textContent = '→ ' + speechText(text);
+  td.querySelector('.play').onclick = () => speak(part === 'yomi' ? '読み上げます。' + text : text, false);
+  const chk = td.querySelector('.badchk');
+  chk.checked = !!bad[key];
+  chk.onchange = () => { bad[key] = chk.checked; chk.closest('tr').classList.toggle('bad', !!(bad[`${k.id}:yomi`] || bad[`${k.id}:tori`])); };
+  return td;
+}
+
+function render() {
+  const q = $('q').value.trim().toLowerCase();
+  const tier = $('tier').value;
+  const onlyBad = $('onlyBad').checked;
+  const tbody = $('rows');
+  tbody.innerHTML = '';
+  let n = 0;
+  cards.forEach(k => {
+    if (tier && String(k.tier) !== tier) return;
+    if (q && !(k.yomi + k.tori).toLowerCase().includes(q)) return;
+    if (onlyBad && !(bad[`${k.id}:yomi`] || bad[`${k.id}:tori`])) return;
+    const tr = document.createElement('tr');
+    tr.classList.toggle('bad', !!(bad[`${k.id}:yomi`] || bad[`${k.id}:tori`]));
+    const idTd = document.createElement('td'); idTd.textContent = k.id;
+    const tierTd = document.createElement('td'); tierTd.innerHTML = `<span class="tier">${TIER_LABEL[k.tier] || '?'}</span>`;
+    const memoTd = document.createElement('td');
+    const inp = document.createElement('input'); inp.type = 'text'; inp.className = 'memo'; inp.value = memo[k.id] || '';
+    inp.oninput = () => { memo[k.id] = inp.value; };
+    memoTd.appendChild(inp);
+    tr.append(idTd, tierTd, cell(k, 'yomi', k.yomi), cell(k, 'tori', k.tori), memoTd);
+    tbody.appendChild(tr);
+    n++;
+  });
+  $('count').textContent = `${n}件を表示`;
+}
+
+$('q').oninput = render; $('tier').onchange = render; $('onlyBad').onchange = render;
+
+$('makeList').onclick = () => {
+  const lines = [];
+  cards.forEach(k => {
+    const parts = [];
+    if (bad[`${k.id}:yomi`]) parts.push('読み札');
+    if (bad[`${k.id}:tori`]) parts.push('答え');
+    if (!parts.length) return;
+    lines.push(`【ID ${k.id}】誤読：${parts.join('・')}\n  読み札：${k.yomi}\n  答え：${k.tori}\n  正しい読み：${memo[k.id] || '（未記入）'}`);
+  });
+  $('out').value = lines.length ? lines.join('\n\n') : '（誤読のチェックがありません）';
+};
+
+fetch('/api/karuta').then(r => r.json()).then(({ karuta, tiers }) => {
+  cards = karuta.map(k => ({ ...k, tier: tierOf(tiers, k.id) }));
+  render();
+});
+</script>
+</body>
+</html>

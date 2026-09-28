@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Webかるた 遊び方ガイド</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .cover { background: linear-gradient(160deg, #0b1230 0%, #1d3a8a 100%); color: #fff; padding: 0; }
+  .cover .inner { padding: 30mm 20mm 0; }
+  .cover .club { font-size: 14pt; letter-spacing: .15em; color: #b8ccff; }
+  .cover h1 { font-size: 40pt; line-height: 1.25; margin: 10mm 0 4mm; }
+  .cover .sub { font-size: 16pt; color: #dbe6ff; }
+  .cover .card { background: rgba(255,255,255,.1); border: 1.5px solid rgba(255,255,255,.35); border-radius: 4mm; padding: 6mm 8mm; margin-top: 14mm; color: #fff; }
+  .cover .card h2 { margin: 0 0 3mm; font-size: 16pt; color: #ffd66b; }
+  .cover .card li { font-size: 13pt; }
+  .cover .sound { margin-top: 8mm; background: #ffd66b; color: #3a2a00; border-radius: 4mm; padding: 5mm 8mm; font-size: 14pt; font-weight: 700; }
+  .cover .footer { color: #9fb4ee; border-top-color: rgba(255,255,255,.3); }
+  .steps-list li { font-size: 12.5pt; margin: 2mm 0; }
+  .flow { display: flex; gap: 3mm; margin: 3mm 0; }
+  .flow div { flex: 1; text-align: center; background: #eaf1ff; border: 1.5px solid #9dbbff; border-radius: 3mm; padding: 2.5mm 1mm; font-size: 10.5pt; font-weight: 700; }
+  .flow div span { display: block; font-weight: 400; font-size: 9pt; color: #4b5a86; }
+  .side { display: grid; grid-template-columns: 92mm 1fr; gap: 6mm; align-items: start; }
+  .side p { font-size: 11pt; }
+  .rules td { font-size: 10.5pt; }
+  .res img { width: 84%; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<!-- ===== 表紙 ===== -->
+<section class="page cover">
+  <div class="inner">
+    <div class="club">Webデザインサークル</div>
+    <h1>Webかるた<br>遊び方ガイド</h1>
+    <div class="sub">耳で聞いて、答えの札をクリック！ITの言葉を楽しく覚えよう</div>
+
+    <div class="card">
+      <h2>このガイドでわかること</h2>
+      <ul>
+        <li>ゲームのひらき方（STEP 1）</li>
+        <li>難易度を選んでスタートする方法（STEP 2）</li>
+        <li>遊び方とルール（STEP 3〜4）</li>
+        <li>結果の見方と、次の人への交代（STEP 5）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>あらかじめ知っておいてください</h2>
+      <ul>
+        <li>ゲーム画面には「<b>IT かるた</b>」と表示されます（Webかるたと同じゲームです）。</li>
+        <li>札の<b>読み上げは音声だけ</b>です。画面には出ません。</li>
+        <li>1試合は札15枚で、時間は<b>約10分が目安</b>です（全3試合）。1試合だけ遊んでもOKです。</li>
+      </ul>
+    </div>
+    <div class="sound">🔊 音が出ないと遊べません。スピーカーの音量を確認してから始めましょう。</div>
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 遊び方ガイド</span></div>
+</section>
+
+<!-- ===== STEP 1 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 1</span>ゲームをひらいて、名前を入れる</h2>
+
+  <h3>ゲームのひらき方</h3>
+  <ol class="steps-list">
+    <li>デスクトップまたはエクスプローラーから、共有フォルダ<b>「Webかるた」</b>を開きます。</li>
+    <li>フォルダの中にある<b>「学園祭展示用」</b>のリンクを<b>ダブルクリック</b>します。</li>
+    <li>Google Chrome が開き、下の「名前入力」の画面が出ます。</li>
+  </ol>
+
+  <h3>名前を入れて「参加する」</h3>
+  <div class="side">
+    <div>
+      <img class="shot" src="img/c01_name.png">
+      <div class="caption">名前入力の画面</div>
+    </div>
+    <div>
+      <p><span class="n">1</span><b>名前（ニックネーム）</b>を入力します。15文字まで。ひらがなでも英字でもOK。<b>入力するのは名前だけ</b>です。</p>
+      <p><span class="n">2</span><b>「参加する」</b>をクリックします。次の画面（ロビー）に進みます。</p>
+    </div>
+  </div>
+
+  <div class="box warn"><b class="t">⚠ 「参加する」を押してから音が出ます</b>
+    ブラウザの決まりで、「参加する」を押すまでは音が鳴りません。音が出ないときは、パソコンの音量やミュートも確認しましょう。
+  </div>
+  <div class="box info"><b class="t">前の人の画面が残っているとき</b>
+    ゲーム画面が途中まで進んでいたら、キーボードの <span class="kbd">F5</span> を押して最初からやり直します。
+  </div>
+  <div class="box ok"><b class="t">画面を見やすくするコツ</b>
+    キーボードの <span class="kbd">F11</span> で全画面になります（もう一度押すと戻ります）。文字や札が大きすぎ・小さすぎるときは、<span class="kbd">Ctrl</span> を押しながら <span class="kbd">0</span>（ゼロ）で元の大きさに戻ります。
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 遊び方ガイド　1 / 6</span></div>
+</section>
+
+<!-- ===== STEP 2 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 2</span>難易度を選んで、ゲームスタート</h2>
+  <div class="side">
+    <div>
+      <img class="shot" src="img/c02_lobby.png">
+      <div class="caption">ロビー（練習モードの設定画面）</div>
+    </div>
+    <div>
+      <p><span class="n">1</span><b>難易度</b>を選びます（最初は「ふつう」）。</p>
+      <p><span class="n">2</span><b>CPUの強さ</b>を選びます（最初は「ふつう」）。</p>
+      <p><span class="n">3</span><b>「ゲームスタート（全3試合）」</b>をクリックすると、ゲームが始まります。</p>
+      <div class="box info" style="margin-top:4mm"><b class="t">CPUって？</b>
+        コンピューターの対戦相手です。1試合は、あなたとCPUをあわせて<b>約80人</b>で札を取り合います。
+      </div>
+    </div>
+  </div>
+
+  <h3>難易度（出てくる札）</h3>
+  <table>
+    <tr><th style="width:20%">難易度</th><th>どんな札が出るか</th></tr>
+    <tr><td><b>かんたん</b></td><td>やさしいIT用語と、基本のExcel関数が出ます。「ダミー読み」（盤面にない札の読み上げ）はありません。はじめての人におすすめ。</td></tr>
+    <tr><td><b>ふつう</b></td><td>ふつうのIT用語と、少しむずかしいExcel関数が出ます。ときどき「ダミー読み」が入ります。</td></tr>
+    <tr><td><b>難しい</b></td><td>むずかしいIT用語と、Excel関数が出ます。「ダミー読み」が多くなります。</td></tr>
+  </table>
+  <p style="font-size:10pt;margin-top:0">※どの難易度でも、札の約半分は「Excel関数」、残りはIT用語です。</p>
+  <h3>CPUの強さ</h3>
+  <table>
+    <tr><th style="width:20%">CPUの強さ</th><th>CPUの動き</th></tr>
+    <tr><td><b>弱い</b></td><td>反応がゆっくりで、まちがえることも多い。ゆっくり遊びたい人向け。</td></tr>
+    <tr><td><b>ふつう</b></td><td>ほどよい速さ。</td></tr>
+    <tr><td><b>強い</b></td><td>反応が速く、ミスも少ない。本気で勝負したい人向け。</td></tr>
+  </table>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 遊び方ガイド　2 / 6</span></div>
+</section>
+
+<!-- ===== STEP 3 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 3</span>盤面整理タイム（はじまる前の準備）</h2>
+  <img class="shot" src="img/03_arrange.png">
+  <div class="caption">盤面整理タイムの画面</div>
+
+  <p>ゲームを始めると、まず<b>札が並んだ画面</b>になります。これは、本物のかるたのように札を並べ替える時間です。</p>
+  <p><span class="n">1</span>上に表示されるカウントダウン（<b>2分30秒</b>）が終わると、自動で試合が始まります。</p>
+  <p><span class="n">2</span>すぐに始めたいときは、右上の<b>「即終了（デバッグ）」</b>ボタンを押すと、待ち時間を飛ばして始められます。</p>
+
+  <h3>札の並べ替え（しなくてもOK）</h3>
+  <ul>
+    <li>画面の<b>下半分</b>の札は、マウスでつかんで動かせます（自分の陣地）。</li>
+    <li>取りやすい場所にまとめておくと、試合で取りやすくなります。</li>
+    <li>上半分の札は動かせません（相手の陣地）。</li>
+  </ul>
+
+  <div class="box info"><b class="t">札に書いてあるのは「答え」です</b>
+    札には、答えとなる用語だけが書かれています。読み上げられる説明文を聞いて、その答えの札を探します。
+  </div>
+  <div class="box warn"><b class="t">この時間は札を取れません</b>
+    盤面整理タイムの間は、札をクリックしても取れません。試合が始まってから取りましょう。
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 遊び方ガイド　3 / 6</span></div>
+</section>
+
+<!-- ===== STEP 4 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 4</span>遊び方（試合中の画面）</h2>
+  <img class="shot" src="img/04_play.png">
+  <div class="caption">試合中の画面</div>
+  <table style="font-size:10.5pt; margin-top:0">
+    <tr><td style="width:50%"><span class="n">1</span><b>自分の順位と札の枚数</b>（例：1位 / 80人中　0枚）</td>
+        <td><span class="n">2</span><b>読み上げの状況</b>（「読み上げ中…」と出ます）</td></tr>
+    <tr><td><span class="n">3</span><b>ランキング</b>（上位10人）</td>
+        <td><span class="n">4</span><b>札</b>（答えの札をクリックして取ります）</td></tr>
+    <tr><td colspan="2"><span class="n">5</span><b>補助ボタン</b>（右上：「CPUポイント」「即終了」。くわしくは STEP 5）</td></tr>
+  </table>
+
+  <h3>遊び方</h3>
+  <ol class="steps-list">
+    <li>「読み上げます」の声のあと、<b>説明文</b>が音声で読み上げられます。</li>
+    <li>その説明に合う<b>答えの札</b>を、画面の中から探して<b>クリック</b>します。</li>
+    <li>正解の札を取ると<b>+1枚</b>。いちばん多く取った人が1位です。</li>
+  </ol>
+  <div class="flow">
+    <div>① 耳で聞く<span>説明文が読まれる</span></div>
+    <div>② 札を探す<span>答えの札をさがす</span></div>
+    <div>③ クリック！<span>取れたら +1枚</span></div>
+    <div>④ 正解発表<span>「そこまで」＋答え</span></div>
+  </div>
+  <div class="box info"><b class="t">札に書いてあるのは「答え」だけ</b>
+    説明文は画面に出ません。音声をよく聞いてから、札をクリックしましょう。
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 遊び方ガイド　4 / 6</span></div>
+</section>
+
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 4</span>ルール（取れたとき・まちがえたとき）</h2>
+  <div class="two">
+    <div>
+      <img class="shot-sm" src="img/05_take.png">
+      <div class="caption">正解！ +1枚（右上に取った人の名前）</div>
+    </div>
+    <div>
+      <img class="shot-sm" src="img/06_wrong.png">
+      <div class="caption">お手付き… -1枚（次の札まで取れない）</div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="box ok"><b class="t">✅ 正解を取ると</b>
+      札が消えて<b>+1枚</b>。取った人の名前が右上に出て、「そこまで」と正解の読み上げがあります。</div>
+    <div class="box ng"><b class="t">✋ お手付きをすると</b>
+      <b>-1枚</b>。しかも<b>次の札が読み上げられるまで取れません</b>（画面が暗くなります）。あわてず、聞いてから！</div>
+  </div>
+
+  <h3>ルールのまとめ</h3>
+  <table class="rules">
+    <tr><th style="width:24%">できごと</th><th>どうなる？</th></tr>
+    <tr><td>正解の札を取った</td><td>+1枚。次の札の読み上げに進みます。</td></tr>
+    <tr><td>ちがう札を取った（お手付き）</td><td>-1枚（0枚からでもマイナスになります）。次の札が読まれるまで、その人は取れません。</td></tr>
+    <tr><td>10秒たっても誰も取れなかった</td><td>「そこまで」。正解が発表されて、その札は終わり。誰にも枚数は入りません。</td></tr>
+    <tr><td>ダミー読みのときにクリックした</td><td>盤面にない札の説明が読まれることがあります。クリックするとお手付き（-1枚）です。読み上げのあと「これは盤面にない札でした」と言います。</td></tr>
+    <tr><td>同じ枚数の人がいる</td><td>同じ順位（1位・1位・3位…）になります。</td></tr>
+  </table>
+  <div class="box warn"><b class="t">⏱ 制限時間は「読み上げが終わってから10秒」</b>
+    説明文を最後まで聞いてから10秒間が取れる時間です。読み上げの途中でも取れます（CPUも同じです）。
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 遊び方ガイド　5 / 6</span></div>
+</section>
+
+<!-- ===== STEP 5 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 5</span>結果を見て、次の試合へ</h2>
+
+  <div class="two res">
+    <div>
+      <img class="shot-sm" src="img/c07_result.png">
+      <div class="caption">第1・2試合のあとの結果</div>
+    </div>
+    <div>
+      <img class="shot-sm" src="img/c08_final.png">
+      <div class="caption">最終試合のあとの結果</div>
+    </div>
+  </div>
+  <p><span class="n">1</span><b>自分の行</b>（「あなた」と書かれた行）が、自分の順位と枚数です。</p>
+  <p><span class="n">2</span>第1・2試合のあとは<b>「第○試合を開始」</b>、最終試合のあとは<b>「ロビーに戻る」</b>を押します。</p>
+  <p>結果画面では、DJが順位や枚数を音声で読み上げます。3位以内に入ると「おめでとうございます」！</p>
+
+  <h3>補助ボタンのやくわり</h3>
+  <table>
+    <tr><th style="width:28%">ボタン</th><th>やくわり</th></tr>
+    <tr><td><b>即終了（デバッグ）</b></td><td>盤面整理タイムでは待ち時間を飛ばしてすぐ試合を始めます。試合中に押すと、その試合をすぐ終わらせて結果画面に進みます。<b>押すと元に戻せません</b>。</td></tr>
+    <tr><td><b>CPUポイント</b></td><td>押すと、CPUの札の枚数がランダム（0〜6枚）に変わります。順位争いの様子を変えたいときに使います。自分の枚数は変わりません。</td></tr>
+    <tr><td><b>ロビーに戻る</b></td><td>最終試合のあとに押すと、難易度を選ぶ画面に戻ります。</td></tr>
+  </table>
+
+  <div class="two">
+    <div class="box info"><b class="t">次の人に交代するとき</b>
+      <ol style="margin:0">
+        <li>キーボードの <span class="kbd">F5</span> を押します。</li>
+        <li>名前入力の画面に戻るので、次の人が名前を入れて始めます。</li>
+      </ol>
+    </div>
+    <div class="box warn"><b class="t">お願い</b>
+      <ul style="margin:0">
+        <li>つながった人がみんな<b>同じゲームに参加</b>します。会場のパソコン<b>以外のスマホなどでは開かない</b>でください。</li>
+        <li>うまく動かないときは、別紙<b>「トラブル対応ガイド」</b>を見てください。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 遊び方ガイド　6 / 6</span></div>
+</section>
+
+</body>
+</html>

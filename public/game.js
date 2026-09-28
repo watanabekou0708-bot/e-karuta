@@ -1,57 +1,187 @@
 'use strict';
 
 // ── Karuta data（J検（情報活用試験）3級レベル＋Excel関数）─────
-// ids 1-15: 易しい / 16-30: 普通 / 31-45: 難しい
+// ids 1-15,46-60: 易しい / 16-30,61-75: 普通 / 31-45,76-90: 難しい
 // サーバー側 server.js の KARUTA と内容を一致させること。
 const KARUTA = [
-  // 易しい（1〜15）
-  { id:  1, yomi: 'コンピューターの頭脳と呼ばれ、計算と命令の処理を担う装置',             tori: 'CPU' },
-  { id:  2, yomi: '電源を切ると消えてしまう、作業中のデータを一時的に保管する主記憶装置', tori: 'メモリ' },
-  { id:  3, yomi: '電源を切っても消えない、写真や文書を永続的に記憶する補助記憶装置',     tori: 'ストレージ' },
-  { id:  4, yomi: '世界中のコンピューターをつないだ、巨大な情報通信ネットワーク',         tori: 'インターネット' },
-  { id:  5, yomi: '推測されにくい文字列で、アカウントへの不正アクセスを防ぐ秘密の認証情報', tori: 'パスワード' },
-  { id:  6, yomi: 'Excelの表を構成する、行と列が交差する一つの升目',                     tori: 'セル' },
-  { id:  7, yomi: 'Excelでデータを入力する、複数集めるとブックになる1枚の作業画面',       tori: 'ワークシート' },
-  { id:  8, yomi: '指定した範囲の数値をすべて合計するExcelの基本関数',                   tori: 'SUM関数' },
-  { id:  9, yomi: '指定した範囲の数値の平均値を求めるExcel関数',                         tori: 'AVERAGE関数' },
-  { id: 10, yomi: 'セルの右下をドラッグすることで、連続データや数式を隣のセルへ自動入力する機能', tori: 'オートフィル' },
-  { id: 11, yomi: 'URLを入力してウェブページを閲覧するためのソフトウェア',               tori: 'Webブラウザ' },
-  { id: 12, yomi: 'ファイルやアプリを絵柄で分かりやすく表したもの',                       tori: 'アイコン' },
-  { id: 13, yomi: 'コピーやカットしたデータを一時的に保存しておく場所',                   tori: 'クリップボード' },
-  { id: 14, yomi: '複数のキーを同時に押すことで、素早く操作を実行する機能',               tori: 'ショートカットキー' },
-  { id: 15, yomi: 'ファイル名の末尾につく、そのファイルの種類を表す文字列',               tori: '拡張子' },
-  // 普通（16〜30）
-  { id: 16, yomi: 'ハードウェアを管理し、アプリケーションが動く土台となるソフトウェア',   tori: 'OS' },
-  { id: 17, yomi: '会社や学校など限られた範囲で、コンピューターをつなぐネットワーク',     tori: 'LAN' },
-  { id: 18, yomi: 'パスワードに加えてスマートフォンなどで本人確認する、二段階の認証方式', tori: '二段階認証' },
-  { id: 19, yomi: '他人が作った著作物を、許可なく複製・配布することを禁ずる権利',         tori: '著作権' },
-  { id: 20, yomi: 'コンピューターに害を与える目的で作られた、悪意のあるソフトウェアの総称', tori: 'マルウェア' },
-  { id: 21, yomi: '数式をコピーすると、参照するセルの位置が自動的にずれるExcelの標準的な参照方式', tori: '相対参照' },
-  { id: 22, yomi: '数式をコピーしてもセルの参照先が変わらないようにする、$記号を使ったExcelの指定方法', tori: '絶対参照' },
-  { id: 23, yomi: '条件を満たすかどうかで異なる結果を返す、Excelの代表的な条件分岐関数', tori: 'IF関数' },
-  { id: 24, yomi: '指定した条件に一致するセルの個数を数えるExcel関数',                   tori: 'COUNTIF関数' },
-  { id: 25, yomi: '指定した桁数で数値を四捨五入するExcel関数',                           tori: 'ROUND関数' },
-  { id: 26, yomi: '指定した範囲の中で最大の数値を求めるExcel関数',                       tori: 'MAX関数' },
-  { id: 27, yomi: '指定した範囲の中で最小の数値を求めるExcel関数',                       tori: 'MIN関数' },
-  { id: 28, yomi: '指定した条件を満たすセルだけ自動的に色や書式を変えるExcelの機能',     tori: '条件付き書式' },
-  { id: 29, yomi: '表の中から条件に合うデータだけを絞り込んで表示するExcelの機能',       tori: 'フィルター' },
-  { id: 30, yomi: 'インターネット上にファイルを保存し、複数の端末から利用できるサービス', tori: 'クラウドストレージ' },
-  // 難しい（31〜45）
-  { id: 31, yomi: 'ネットワーク上の住所にあたる、コンピューターを識別するための番号',     tori: 'IPアドレス' },
-  { id: 32, yomi: 'ドメイン名をIPアドレスに変換する、インターネットの電話帳のような仕組み', tori: 'DNS' },
-  { id: 33, yomi: '実在する企業を装った偽のメールやサイトで、個人情報を盗もうとする攻撃', tori: 'フィッシング詐欺' },
-  { id: 34, yomi: 'インターネット経由でサーバーやソフトウェアをサービスとして利用する形態', tori: 'クラウドコンピューティング' },
-  { id: 35, yomi: '大量のデータを整理して保存し、素早く検索・更新・抽出できる仕組み',     tori: 'データベース' },
-  { id: 36, yomi: '指定した範囲の左端の列を縦方向に検索し、対応する値を返すExcelの検索関数', tori: 'VLOOKUP関数' },
-  { id: 37, yomi: '指定した条件に一致するセルの数値だけを合計するExcel関数',             tori: 'SUMIF関数' },
-  { id: 38, yomi: '数式がエラーになった場合に、代わりの値を表示させるExcel関数',         tori: 'IFERROR関数' },
-  { id: 39, yomi: '指定した範囲の中から、行と列の番号で位置を指定してデータを取り出すExcel関数', tori: 'INDEX関数' },
-  { id: 40, yomi: '大量のデータを集計・分析し、視点を変えて自在に表を組み替えられるExcelの機能', tori: 'ピボットテーブル' },
-  { id: 41, yomi: '指定した範囲の中で、数値が何番目に大きい（小さい）かの順位を求めるExcel関数', tori: 'RANK関数' },
-  { id: 42, yomi: '指定した範囲の中から検索値を探し、その位置が何番目かを返すExcel関数', tori: 'MATCH関数' },
-  { id: 43, yomi: 'Excelでの一連の操作を記録し、自動的に再実行できるようにする機能',     tori: 'マクロ' },
-  { id: 44, yomi: '感染したパソコンのデータを暗号化し、復元と引き換えに金銭を要求する悪意のあるソフトウェア', tori: 'ランサムウェア' },
-  { id: 45, yomi: '特定の組織や個人を狙い、業務連絡などを装って送られる巧妙な不正アクセス', tori: '標的型攻撃' },
+  // 易しい（一般常識 J検3級:容易 + Excel基本編関数, id 1-30）
+  { id: 1, yomi: "オンラインサービスで個人または組織を識別する名前", tori: "アカウント名" },
+  { id: 2, yomi: "情報を世界中のコンピュータネットワークで共有するグローバルなコミュニケーションネットワーク", tori: "インターネット" },
+  { id: 3, yomi: "情報をキーワードで検索し、関連するウェブページやファイルを一覧表示するプログラムやサービス", tori: "検索エンジン" },
+  { id: 4, yomi: "悪意のあるプログラムで、コンピュータに感染して機能を破壊・乗っ取る", tori: "コンピュータウィルス" },
+  { id: 5, yomi: "電子メールや文書に添付されるデータを指す", tori: "添付ファイル" },
+  { id: 6, yomi: "アクセス制御のための秘密の文字列", tori: "パスワード" },
+  { id: 7, yomi: "個人が日記や情報をウェブ上で発信するオンラインメディア", tori: "ブログ" },
+  { id: 8, yomi: "ウェブ上でアクセス可能な文書やメディアのまとまりで、情報やサービスを提供するためのインターネット上の個別のページ", tori: "ホームページ" },
+  { id: 9, yomi: "オンライン上でユーザーが交流するプラットフォーム（ソーシャル・ネットワーキング・サービス）", tori: "SNS" },
+  { id: 10, yomi: "インターネット上に存在する情報やコンテンツを表示するためのオンラインの場所", tori: "Webサイト" },
+  { id: 11, yomi: "Microsoftによるオペレーティングシステム", tori: "Windows" },
+  { id: 12, yomi: "情報処理分野でのマナーやルールに関するマナー", tori: "ネチケット" },
+  { id: 13, yomi: "電子メール送受信のための個人識別情報", tori: "メールアドレス" },
+  { id: 14, yomi: "数値データのみを対象に個数を数える関数", tori: "COUNT関数" },
+  { id: 15, yomi: "「もしも・・・なら」「真の場合」「偽の場合」を提示する関数", tori: "IF関数" },
+  { id: 16, yomi: "指定した数値やセル範囲の中から最大値を選んで表示する関数", tori: "MAX関数" },
+  { id: 17, yomi: "指定した数値やセル範囲の中から最小の値を選んで表示する関数", tori: "MIN関数" },
+  { id: 18, yomi: "順位の平均を表示する関数", tori: "RANK.AVG関数" },
+  { id: 19, yomi: "切り捨てする関数", tori: "ROUNDDOWN関数" },
+  { id: 20, yomi: "切り上げする関数", tori: "ROUNDUP関数" },
+  { id: 21, yomi: "四捨五入する関数", tori: "ROUND関数" },
+  { id: 22, yomi: "合計を算出する関数", tori: "SUM関数" },
+  { id: 23, yomi: "複数の条件をすべて満たす「かつ」という論理条件を示す関数", tori: "AND関数" },
+  { id: 24, yomi: "今日の日付を表示する関数", tori: "TODAY関数" },
+  { id: 25, yomi: "平均値を計算する関数", tori: "AVERAGE関数" },
+  { id: 26, yomi: "セルに入力されたすべてのデータを対象に個数を計算する関数", tori: "COUNTA関数" },
+  { id: 27, yomi: "数値が何番目にあるかを表示する関数", tori: "RANK.EQ関数" },
+  { id: 28, yomi: "指定した数値を超えない最大の整数を表示する関数", tori: "INT関数" },
+  { id: 29, yomi: "「または」という論理条件を示す関数", tori: "OR関数" },
+  { id: 30, yomi: "年数や日数、月数の経過期間を計算する関数", tori: "DATEDIF関数" },
+  // 普通（J検3級:標準 + Excel応用編関数, id 31-93）
+  { id: 31, yomi: "ウェブページやアプリ内でコンテンツをスクロールするためのバー", tori: "スクロールバー" },
+  { id: 32, yomi: "２回連続でマウスをクリックする操作", tori: "ダブルクリック" },
+  { id: 33, yomi: "ユーザーがテキストを入力できるGUI要素", tori: "テキストボックス" },
+  { id: 34, yomi: "文書内やWebページでクリックにより別の場所やリソースに移動させるリンク", tori: "ハイパーリンク" },
+  { id: 35, yomi: "選択肢がリストとして表示され、クリックすると選択できるインターフェース要素", tori: "プルダウンメニュー" },
+  { id: 36, yomi: "選択肢を一覧表示するGUI要素", tori: "リストボックス" },
+  { id: 37, yomi: "記録可能なDVD形式で、一度のみ書き込み可能な光ディスク", tori: "DVD-R" },
+  { id: 38, yomi: "インターネットを閲覧するソフトウェア。Webページを表示し、ユーザーが情報を検索・閲覧できる", tori: "ブラウザ" },
+  { id: 39, yomi: "コンピューターシステムに対するセキュリティ対策ソフトウェアで、悪意のあるプログラムから保護するもの", tori: "ワクチンソフト" },
+  { id: 40, yomi: "Webページを作成するための言語", tori: "HTML" },
+  { id: 41, yomi: "情報保存のための携帯可能な記憶デバイス", tori: "USBメモリ" },
+  { id: 42, yomi: "画像圧縮形式で、写真や図形のデジタル画像を小さくして保存するために利用されます", tori: "JPEG" },
+  { id: 43, yomi: "コンピューターやデバイスへの入力装置で、文字や操作を指定するためにキーを押すことで情報を入力するデバイス", tori: "キーボード" },
+  { id: 44, yomi: "ユーザがマウスやタッチデバイスで画面上の要素を選択または操作する行為", tori: "クリック" },
+  { id: 45, yomi: "コンピュータでの効率的な操作のためのキーボードショートカット", tori: "ショートカットキー" },
+  { id: 46, yomi: "選択項目を有効／無効にするUI要素", tori: "チェックボックス" },
+  { id: 47, yomi: "コンピューターの操作で、マウスや指でオブジェクトを選択し、別の場所に移動することを指す", tori: "ドラッグ" },
+  { id: 48, yomi: "情報処理でデータやファイルを整理・保存するための仮想的なコンテナ。関連するアイテムをまとめ、検索や管理を容易にする", tori: "フォルダ" },
+  { id: 49, yomi: "文字のスタイルや形状を指定する情報。テキスト表示に使用され、視覚的な印象を与えるために様々な種類やスタイルが存在する", tori: "フォント" },
+  { id: 50, yomi: "情報処理分野で入力デバイスとして使われ、カーソルを移動・クリックするための手持ちデバイス", tori: "マウス" },
+  { id: 51, yomi: "選択肢から1つを選択するための円形のUI要素", tori: "ラジオボタン" },
+  { id: 52, yomi: "高容量ディスクで、光学ディスク規格の一つ。データや映像を高品質で保存・再生する技術", tori: "Blue-ray Disc" },
+  { id: 53, yomi: "コンピューター上でハードウェアやソフトウェアを制御し、管理する基本ソフトウェア（Operating System）", tori: "OS" },
+  { id: 54, yomi: "ポータブルな文書フォーマット。文書や画像を独立した形式で表示するためのファイル形式", tori: "PDF" },
+  { id: 55, yomi: "インデックスを使用して引数リストに指定した値を表示する関数", tori: "CHOOSE関数" },
+  { id: 56, yomi: "指定した数値を日付型で表示する関数", tori: "DATE関数" },
+  { id: 57, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの中で数値が入力されているセルの個数を表示させる関数", tori: "DCOUNT関数" },
+  { id: 58, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの最小値を表示させる関数", tori: "DMIN関数" },
+  { id: 59, yomi: "「表引きによるデータ参照」をする関数、検索する値が行方向（横）に並んでいる", tori: "HLOOKUP関数" },
+  { id: 60, yomi: "空白セルかどうかを調べる関数", tori: "ISBLANK関数" },
+  { id: 61, yomi: "文字列の文字数を表示する関数", tori: "LEN関数" },
+  { id: 62, yomi: "文字列の任意の位置から指定された数の文字を取り出す関数", tori: "MID関数" },
+  { id: 63, yomi: "現在の日付と時刻を表示する関数", tori: "NOW関数" },
+  { id: 64, yomi: "文字列を指定された回数だけ繰り返して表示する関数", tori: "REPT関数" },
+  { id: 65, yomi: "「表引きによるデータ参照」をする関数、検索する値が列方向（縦）に並んでいる", tori: "VLOOKUP関数" },
+  { id: 66, yomi: "指定した検索文字列をほかの文字列の中で検索し、その検索文字列が最初に現れる位置を先頭文字からの位置で表示する関数", tori: "SEARCH関数" },
+  { id: 67, yomi: "ふりがなを表示する関数", tori: "PHONETIC関数" },
+  { id: 68, yomi: "数値を書式設定した文字列に変換する関数", tori: "TEXT関数" },
+  { id: 69, yomi: "指定した日付の曜日を0～7までの数値で表示する関数", tori: "WEEKDAY関数" },
+  { id: 70, yomi: "数値から符号の＋や－を除いた絶対値を表示する関数", tori: "ABS関数" },
+  { id: 71, yomi: "範囲内のデータの中で、指定した順位番目に小さな値を表示する関数", tori: "SMALL関数" },
+  { id: 72, yomi: "小数点以下を切り捨てる関数", tori: "TRUNC関数" },
+  { id: 73, yomi: "データ範囲から行の位置と列の位置を指定し、その行と列の交差する位置の値を表示する", tori: "INDEX関数" },
+  { id: 74, yomi: "複数の条件に一致するセルの平均を求める関数", tori: "AVERAGEIFS関数" },
+  { id: 75, yomi: "複数の条件に一致するセルの個数を求める関数", tori: "COUNTIFS関数" },
+  { id: 76, yomi: "指定した順位番目に大きな値を表示する関数", tori: "LARGE関数" },
+  { id: 77, yomi: "複数の条件に一致するセルの値を合計する関数", tori: "SUMIFS関数" },
+  { id: 78, yomi: "文字列の任意の位置から指定された数の文字をバイト数で取り出す関数", tori: "MIDB関数" },
+  { id: 79, yomi: "論理値「FALSE」を返す関数", tori: "FALSE関数" },
+  { id: 80, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの平均値を表示させる関数", tori: "DAVERAGE関数" },
+  { id: 81, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの中の空白でないセルの個数を表示させる関数", tori: "DCOUNTA関数" },
+  { id: 82, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの最大値を表示させる関数", tori: "DMAX関数" },
+  { id: 83, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの合計を表示させる関数", tori: "DSUM関数" },
+  { id: 84, yomi: "文字列の先頭から指定された数の文字を取り出す関数", tori: "LEFT関数" },
+  { id: 85, yomi: "ある値が特定の値と等しくないことを判断して使う関数", tori: "NOT関数" },
+  { id: 86, yomi: "文字列の末尾から指定された数の文字を取り出す関数", tori: "RIGHT関数" },
+  { id: 87, yomi: "指定した条件に一致するセルの平均値を算出する関数", tori: "AVERAGEIF関数" },
+  { id: 88, yomi: "指定した条件に一致するセルの個数を算出する関数", tori: "COUNTIF関数" },
+  { id: 89, yomi: "数式がエラーとして評価される場合は指定の値を表示し、それ以外の場合は数式の結果を表示する関数", tori: "IFERROR関数" },
+  { id: 90, yomi: "数値を除数で割ったときの余りを表示する関数", tori: "MOD関数" },
+  { id: 91, yomi: "指定した条件に一致するセルの値を合計する関数", tori: "SUMIF関数" },
+  { id: 92, yomi: "財務関数のひとつで、ローン計算をするときに使用する関数", tori: "PMT関数" },
+  { id: 93, yomi: "論理値「TRUE」を返す関数", tori: "TRUE関数" },
+  // 難しい（J検3級:中程度+高度, id 94-175）
+  { id: 94, yomi: "ファイルやデータを圧縮された状態から元の形式に戻す処理", tori: "解凍" },
+  { id: 95, yomi: "基数が10の数制で、0から9までの数字を用いて数を表す。10進法は日常的で直感的な計算が可能", tori: "10進数" },
+  { id: 96, yomi: "データを順にアクセスする手法。例：テープドライブ。ランダムアクセスに比べ効率は低いが、シンプル", tori: "順アクセス方式" },
+  { id: 97, yomi: "ダウンロードしながら再生できる", tori: "ストリーミング" },
+  { id: 98, yomi: "ファイルやディレクトリの完全な場所を示す", tori: "絶対パス" },
+  { id: 99, yomi: "ファイルやディレクトリの場所を現在の場所から相対的に示す方法", tori: "相対パス" },
+  { id: 100, yomi: "複数のデバイスが相互に接続され、情報を共有する仕組み", tori: "ネットワーク" },
+  { id: 101, yomi: "情報の最小単位。0または1の二進数で表され、コンピュータのデータ処理において基本的な情報単位", tori: "ビット" },
+  { id: 102, yomi: "ネットワークを通して攻撃する", tori: "不正アクセス" },
+  { id: 103, yomi: "文字を数字に変換する規則。例えば、ASCIIやUTF-8がある", tori: "文字コード" },
+  { id: 104, yomi: "文字の正しい表示ができないエラー", tori: "文字化け" },
+  { id: 105, yomi: "使いやすさを第一に考える", tori: "ユーザビリティ" },
+  { id: 106, yomi: "現実世界にコンピュータ生成の情報を重ね合わせる技術", tori: "AR" },
+  { id: 107, yomi: "オブジェクト指向プログラミング言語。様々なプラットフォームで動作し、堅牢性と移植性が特徴", tori: "Java" },
+  { id: 108, yomi: "データベースで使用される問い合わせ言語", tori: "SQL" },
+  { id: 109, yomi: "インターネット上のリソースの場所を示すアドレス", tori: "URL" },
+  { id: 110, yomi: "コンピューター技術を使い、現実世界とは異なる環境を体験する技術（仮想現実）", tori: "VR" },
+  { id: 111, yomi: "インターネット上の情報を検索・閲覧するためのシステム（World Wide Web）", tori: "WWW" },
+  { id: 112, yomi: "ウェブページの動的な振る舞いを制御するプログラミング言語", tori: "JavaScript" },
+  { id: 113, yomi: "情報処理でデータを表す単位。8ビットの集まりで、1文字を表したり、データを保存したりする", tori: "バイト" },
+  { id: 114, yomi: "情報処理で使用される入力デバイスで、カーソルやポインターを制御するための装置", tori: "ポインティングディバイス" },
+  { id: 115, yomi: "コンピュータを用いた設計や図面作成に使用されるソフトウェアや技術（Computer-Aided Design）", tori: "CAD" },
+  { id: 116, yomi: "ファイルをネットワーク上で転送するための通信プロトコル（File Transfer Protocol）", tori: "FTP" },
+  { id: 117, yomi: "ウェブ開発のためのサーバーサイド言語", tori: "PHP" },
+  { id: 118, yomi: "テキストを編集するソフトウェア。基本的な操作が容易であり、コードや文章の作成・編集に利用される", tori: "テキストエディタ" },
+  { id: 119, yomi: "0と1のみを使い数を表現する数制で、コンピューター内で情報を表す基本的な方式", tori: "2進数" },
+  { id: 120, yomi: "関連付けられたテーブルにデータを格納し、SQLを使って管理するデータベースシステム", tori: "リレーショナルデータベース" },
+  { id: 121, yomi: "データを小さくして、記憶や転送の効率を向上させる処理", tori: "圧縮" },
+  { id: 122, yomi: "手順や計算を解決するための明確な手法や指示", tori: "アルゴリズム" },
+  { id: 123, yomi: "ファイルの種類や形式を示すためのファイル名の末尾に追加される文字列", tori: "拡張子" },
+  { id: 124, yomi: "特定の機種や環境に依存して正しく表示される文字で、他の環境では正しく表示されない文字のこと", tori: "機種依存文字" },
+  { id: 125, yomi: "0から15までの数字を表す基数で、10進数の16進法。コンピュータなどで頻繁に使用され、0～9とA～Fで表現される", tori: "16進数" },
+  { id: 126, yomi: "10進数の代わりに0から7の数字を使う数法。8の倍数で表現され、2進数への変換が利用される", tori: "8進数" },
+  { id: 127, yomi: "情報処理で使われる視覚的な図で、プロセスやアルゴリズムを流れ図で表現し、理解や設計をサポートする", tori: "フローチャート" },
+  { id: 128, yomi: "テキストベースのユーザーインターフェース（Character User Interface）", tori: "CUI" },
+  { id: 129, yomi: "ウェブページなどを送受信するための通信規約（Hypertext Transfer Protocol）", tori: "HTTP" },
+  { id: 130, yomi: "コンピューターと周辺機器を接続するための標準インターフェース", tori: "USB" },
+  { id: 131, yomi: "データを保護するために情報を不可解な形に変換する技術", tori: "暗号化" },
+  { id: 132, yomi: "プロセスやシステムの操作・監視を行う装置", tori: "制御装置" },
+  { id: 133, yomi: "コンピューターの主要な部品であり、命令を実行し、データを処理する装置。CPUとも呼ばれる", tori: "中央処理装置" },
+  { id: 134, yomi: "情報処理でデータをシステムに入力する機器や手段", tori: "入力装置" },
+  { id: 135, yomi: "情報処理で実行中のプログラムの一部で、リソースやデータを操作し、タスクを完了するための実行単位", tori: "プロセス" },
+  { id: 136, yomi: "データを永続的に保存するためのデバイスで、例えばハードディスクドライブやSSDなどが該当します", tori: "補助記憶装置" },
+  { id: 137, yomi: "コンピューターの主要部分であり、命令を実行し、演算やデータ処理を行う（Central Processing Unit）", tori: "CPU" },
+  { id: 138, yomi: "ファイルを送受信するためのサーバ", tori: "FTPサーバ" },
+  { id: 139, yomi: "インターネット接続を提供する企業または組織（Internet Service Provider）", tori: "ISP" },
+  { id: 140, yomi: "データをローカルエリアネットワークで伝送するためのケーブル", tori: "LANケーブル" },
+  { id: 141, yomi: "オープンソースのオペレーティングシステムで、コンピュータの基本機能を提供するソフトウェア", tori: "Linux" },
+  { id: 142, yomi: "電子メールを受信するためのプロトコル", tori: "POPサーバ" },
+  { id: 143, yomi: "コンピューター内のデータや命令を一時的に保持するメモリ（Random Access Memory）", tori: "RAM" },
+  { id: 144, yomi: "コンピュータと周辺機器を接続するための標準インターフェース（Small Computer System Interface）", tori: "SCSI" },
+  { id: 145, yomi: "データストレージ用のコンピュータインターフェース規格", tori: "Serial ATA" },
+  { id: 146, yomi: "インターネットでデータを送受信するための通信プロトコル", tori: "TCP／IP" },
+  { id: 147, yomi: "ウェブページやファイルを提供するコンピュータ", tori: "Webサーバ" },
+  { id: 148, yomi: "コンピュータ内で数値演算や論理演算を実行する機能を持つ、計算処理を行う主要な部分", tori: "演算装置" },
+  { id: 149, yomi: "コンピュータのデータやプログラムを一時的に保存するためのメモリで、CPUがアクセスする高速なデータストレージ", tori: "主記憶装置" },
+  { id: 150, yomi: "ネットワークでデータを集約・転送する装置。信号を受け取り、複数のデバイスに送信する", tori: "ハブ" },
+  { id: 151, yomi: "データや命令を一時的に保存するコンピュータの要素で、処理速度向上に寄与する", tori: "メモリ" },
+  { id: 152, yomi: "IPアドレスを自動割り当てするプロトコル。ネットワーク上のデバイスがIPアドレスを取得し通信する仕組み", tori: "DHCP" },
+  { id: 153, yomi: "インターネットでドメイン名をIPアドレスに変換するシステム（Domain Name System）", tori: "DNS" },
+  { id: 154, yomi: "ドメイン名をIPアドレスに変換するサーバ", tori: "DNSサーバ" },
+  { id: 155, yomi: "ネットワーク上のデバイスを識別する番号", tori: "IPアドレス" },
+  { id: 156, yomi: "情報を読み取り専用に保存するコンピューターの記憶装置（Read-Only Memory）", tori: "ROM" },
+  { id: 157, yomi: "高速なデータ保存デバイス", tori: "SSD" },
+  { id: 158, yomi: "広域ネットワークを指し、地理的に広い範囲でコンピューターやネットワークを接続する通信インフラを指します", tori: "WAN" },
+  { id: 159, yomi: "どんな人でも使えることを意識する", tori: "アクセシビリティ" },
+  { id: 160, yomi: "サーバーからサービスやデータを要求する端末やソフトウェアのこと", tori: "クライアント" },
+  { id: 161, yomi: "コンピュータやソフトウェアがネットワーク上で情報を提供・管理するコンピューターシステム", tori: "サーバ" },
+  { id: 162, yomi: "情報処理分野でデータを表示・印刷・記録するデバイス。例：プリンタやモニタ", tori: "出力装置" },
+  { id: 163, yomi: "情報保護やデータの安全性を確保する対策", tori: "セキュリティ" },
+  { id: 164, yomi: "データを永続的に保存するコンピューターの記憶装置", tori: "ハードディスク装置" },
+  { id: 165, yomi: "情報処理での通信やデータ交換の規約を指し、異なるシステムやデバイスが連携するための手順や標準化された方法", tori: "プロトコル" },
+  { id: 166, yomi: "情報処理装置の主回路基板で、各種部品を接続し、データの伝達を可能にする重要なコンポーネント", tori: "マザーボード" },
+  { id: 167, yomi: "データを有線接続なしで無線で転送する技術。通常、Wi-Fiで使用", tori: "無線LAN" },
+  { id: 168, yomi: "メールを送受信するためのサーバ。電子メールの転送や保存を担当し、通信の中継や保管を行う", tori: "メールサーバ" },
+  { id: 169, yomi: "身代金を要求するウイルス", tori: "ランサムウェア" },
+  { id: 170, yomi: "ネットワークでデータを送受信する装置。異なるネットワーク間を中継して通信を可能にする", tori: "ルータ" },
+  { id: 171, yomi: "コンピューターの起動時に基本入出力システムを管理するプログラム", tori: "BIOS" },
+  { id: 172, yomi: "インターネット・デバイスに割り当てる識別番号。IPv4を置き換える次世代プロトコルで、アドレス枯渇問題に対処する", tori: "IPv6" },
+  { id: 173, yomi: "コンピューターに組み込まれるネットワーク接続用のデバイス（Network Interface Card）", tori: "NIC" },
+  { id: 174, yomi: "データを複数のディスクに分散保存し、信頼性とパフォーマンスを向上させる技術（Redundant Array of Independent Disks）", tori: "RAID" },
+  { id: 175, yomi: "メール送受信を管理するサーバ", tori: "SMTPサーバ" },
 ];
 const KMAP = Object.fromEntries(KARUTA.map(k => [k.id, k]));
 
@@ -62,18 +192,35 @@ const DECOY_IDS = ['decoy1', 'decoy2', 'decoy3', 'decoy4', 'decoy5', 'decoy6', '
 let ttsVoice   = null;
 let ttsUnlocked = false;
 
+// 使用する声は Haruka（Windows標準の日本語音声）1本に固定する。
+// 「読み上げます」や「そこまで」など発話ごとに違う声が選ばれてしまう
+// 不具合の原因は、(1) 優先順位に複数OS由来の声（nanami/keita/kyoko/ichiro）
+// が並んでいて端末によって別の声が選ばれていたことと、(2) 発話のたびに
+// pickVoice() を呼び直さず、ページ読み込み直後にキャッシュした古い
+// ttsVoice（＝音声一覧がまだ揃っていない時点の null）を使い回していた
+// ことの2つだった。ここでは対象を1声のみにし、発話の直前に毎回
+// pickVoice() を呼び直すことで両方の原因を取り除く。
+const TTS_VOICE_PRIORITY = ['haruka'];
+
+function pickVoice() {
+  if (!window.speechSynthesis) return null;
+  const voices = speechSynthesis.getVoices();
+  const jaVoices = voices.filter(v => v.lang === 'ja-JP' || v.lang.startsWith('ja'));
+  let picked = null;
+  for (const name of TTS_VOICE_PRIORITY) {
+    picked = jaVoices.find(v => v.name.toLowerCase().includes(name));
+    if (picked) break;
+  }
+  ttsVoice = picked || null;
+  return ttsVoice;
+}
+
 (function initTts() {
   if (!window.speechSynthesis) return;
-  const pickVoice = () => {
-    const voices = speechSynthesis.getVoices();
-    ttsVoice = voices.find(v => v.lang === 'ja-JP' && /nanami|haruka|kyoko|ichiro/i.test(v.name))
-            || voices.find(v => v.lang === 'ja-JP')
-            || voices.find(v => v.lang.startsWith('ja'))
-            || null;
-  };
   speechSynthesis.addEventListener('voiceschanged', pickVoice);
   pickVoice();
 })();
+
 
 function unlockTts() {
   if (!window.speechSynthesis || ttsUnlocked) return;
@@ -90,10 +237,11 @@ function speakChain(texts) {
   speechSynthesis.cancel();
   setTimeout(() => {
     texts.forEach(text => {
-      const utt  = new SpeechSynthesisUtterance(text);
+      const utt  = newUtterance(text);
       utt.lang   = 'ja-JP';
       utt.rate   = 0.65;
       utt.pitch  = 1.05;
+      pickVoice();
       if (ttsVoice) utt.voice = ttsVoice;
       speechSynthesis.speak(utt);
     });
@@ -109,8 +257,12 @@ function stopSpeech() {
 // 完全に終わったタイミング（finishAnnouncing/finishTimeUp）でのみ再生する。
 // 次の詠み上げ等が始まる瞬間は stopDjSpeech() で即座に打ち切り、絶対に
 // 重ならないようにする（多少実況が途中で切れるのは許容する）。
-let djQueue    = [];
-let djSpeaking = false;
+let djQueue       = [];
+let djSpeaking    = false;
+// DJ実況が話し終わるまで、正解発表（そこまで／上の句／下の句）の開始を
+// 待たせるための保留関数。DJ実況を最後まで再生してから次に進むため、
+// 途中で打ち切ることはしない。
+let pendingAfterDj = null;
 
 function enqueueDjComment(text) {
   if (!text) return;
@@ -118,14 +270,91 @@ function enqueueDjComment(text) {
   tryPlayDjQueue();
 }
 
+// DJ実況が話し終わっていれば即実行、話している途中なら話し終わるまで待って実行する。
+function runAfterDjClear(fn) {
+  if (djSpeaking || djQueue.length) {
+    pendingAfterDj = fn;
+  } else {
+    fn();
+  }
+}
+
+let djGeneration = 0;   // stopDjSpeech() 以前の古い発話の完了通知を無効化する
+
 function stopDjSpeech() {
+  djGeneration++;
   djQueue = [];
   djSpeaking = false;
+  pendingAfterDj = null;
   if (window.speechSynthesis) speechSynthesis.cancel();
 }
 
+// ── 「音声が完全に終わってから」実行する保留キュー ─────────────────
+// 正解発表（そこまで／上の句／下の句）やDJ実況の再生中に、次の札の詠み上げや
+// 試合結果画面が割り込んで音声を打ち切ってしまわないよう、それらの処理を
+// 音声が空くまで待たせる。端末ごとに音声の長さが違うため、ホストの完了通知を
+// 待たずに各端末が「自分の音声が終わったか」で判断する。
+// 万一 onend が発火せず永久に待ち続けないよう、maxMs 経過で強制実行する。
+let idleWaiters = [];   // { fn, type }
+
+function audioIdle() {
+  return !isAnnouncing && !djSpeaking && !djQueue.length && !pendingAfterDj;
+}
+
+function whenAudioIdle(fn, type, maxMs) {
+  if (audioIdle()) { fn(); return; }
+  const w = { fn, type };
+  idleWaiters.push(w);
+  setTimeout(() => {
+    const i = idleWaiters.indexOf(w);
+    if (i !== -1) { idleWaiters.splice(i, 1); fn(); }
+  }, maxMs);
+}
+
+function flushIdleWaiters() {
+  if (!audioIdle() || !idleWaiters.length) return;
+  const list = idleWaiters;
+  idleWaiters = [];
+  list.forEach(w => w.fn());
+}
+
+// 保留中の処理のうち、種類が type のものを破棄する（すでに取られた札の詠み上げ
+// を後から始めてしまわないようにするため）。
+function dropIdleWaiters(type) {
+  idleWaiters = idleWaiters.filter(w => w.type !== type);
+}
+
+// TTS の onend が発火しない不具合への保険。単純なタイマーだと、実際の再生が
+// 予想より長い場合に「読み上げ終了」と誤判定して次の詠み上げが割り込むため、
+// 予想時間を過ぎても speechSynthesis がまだ話している間は待ち続ける。
+function armSpeechEndFallback(finish, texts, gen) {
+  const estMs = texts.reduce((sum, t) => sum + t.length * 250, 0) + 2000;
+  const startedAt = Date.now();
+  const check = () => {
+    if (gen !== undefined && gen !== audioGeneration) return;   // 別の再生に切り替わった
+    const busy = window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending);
+    if (!busy || Date.now() - startedAt > estMs * 3) { finish(); return; }
+    setTimeout(check, 500);
+  };
+  setTimeout(check, estMs);
+}
+
 function tryPlayDjQueue() {
-  if (djSpeaking || !djQueue.length) return;
+  if (djSpeaking || !djQueue.length) {
+    // キューが空になったタイミングで、DJ実況待ちの正解発表があればそれを、
+    // なければ次の読み上げの自動開始待ちを実行する（音声が重ならないようにするため）。
+    if (!djSpeaking && !djQueue.length) {
+      if (pendingAfterDj) {
+        const fn = pendingAfterDj;
+        pendingAfterDj = null;
+        fn();
+      } else {
+        flushIdleWaiters();
+        maybeAutoReadNext();
+      }
+    }
+    return;
+  }
   // 正解発表（そこまで／上の句／下の句）の音声が流れている間は絶対に重ねない。
   // isAnnouncing が false に戻った瞬間（finishAnnouncing/finishTimeUp）に
   // 呼び直されるので、そこで実際に再生される。
@@ -133,15 +362,25 @@ function tryPlayDjQueue() {
   if (!window.speechSynthesis) { djQueue = []; return; }
   djSpeaking = true;
   const text = djQueue.shift();
-  const utt  = new SpeechSynthesisUtterance(text);
+  const utt  = newUtterance(text);
   utt.lang   = 'ja-JP';
   utt.rate   = 1.1;
   utt.pitch  = 1.15;
+  pickVoice();
   if (ttsVoice) utt.voice = ttsVoice;
-  const done = () => { djSpeaking = false; tryPlayDjQueue(); };
+  let doneCalled = false;
+  const myDjGen = djGeneration;
+  const done = () => {
+    if (doneCalled || myDjGen !== djGeneration) return;
+    doneCalled = true;
+    djSpeaking = false;
+    tryPlayDjQueue();
+  };
   utt.onend   = done;
   utt.onerror = done;
   speechSynthesis.speak(utt);
+  // onend が発火しない既知の不具合に備えたフォールバック
+  armSpeechEndFallback(done, [text]);
 }
 
 // ── Web Audio API（精密同期再生）────────────────────────────
@@ -186,8 +425,9 @@ function scheduleReadCard(cardId, playAt, onDone) {
   setTimeout(() => {
     if (gen !== audioGeneration) return;
     stopSpeech();
-    const intro = new SpeechSynthesisUtterance('読み上げます');
-    const body  = new SpeechSynthesisUtterance(currentReadingYomiText || $('readingText').textContent);
+    const intro = newUtterance('読み上げます');
+    const body  = newUtterance(currentReadingYomiText || $('readingText').textContent);
+    pickVoice();
     [intro, body].forEach(u => { u.lang = 'ja-JP'; u.rate = 0.6; u.pitch = 1.05; if (ttsVoice) u.voice = ttsVoice; });
     body.onend = finishYomi;
     speechSynthesis.speak(intro);
@@ -211,8 +451,9 @@ function scheduleDecoyRead(decoyId, playAt, fallbackText, onDone) {
   setTimeout(() => {
     if (gen !== audioGeneration) return;
     stopSpeech();
-    const intro = new SpeechSynthesisUtterance('読み上げます');
-    const body  = new SpeechSynthesisUtterance(fallbackText || $('readingText').textContent);
+    const intro = newUtterance('読み上げます');
+    const body  = newUtterance(fallbackText || $('readingText').textContent);
+    pickVoice();
     [intro, body].forEach(u => { u.lang = 'ja-JP'; u.rate = 0.6; u.pitch = 1.05; if (ttsVoice) u.voice = ttsVoice; });
     body.onend = finishDecoy;
     speechSynthesis.speak(intro);
@@ -377,24 +618,36 @@ function renderHouseScoreboard(players) {
   if (specList) specList.innerHTML = html;
 }
 
+// 得点は「取った札の枚数」。同じ枚数なら同順位（1位,1位,3位…）にする。
+// sortedEntries は [id, player] を枚数の多い順に並べた配列。各要素の順位の配列を返す。
+function competitionRanks(sortedEntries) {
+  const ranks = [];
+  sortedEntries.forEach(([, p], i) => {
+    ranks.push(i > 0 && p.score === sortedEntries[i - 1][1].score ? ranks[i - 1] : i + 1);
+  });
+  return ranks;
+}
+
 // ── TOP10 ランキング（自分の行を強調、2列グリッド表示）─────────
 function renderTop3(players) {
   renderHouseScoreboard(players);
   const el = $('top3');
   if (!el) return;
   const medals = ['🥇', '🥈', '🥉'];
-  const sorted = Object.entries(players)
-    .filter(([id]) => id !== liveHostId)
-    .sort(([, a], [, b]) => b.score - a.score)
-    .slice(0, 10);
+  const all = Object.entries(players)
+    .filter(([id]) => !(id === liveHostId && isEventMode))
+    .sort(([, a], [, b]) => b.score - a.score);
+  const ranks  = competitionRanks(all);
+  const sorted = all.slice(0, 10);
   el.innerHTML = sorted.map(([id, p], i) => {
-    const rankLabel = i < 3 ? medals[i] : `${i + 1}`;
+    const rank      = ranks[i];
+    const rankLabel = rank <= 3 ? medals[rank - 1] : `${rank}`;
     const cpuTag    = p.isBot ? '<span class="t3-cpu">CPU</span>' : '';
     const youTag    = id === myId ? '<span class="t3-you">YOU</span>' : '';
-    return `<div class="t3-row${id === myId ? ' me' : ''}${i < 3 ? ' top3' : ''}">
+    return `<div class="t3-row${id === myId ? ' me' : ''}${rank <= 3 ? ' top3' : ''}">
       <span class="t3-rank">${rankLabel}</span>
       <span class="t3-name">${escHtml(p.name)}${cpuTag}${youTag}</span>
-      <span class="t3-score">${p.score}<small>pt</small></span>
+      <span class="t3-score">${p.score}<small>枚</small></span>
     </div>`;
   }).join('');
 }
@@ -403,6 +656,7 @@ function renderTop3(players) {
 const socket    = io();
 let myId        = null;
 let myIsHost    = false;
+let isServerPc  = false;   // サーバーを立ち上げているPC自身のブラウザか（大会モードの操作はここだけ）
 let liveHostId  = null;   // ホスト除外フィルタ用
 let liveData    = null;
 let nameEntered = false;  // doJoin 済みフラグ（init 遅延対策）
@@ -489,6 +743,11 @@ function escHtml(s) {
 
 // ── Host UI ───────────────────────────────────────────────
 let lobbyMode             = null;   // null | 'practice' | 'event'（ロビーでホストが選ぶモード）
+// postTournament による「練習モードへ自動遷移」は、ロビーに入り直すたびに
+// 一度だけ適用する。これが無いと、自動遷移後に「← モード選択に戻る」を押しても
+// updateLobbyUI() が呼ばれるたびに practice へ引き戻されてしまい、
+// 大会モードを選び直せなくなる（＝大会モードのボタンが出てこない不具合）。
+let modeAutoApplied       = false;
 let selectedDifficulty    = 'normal';
 let selectedCpuDifficulty = 'normal';
 
@@ -581,7 +840,7 @@ function renderRevivalUserList(players) {
   ul.innerHTML = '';
   revivalSelectedIds.clear();
   const elimHumans = Object.entries(players)
-    .filter(([id, p]) => liveEliminatedIds.has(id) && !p.isBot && p.joined && id !== liveHostId)
+    .filter(([id, p]) => liveEliminatedIds.has(id) && !p.isBot && p.joined && !(id === liveHostId && isEventMode))
     .sort(([, a], [, b]) => a.name.localeCompare(b.name, 'ja'));
 
   elimHumans.forEach(([id, p]) => {
@@ -629,6 +888,7 @@ function chooseLobbyMode(mode) {
 
 function backToLobbyModeSelect() {
   lobbyMode = null;
+  modeAutoApplied = true;   // 明示的に戻った後は自動選択を再適用しない
   updateLobbyUI();
 }
 
@@ -642,40 +902,49 @@ function updateLobbyUI() {
   if (eventBtn) eventBtn.disabled = false;
 
   // 最終試合後（postTournament）に戻ってきた場合は練習モードへ自動遷移
-  if (myIsHost && postTournament && !lobbyMode) lobbyMode = 'practice';
+  // （ロビーに入り直すたびに一度だけ。手動で戻った後は再適用しない）
+  if (postTournament && !lobbyMode && !modeAutoApplied) {
+    lobbyMode = 'practice';
+    modeAutoApplied = true;
+  }
+  // 大会モードはサーバーPCだけが選べる。それ以外のユーザーは最初から練習モードの設定画面。
+  const canEvent = isServerPc;
+  if (!canEvent && !lobbyMode) lobbyMode = 'practice';
+  if (!canEvent && lobbyMode === 'event') lobbyMode = 'practice';
+  const evBtn = $('btnModeEvent');
+  if (evBtn) evBtn.style.display = canEvent ? '' : 'none';
+  document.querySelectorAll('#lobbyPracticeSection .btn-back').forEach(b => { b.style.display = canEvent ? '' : 'none'; });
 
-  if (modeSelect)      modeSelect.style.display      = (myIsHost && !lobbyMode) ? '' : 'none';
-  if (practiceSection) practiceSection.style.display = (myIsHost && lobbyMode === 'practice') ? '' : 'none';
-  if (eventSection)    eventSection.style.display    = (myIsHost && lobbyMode === 'event') ? '' : 'none';
+  // 練習ゲームは参加登録済みの誰でも難易度を選んで開始できる（先に押した人の設定が全員に適用される）
+  if (modeSelect)      modeSelect.style.display      = !lobbyMode ? '' : 'none';
+  if (practiceSection) practiceSection.style.display = lobbyMode === 'practice' ? '' : 'none';
+  if (eventSection)    eventSection.style.display    = (canEvent && lobbyMode === 'event') ? '' : 'none';
 
   if (startBtn) {
     startBtn.disabled = false;
-    if (myIsHost) startBtn.textContent = 'ゲームスタート（全3試合）';
+    startBtn.textContent = 'ゲームスタート（全3試合）';
   }
-  if (waiting) {
-    waiting.style.display = myIsHost ? 'none' : '';
-    waiting.textContent = lobbyMode
-      ? 'ホストがゲームを開始するまでお待ちください'
-      : 'ホストがモードを選択するまでお待ちください';
-  }
+  if (waiting) waiting.style.display = 'none';
 }
 
 function updateHostNotice() {
   const notice = $('hostNotice');
   if (!notice) return;
-  notice.classList.toggle('hidden', !(myIsHost && gameStarted) || isArranging);
+  notice.classList.toggle('hidden', !(myIsHost && isEventMode && gameStarted) || isArranging);
   const amSpectating = (myIsSpectator || myIsRevivalSpectator || myIsGroupSpectator || myIsEventSpectator) && !myIsHost && gameStarted;
   const grid = $('grid');
   if (grid) {
-    grid.classList.toggle('host-locked', myIsHost && gameStarted && !isArranging);
+    grid.classList.toggle('host-locked', myIsHost && isEventMode && gameStarted && !isArranging);
     grid.classList.toggle('hidden', amSpectating);
   }
   const specPanel = $('specPanel');
   if (specPanel) specPanel.classList.toggle('hidden', !amSpectating || isArranging);
   const debugBtn    = $('debugEndBtn');
   const debugCpuBtn = $('debugCpuBtn');
-  if (debugBtn)    debugBtn.style.display    = (myIsHost && gameStarted) ? '' : 'none';
-  if (debugCpuBtn) debugCpuBtn.style.display = (myIsHost && gameStarted && !isArranging) ? '' : 'none';
+  // 練習モードは誰でも使える。大会モード中はサーバーPCだけ。
+  const canDebug = isServerPc || !isEventMode;
+  if (debugBtn)    debugBtn.style.display    = (canDebug && gameStarted) ? '' : 'none';
+  if (debugCpuBtn) debugCpuBtn.style.display = (canDebug && gameStarted && !isArranging) ? '' : 'none';
   // ラウンドバッジ・観戦バッジ・盤面整理バッジ
   const rb = $('roundBadge');
   const sb = $('spectatorBadge');
@@ -687,7 +956,7 @@ function updateHostNotice() {
     ? `${groupTierName}グループ戦 R${groupRound}／${groupMaxRounds}${groupHumanCount > 0 ? ` (${groupHumanCount}人)` : ''}（通過${groupSurvivorCount}人）`
     : isRevivalMode
     ? `敗者復活戦 R${revivalRound}／${revivalMaxRounds}（通過${revivalRound >= revivalMaxRounds ? revivalCount : revivalSurvivorCount}人）`
-    : `第${currentRound}試合（通過${survivorCount}人）`;
+    : `第${currentRound}試合`;
   if (rb) {
     rb.textContent = roundLabel;
     rb.classList.toggle('hidden', !gameStarted || isArranging);
@@ -708,34 +977,53 @@ function updateHostNotice() {
   if (sideL) sideL.classList.toggle('hidden', isArranging);
   if (sideR) sideR.classList.toggle('hidden', isArranging);
   // 残り枚数（進捗バー含む）はホストにのみ見せる
-  if (progWrap) progWrap.classList.toggle('hidden', isArranging || !myIsHost);
+  if (progWrap) progWrap.classList.toggle('hidden', isArranging || !(myIsHost && isEventMode));
   const leftCountWrap = $('leftCountWrap');
-  if (leftCountWrap) leftCountWrap.classList.toggle('hidden', !myIsHost);
+  if (leftCountWrap) leftCountWrap.classList.toggle('hidden', !(myIsHost && isEventMode));
 }
 
 // デバッグ用：CPUに0〜600のランダムポイントを与える（ホストのみ）
 function debugGiveCpuPoints() {
-  if (!myIsHost || !gameStarted) return;
+  if (!(isServerPc || !isEventMode) || !gameStarted) return;
   socket.emit('debug_cpu_points');
 }
 
 // canReadNext: サーバーが「読み上げ可能（waiting フェーズ）」と通知済みか
 // isAnnouncing: 正解の上の句・下の句を TTS で読み上げている最中か
-// → 両方揃わないと次の札を読み上げられない（ボタンは disabled で禁止UI表示）
-let canReadNext  = false;
-let isAnnouncing = false;
+// → 両方揃った瞬間、ホスト端末が自動で次の札の読み上げをサーバーへ要求する
+// （手動の「読み上げ」ボタンは、万一の取りこぼし時の保険として残す）。
+let canReadNext    = false;
+let isAnnouncing   = false;
+let autoReadPending = false;
 
 function updateReadBtnAvailability() {
   const btn = $('readBtn');
-  if (!btn) return;
-  const visible = myIsHost && canReadNext;
-  btn.classList.toggle('hidden', !visible);
-  btn.disabled = isAnnouncing;
-  btn.title = isAnnouncing ? '正解の読み上げ中はお待ちください' : '次の上の句を読み上げる';
+  if (btn) {
+    // 練習モードは自動で次の札へ進むため、手動の読み上げボタンは表示しない
+    const visible = myIsHost && canReadNext && isEventMode;
+    btn.classList.toggle('hidden', !visible);
+    btn.disabled = isAnnouncing;
+    btn.title = isAnnouncing ? '正解の読み上げ中はお待ちください' : '次の上の句を読み上げる';
+  }
+  maybeAutoReadNext();
+}
+
+// 読み上げ可能になり、正解発表の音声も、DJ実況もすべて終わっていれば、
+// ホストの操作を待たずに自動で次の札を読み上げる。「読み上げます」と
+// DJ実況の声が重ならないよう、DJがまだキューに残っている／再生中の間は
+// 自動読み上げを待たせる（DJ再生完了時に tryPlayDjQueue() から呼び直される）。
+// read_next は waiting フェーズでのみ有効なため、二重に届いてもサーバー側で
+// 無視される（安全策として autoReadPending でも連打を防ぐ）。
+function maybeAutoReadNext() {
+  if (!myIsHost || !canReadNext || isAnnouncing || autoReadPending) return;
+  if (djSpeaking || djQueue.length) return;
+  autoReadPending = true;
+  socket.emit('read_next');
 }
 
 function showReadBtn() {
   canReadNext = true;
+  autoReadPending = false;
   currentPhase = 'waiting';
   if (myId !== null) myIsHost = (liveHostId === myId);
   updateReadBtnAvailability();
@@ -743,11 +1031,13 @@ function showReadBtn() {
 
 function hideReadBtn() {
   canReadNext = false;
+  autoReadPending = false;
   updateReadBtnAvailability();
 }
 
 function readNext() {
   if (!myIsHost || isAnnouncing) return;
+  if (djSpeaking || djQueue.length) return;   // DJ実況が終わるまで次の読み上げを待つ
   socket.emit('read_next');
 }
 
@@ -769,13 +1059,22 @@ function updateCourseOptions() {
 updateCourseOptions();
 
 // ── Name entry ────────────────────────────────────────────
+// 展示用リンク（アドレスの最後に ?practice を付けたもの）では、名前だけ入力する。
+// 学年・コースは大会モードのハウス編成にだけ使うため、練習用リンクでは聞かない。
+const PRACTICE_LINK = new URLSearchParams(location.search).has('practice');
+(function applyPracticeLink() {
+  if (!PRACTICE_LINK) return;
+  const row = document.querySelector('.grade-course-row');
+  if (row) row.style.display = 'none';
+})();
+
 function doJoin() {
   const name = $('nameInput').value.trim();
   if (!name) { $('nameInput').focus(); return; }
   const gradeSel  = $('gradeSelect');
   const courseSel = $('courseSelect');
-  const grade  = gradeSel  ? gradeSel.value  : null;
-  const course = courseSel ? courseSel.value : null;
+  const grade  = (!PRACTICE_LINK && gradeSel)  ? gradeSel.value  : null;
+  const course = (!PRACTICE_LINK && courseSel) ? courseSel.value : null;
   unlockTts();
   getAudioCtx();
   socket.emit('set_name', { name, grade, course });
@@ -808,7 +1107,8 @@ function applyInit(d) {
   if (d.middleGroupWinners !== undefined) middleGroupWinners = d.middleGroupWinners;
   if (d.eliminatedPlayers) {
     liveEliminatedIds = new Set(d.eliminatedPlayers);
-    myIsSpectator = liveEliminatedIds.has(myId);
+    // 練習モードでは敗退しても観戦モードにはしない（大会モードのみ観戦扱い）
+    myIsSpectator = liveEliminatedIds.has(myId) && d.isEvent;
   }
   if (d.revivalRound !== undefined)        revivalRound         = d.revivalRound;
   if (d.revivalMaxRounds !== undefined)    revivalMaxRounds     = d.revivalMaxRounds;
@@ -825,10 +1125,10 @@ function applyInit(d) {
   if (d.eventParticipantIds)               eventParticipantIds  = new Set(d.eventParticipantIds);
   if (d.eventGamesPlayed)                  eventGamesPlayed     = d.eventGamesPlayed;
 
-  // 復活戦中なら本戦勝者は観戦扱い（復活戦で脱落済みも観戦）
-  myIsRevivalSpectator = d.isRevival && (!liveEliminatedIds.has(myId) || revivalEliminatedIds.has(myId)) && !myIsHost;
-  // グループ戦中ならグループ外または脱落済みは観戦
-  myIsGroupSpectator   = d.isGroupMatch && !myIsHost && (!groupParticipantIds.has(myId) || groupEliminatedIds.has(myId));
+  // 復活戦中なら本戦勝者は観戦扱い（復活戦で脱落済みも観戦）。練習モードでは観戦にしない。
+  myIsRevivalSpectator = d.isRevival && (!liveEliminatedIds.has(myId) || revivalEliminatedIds.has(myId)) && !myIsHost && d.isEvent;
+  // グループ戦中ならグループ外または脱落済みは観戦。練習モードでは観戦にしない。
+  myIsGroupSpectator   = d.isGroupMatch && !myIsHost && (!groupParticipantIds.has(myId) || groupEliminatedIds.has(myId)) && d.isEvent;
   // 大会モード中は現在のステージの参加者以外は観戦
   myIsEventSpectator   = isEventMode && !myIsHost && !eventParticipantIds.has(myId);
 
@@ -909,6 +1209,7 @@ function openLobby(players) {
   eventParticipantIds  = new Set();
   myIsEventSpectator   = false;
   lobbyMode            = null;
+  modeAutoApplied      = false;
   $('lobbyUrl').textContent = window.location.href;
   renderLobbyList(players);
   hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oCeremony'); hide('oEventResult');
@@ -990,6 +1291,7 @@ function ensureCardLayout(cardOrder) {
 }
 
 function openArrangeScreen(cardOrder, cards, endsAt, players, round) {
+  setGrabLocked(false);
   if (round) currentRound = round;
   gameStarted  = true;
   isArranging  = true;
@@ -1022,7 +1324,7 @@ function skipMemorize() { socket.emit('skip_memorize'); }
 // ヘッダーの「即終了（デバッグ）」は、盤面整理タイム中はスキップ、
 // 対局中は即試合終了として働く単一のデバッグボタン。
 function debugSmartSkip() {
-  if (!myIsHost) return;
+  if (!(isServerPc || !isEventMode)) return;
   if (isArranging) { skipMemorize(); return; }
   if (!gameStarted) return;
   socket.emit('debug_end_game');
@@ -1118,21 +1420,22 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
     const rankEmoji = ['🥇', '🥈', '🥉'];
     const participantIds = new Set([...survivorIds, ...eliminatedIds]);
     const sorted = Object.entries(players)
-      .filter(([id, p]) => id !== liveHostId && participantIds.has(id) && (p.isBot || p.joined))
+      .filter(([id, p]) => !(id === liveHostId && isEventMode) && participantIds.has(id) && (p.isBot || p.joined))
       .sort(([, a], [, b]) => b.score - a.score);
 
+    const rrRanks = competitionRanks(sorted);
     sorted.forEach(([id, p], i) => {
       const isSurv = survivorIds.includes(id);
       const isElim = eliminatedIds.includes(id);
-      const rank = i + 1;
+      const rank = rrRanks[i];   // 同じ枚数は同順位
       const row = document.createElement('div');
       const rankCls = rank === 1 ? ' rank-1' : rank === 2 ? ' rank-2' : rank === 3 ? ' rank-3' : '';
       row.className = 'rr-row'
         + rankCls
-        + (isSurv && !isGroupMatchResult ? ' survivor' : '')
+        + (isSurv && !isGroupMatchResult && p.isBot ? ' survivor' : '')   // 人間は進出の強調表示をしない
         + (isElim ? ' eliminated' : '')
         + (id === myId ? ' me' : '');
-      const rankLabel = rankEmoji[i] || `${rank}位`;
+      const rankLabel = rankEmoji[rank - 1] || `${rank}位`;
       const cpuBadge  = p.isBot ? ' <small class="rr-cpu">CPU</small>' : '';
       const youBadge  = id === myId ? ' <small>(あなた)</small>' : '';
       let badgeHtml = '';
@@ -1149,13 +1452,14 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
           ? '<span class="rr-badge adv">本戦復帰！</span>'
           : '<span class="rr-badge elim">惜しくも...</span>';
       } else if (!isFinal) {
-        if (isSurv)      badgeHtml = '<span class="rr-badge adv">→ 進出</span>';
-        else if (isElim) badgeHtml = '<span class="rr-badge elim">敗退</span>';
+        // 練習モード：CPUのみ「進出」を表示。人間プレイヤーは順位と点数だけで、
+        // 進出・敗退の表示はしない。
+        if (p.isBot && isSurv) badgeHtml = '<span class="rr-badge adv">→ 進出</span>';
       }
       row.innerHTML = `
         <span class="rr-rank">${rankLabel}</span>
         <span class="rr-name">${escHtml(p.name)}${cpuBadge}${youBadge}</span>
-        <span class="rr-score">${p.score}点</span>
+        <span class="rr-score">${p.score}枚</span>
         ${badgeHtml}`;
       table.appendChild(row);
     });
@@ -1203,14 +1507,10 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
         myStatus.textContent = '';
         myStatus.className = 'rr-my-status';
       }
-    } else if (survivorIds.includes(myId)) {
-      myStatus.textContent = '✅ あなたは次の試合に進出しました！';
-      myStatus.className = 'rr-my-status adv';
-    } else if (eliminatedIds.includes(myId)) {
-      myIsSpectator = true;
-      liveEliminatedIds.add(myId);
-      myStatus.textContent = '👀 あなたは観戦モードに移行します';
-      myStatus.className = 'rr-my-status elim';
+    } else if (survivorIds.includes(myId) || eliminatedIds.includes(myId)) {
+      // 練習モード：進出・敗退の表示はしない（順位と点数は上の表に出ている）
+      myStatus.textContent = '';
+      myStatus.className = 'rr-my-status';
     } else {
       myStatus.textContent = myIsSpectator ? '👀 観戦中' : '';
       myStatus.className = 'rr-my-status';
@@ -1260,7 +1560,7 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
     // 上位グループ戦終了時は式典を先行表示し、完了後にランキング画面を表示
     if (isGroupMatchResult && currentGroupTier === 'top') {
       const sorted = Object.entries(players)
-        .filter(([id, p]) => id !== liveHostId && survivorIds.includes(id) && !p.isBot && p.joined)
+        .filter(([id, p]) => !(id === liveHostId && isEventMode) && survivorIds.includes(id) && !p.isBot && p.joined)
         .sort(([, a], [, b]) => b.score - a.score);
       startCeremony(sorted, players, () => {
         hide('oCeremony');
@@ -1277,10 +1577,10 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
       if (guestWait) guestWait.classList.remove('hidden');
     }
   } else {
-    // 通常試合後：モードタブ（ホスト）。通過人数は自動決定・次試合開始後に表示。
-    if (myIsHost) {
+    // 通常試合後：練習モードは参加者の誰でも次の試合を開始できる（大会モードは別画面）。
+    if (myIsHost || !isEventMode) {
       const hasElim = Object.entries(players)
-        .some(([id, p]) => liveEliminatedIds.has(id) && !p.isBot && p.joined && id !== liveHostId);
+        .some(([id, p]) => liveEliminatedIds.has(id) && !p.isBot && p.joined && !(id === liveHostId && isEventMode));
 
       if (hasElim && modeTabs) modeTabs.classList.remove('hidden');
       if (mainSec) mainSec.classList.remove('hidden');
@@ -1346,7 +1646,7 @@ function _showCeremonyStep() {
   if (place)  place.textContent = rankLabel;
   if (avatar) { avatar.style.background = p.color; avatar.textContent = p.name.charAt(0); }
   if (name)   { name.textContent = p.name; name.style.color = p.color; }
-  if (score)  score.textContent = `${p.score} 点`;
+  if (score)  score.textContent = `${p.score} 枚`;
 
   const promoted = new Set([...(bottomGroupWinners || []), ...(middleGroupWinners || [])]);
   if (promo) promo.textContent = promoted.has(id) ? '⬆ 昇格参戦プレイヤー' : '';
@@ -1414,8 +1714,29 @@ function computeGrabPrecision(el, ev) {
   return Math.min(1, Math.sqrt(dx * dx + dy * dy));
 }
 
+// お手付きをすると、次の札が読み上げられるまで取れない（手当たり次第のクリック対策）。
+// 実際の判定はサーバー側で行う。ここでは表示と無駄な送信を止めるための状態。
+let myGrabLocked = false;
+
+function setGrabLocked(locked) {
+  myGrabLocked = locked;
+  const grid = $('grid');
+  if (grid) grid.classList.toggle('grab-locked', locked);
+  let banner = $('lockBanner');
+  if (locked && !banner) {
+    banner = document.createElement('div');
+    banner.id = 'lockBanner';
+    banner.className = 'lock-banner';
+    document.body.appendChild(banner);
+  }
+  if (banner) {
+    banner.textContent = '✋ お手付き！次の札が読み上げられるまで取れません';
+    banner.classList.toggle('hidden', !locked);
+  }
+}
+
 function onCardClick(id, el, ev) {
-  if (myIsHost || myIsSpectator || myIsRevivalSpectator || myIsGroupSpectator) {
+  if ((myIsHost && isEventMode) || myIsSpectator || myIsRevivalSpectator || myIsGroupSpectator) {
     if (el.classList.contains('removed')) return;
     el.classList.remove('host-forbidden');
     void el.offsetWidth;
@@ -1423,6 +1744,7 @@ function onCardClick(id, el, ev) {
     setTimeout(() => el.classList.remove('host-forbidden'), 450);
     return;
   }
+  if (myGrabLocked) return;
   if (el.classList.contains('removed') ||
       el.classList.contains('correct-mine') ||
       el.classList.contains('correct-other') ||
@@ -1447,7 +1769,7 @@ function updateChips(players) {
       <span class="chip-dot" style="background:${me.color}"></span>
       <span class="chip-name">${escHtml(me.name)}</span>
       ${rankHtml}
-      <span class="chip-score">${me.score}</span>`;
+      <span class="chip-score">${me.score}枚</span>`;
     wrap.appendChild(c);
   }
   if (gameStarted) renderTop3(players);
@@ -1456,11 +1778,11 @@ function updateChips(players) {
 // 自分の現在の順位（ホストを除いた全参加者中の順位）を返す
 function myRankLabel(players) {
   const sorted = Object.entries(players)
-    .filter(([id]) => id !== liveHostId)
+    .filter(([id]) => !(id === liveHostId && isEventMode))
     .sort(([, a], [, b]) => b.score - a.score);
   const idx = sorted.findIndex(([id]) => id === myId);
   if (idx === -1) return '';
-  return `${idx + 1}位 / ${sorted.length}人中`;
+  return `${competitionRanks(sorted)[idx]}位 / ${sorted.length}人中`;
 }
 
 // ── Float score label ─────────────────────────────────────
@@ -1486,7 +1808,7 @@ function showGameOver(players) {
   const wrap = $('rankings');
   wrap.innerHTML = '';
   const sorted = Object.entries(players)
-    .filter(([id]) => id !== liveHostId)
+    .filter(([id]) => !(id === liveHostId && isEventMode))
     .sort(([, a], [, b]) => b.score - a.score);
 
   const top3 = sorted.slice(0, 3);
@@ -1498,7 +1820,7 @@ function showGameOver(players) {
     row.innerHTML = `
       <span class="rank-medal">${medals[i]}</span>
       <span class="rank-name">${escHtml(p.name)}${id === myId ? ' <small>(あなた)</small>' : ''}</span>
-      <span class="rank-score">${p.score}点</span>
+      <span class="rank-score">${p.score}枚</span>
       <span class="rank-miss">ミス${p.misses}</span>`;
     wrap.appendChild(row);
   });
@@ -1512,7 +1834,7 @@ function showGameOver(players) {
       item.innerHTML = `
         <span class="rank-others-pos">${i + 4}位</span>
         <span class="rank-others-name">${escHtml(p.name)}${id === myId ? '<small>(あなた)</small>' : ''}</span>
-        <span class="rank-others-score">${p.score}点</span>`;
+        <span class="rank-others-score">${p.score}枚</span>`;
       othersWrap.appendChild(item);
     });
     wrap.appendChild(othersWrap);
@@ -1524,6 +1846,7 @@ function showGameOver(players) {
 // ── Socket events ─────────────────────────────────────────
 socket.on('init', data => {
   myId       = data.myId;
+  isServerPc = !!data.isServerPc;
   liveHostId = data.hostId;
   liveData   = { ...data };
   syncClock();
@@ -1600,8 +1923,8 @@ socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRoun
   if (!ir && !ig && sc !== undefined) {
     survivorCount = sc;
   }
-  myIsRevivalSpectator = ir && (!liveEliminatedIds.has(myId) || revivalEliminatedIds.has(myId)) && !myIsHost;
-  myIsGroupSpectator   = ig && !myIsHost && (!groupParticipantIds.has(myId) || groupEliminatedIds.has(myId));
+  myIsRevivalSpectator = ir && (!liveEliminatedIds.has(myId) || revivalEliminatedIds.has(myId)) && !myIsHost && isEventMode;
+  myIsGroupSpectator   = ig && !myIsHost && (!groupParticipantIds.has(myId) || groupEliminatedIds.has(myId)) && isEventMode;
   // グループ戦開始が確定した時点でボタンの一時フィルターをリセット
   ['lobbyGroupBtnTop', 'lobbyGroupBtnMiddle', 'lobbyGroupBtnBottom'].forEach(id => {
     const b = $(id); if (b) b.style.filter = '';
@@ -1638,8 +1961,8 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
   if (epi) { eventParticipantIds = new Set(epi); }
   if (isEventMode) { myIsEventSpectator = !myIsHost && !eventParticipantIds.has(myId); }
   if (gMax   !== undefined) { groupMaxRounds = gMax; }
-  myIsRevivalSpectator = ir && (!liveEliminatedIds.has(myId) || revivalEliminatedIds.has(myId)) && !myIsHost;
-  myIsGroupSpectator   = ig && !myIsHost && (!groupParticipantIds.has(myId) || groupEliminatedIds.has(myId));
+  myIsRevivalSpectator = ir && (!liveEliminatedIds.has(myId) || revivalEliminatedIds.has(myId)) && !myIsHost && isEventMode;
+  myIsGroupSpectator   = ig && !myIsHost && (!groupParticipantIds.has(myId) || groupEliminatedIds.has(myId)) && isEventMode;
   updateChips(players);
   $('leftCount').textContent = remaining.length;
   $('progFill').style.width = ((liveTotalCards - remaining.length) / liveTotalCards * 100).toFixed(1) + '%';
@@ -1661,31 +1984,42 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
 // イントロ（読み上げます）→ 上の句 MP3 を Web Audio で精密同期再生
 // playAt = イントロ開始時刻（全 PC でハードウェアレベルで同期）
 socket.on('read_card', ({ card, remaining, playAt }) => {
-  stopDjSpeech();
+  setGrabLocked(false);   // 次の札が読み上げられ始めたので、お手付きのロックを解除
   currentPhase = 'reading';
   hideReadBtn();
   $('leftCount').textContent = remaining.length;
   $('progFill').style.width = ((liveTotalCards - remaining.length) / liveTotalCards * 100).toFixed(1) + '%';
   currentReadingYomiText = card ? card.yomi : '';
   $('readingText').textContent = card ? '📢 読み上げ中...' : '—';
-  if (card) {
-    scheduleReadCard(card.id, playAt, () => {
-      if (myIsHost) socket.emit('yomi_finished', { cardId: card.id });
-    });
-  }
+  // 自分の端末で正解発表やDJ実況がまだ再生中なら、それが終わるまで詠み上げを
+  // 始めない（端末ごとに音声の長さが違うため、ホストの進行に合わせて途中で
+  // 打ち切ってしまわないようにする）。
+  whenAudioIdle(() => {
+    isAnnouncing = false;
+    stopDjSpeech();
+    if (card) {
+      scheduleReadCard(card.id, playAt, () => {
+        if (myIsHost) socket.emit('yomi_finished', { cardId: card.id });
+      });
+    }
+  }, 'read', 25000);
 });
 
 // ダミー読み（盤面に対応する札が無い読み上げ）。取ろうとすると全員お手付き扱い。
 // 再生（「これは盤面にない札でした」の案内まで含む）が完全に終わるまで待ち、
 // ホスト端末がその完了を decoy_finished でサーバーに通知する。
 socket.on('decoy_read', ({ id, yomi, playAt }) => {
-  stopDjSpeech();
+  setGrabLocked(false);
   currentPhase = 'decoy';
   hideReadBtn();
   $('readingText').textContent = '📢 読み上げ中...';
-  scheduleDecoyRead(id, playAt, yomi, () => {
-    if (myIsHost) socket.emit('decoy_finished');
-  });
+  whenAudioIdle(() => {
+    isAnnouncing = false;
+    stopDjSpeech();
+    scheduleDecoyRead(id, playAt, yomi, () => {
+      if (myIsHost) socket.emit('decoy_finished');
+    });
+  }, 'read', 25000);
 });
 
 // 取得者名を画面表示、上の句・下の句を TTS で答え合わせ
@@ -1697,14 +2031,14 @@ socket.on('decoy_read', ({ id, yomi, playAt }) => {
 // 正解発表。事前生成 MP3 を Web Audio で再生するのが基本パス（ホスト機での
 // 音声デバイスのハンドオフ遅延を回避できる）。MP3 が無い場合のみ speechSynthesis
 // にフォールバックする。
-socket.on('announce_taken', ({ name, color, card, playAt }) => {
+// DJ実況が再生中の場合は、それを最後まで聞かせてから正解発表を始める
+// （途中で打ち切らない。DJ実況が無ければ即座に開始する）。
+socket.on('announce_taken', payload => runAfterDjClear(() => startAnnounceTaken(payload)));
+
+function startAnnounceTaken({ name, color, card, playAt }) {
   stopAllAudio();   // ここで世代カウンタをインクリメントする
-  // DJ の取得コメントは card_taken の時点でキュー済みなのでここでは消さない
-  // （isAnnouncing が true の間 tryPlayDjQueue() 側が待機させている）。
   const gen = audioGeneration;
   currentPhase = 'announcing';
-  showTakenNotif(name, color || '#4a9eff');
-
   isAnnouncing = true;
   updateReadBtnAvailability();
 
@@ -1726,24 +2060,25 @@ socket.on('announce_taken', ({ name, color, card, playAt }) => {
   if (!window.speechSynthesis) { finishAnnouncing(); return; }
   const texts = ['そこまで', card.yomi, card.tori];
   const ttsStartBuf = 200;
-  const estMs = texts.reduce((sum, t) => sum + t.length * 180, 0) + 1500;
-  setTimeout(finishAnnouncing, estMs + ttsStartBuf); // フォールバック（onend不発時の保険）
+  armSpeechEndFallback(finishAnnouncing, texts, gen); // フォールバック（onend不発時の保険）
 
   setTimeout(() => {
     texts.forEach((text, i) => {
-      const utt  = new SpeechSynthesisUtterance(text);
+      const utt  = newUtterance(text);
       utt.lang   = 'ja-JP';
       utt.rate   = 0.65;
       utt.pitch  = 1.05;
+      pickVoice();
       if (ttsVoice) utt.voice = ttsVoice;
       if (i === texts.length - 1) utt.onend = finishAnnouncing;
       speechSynthesis.speak(utt);
     });
   }, ttsStartBuf);
-});
+}
 
 // 制限時間（10秒）超過。「そこまで」と案内した後、上の句・下の句で正解を発表する
 socket.on('time_up', ({ card, decoy, playAt }) => {
+  dropIdleWaiters('read');   // まだ始められていない詠み上げは取り消す
   stopAllAudio();   // ここで世代カウンタをインクリメントする
   // time_up は必ず read_card/decoy_read の後に起きるため、DJ キューは
   // そちらの stopDjSpeech() で既にクリア済み。
@@ -1801,12 +2136,12 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
       if (decoy && decoy.tori) texts.push(decoy.tori);
       texts.push('これは盤面にない札でした');
       const ttsStartBuf = 200;
-      const estMs = texts.reduce((s, tx) => s + tx.length * 180, 0) + 1500;
-      setTimeout(finishTimeUp, estMs + ttsStartBuf);
+      armSpeechEndFallback(finishTimeUp, texts, gen);
       setTimeout(() => {
         texts.forEach((text, i) => {
-          const utt = new SpeechSynthesisUtterance(text);
+          const utt = newUtterance(text);
           utt.lang = 'ja-JP'; utt.rate = 0.65; utt.pitch = 1.05;
+          pickVoice();
           if (ttsVoice) utt.voice = ttsVoice;
           if (i === texts.length - 1) utt.onend = finishTimeUp;
           speechSynthesis.speak(utt);
@@ -1824,15 +2159,15 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
   if (!window.speechSynthesis) { finishTimeUp(); return; }
   const texts = ['そこまで', card.yomi, card.tori];
   const ttsStartBuf = 200;
-  const estMs = texts.reduce((sum, t) => sum + t.length * 180, 0) + 1500;
-  setTimeout(finishTimeUp, estMs + ttsStartBuf);
+  armSpeechEndFallback(finishTimeUp, texts, gen);
 
   setTimeout(() => {
     texts.forEach((text, i) => {
-      const utt  = new SpeechSynthesisUtterance(text);
+      const utt  = newUtterance(text);
       utt.lang   = 'ja-JP';
       utt.rate   = 0.65;
       utt.pitch  = 1.05;
+      pickVoice();
       if (ttsVoice) utt.voice = ttsVoice;
       if (i === texts.length - 1) utt.onend = finishTimeUp;
       speechSynthesis.speak(utt);
@@ -1845,16 +2180,21 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
 socket.on('dj_comment', ({ text }) => enqueueDjComment(text));
 
 socket.on('card_taken', ({ cardId, by, players }) => {
+  // 誰かが札を取った瞬間に詠み上げ（読み上げます／上の句）を中断する。
+  // このあと announce_taken で「そこまで」→正解の読み上げ→DJの順に流れる。
+  dropIdleWaiters('read');   // まだ始められていない詠み上げは取り消す
+  stopAllAudio();
+  // 「○○が獲得！」は札を取った瞬間に表示する（音声の順番待ちに合わせて遅らせない）
+  showTakenNotif(by.name, by.color || '#4a9eff');
   const el = $(`card-${cardId}`);
   if (!el) return;
   updateChips(players);
   hideReadBtn();
-  // announce_taken（そこまで／上の句／下の句）が少し遅れて届くまでの間も
-  // DJ が喋り出さないよう、取得直後からアナウンス中扱いにしておく。
-  isAnnouncing = true;
-  updateReadBtnAvailability();
+  // DJ実況を最後まで聞かせてから正解発表（そこまで／上の句／下の句）に進むため、
+  // ここではまだ isAnnouncing にしない（announce_taken 到着時に runAfterDjClear
+  // 経由で開始される。DJ実況が無ければ即座に、あれば話し終わってから開始する）。
   if (by.id === myId) {
-    showFloat(el, '+100', '#00e5a0');
+    showFloat(el, '+1', '#00e5a0');
     el.classList.add('correct-mine');
   } else {
     el.style.borderColor = by.color;
@@ -1871,17 +2211,25 @@ socket.on('card_taken', ({ cardId, by, players }) => {
 });
 
 socket.on('wrong_grab', ({ cardId }) => {
+  setGrabLocked(true);
   const el = $(`card-${cardId}`);
   if (!el) return;
-  showFloat(el, '-20', '#ff5555');
+  showFloat(el, '-1', '#ff5555');
   el.classList.add('wrong');
   setTimeout(() => el.classList.remove('wrong'), 450);
 });
 
+// ロック中に取ろうとした（画面の表示が遅れていた等）場合の保険
+socket.on('grab_locked', () => setGrabLocked(true));
+
 socket.on('game_over', ({ players }) => { showGameOver(players); });
 
 // ── 大会モード：試合終了（結果表示）─────────────────────────
-socket.on('event_round_finished', (data) => {
+// 最後の札の正解発表・DJ実況が終わってから結果画面を出す（音声が終わる前に
+// 結果画面へ切り替わって打ち切られないようにする）。
+socket.on('event_round_finished', data => whenAudioIdle(() => onEventRoundFinished(data), 'result', 40000));
+
+function onEventRoundFinished(data) {
   stopTimer(); stopAllAudio(); hideReadBtn();
   gameStarted = false;
   const { stage, players } = data;
@@ -1936,7 +2284,7 @@ socket.on('event_round_finished', (data) => {
       const p = players[r.id];
       return `<div class="rr-row ${r.extraCls}${r.id === myId ? ' me' : ''}">
         <span class="rr-name">${p ? escHtml(p.name) : r.id}${r.id === myId ? ' <small>(あなた)</small>' : ''}</span>
-        <span class="rr-score">${p ? p.score : ''}点</span>
+        <span class="rr-score">${p ? p.score : ''}枚</span>
         ${r.badgeCls ? `<span class="rr-badge ${r.badgeCls}">${escHtml(r.badgeText)}</span>` : ''}
       </div>`;
     }).join('');
@@ -1945,7 +2293,7 @@ socket.on('event_round_finished', (data) => {
 
   hide('oLobby'); hide('oRoundResult'); hide('oGameOver');
   show('oEventResult');
-});
+}
 
 socket.on('event_stage_ready', ({ stage, mainReady, revivalReady, mainPoolSize, revivalPoolSize }) => {
   eventStage = stage;
@@ -1985,9 +2333,12 @@ socket.on('event_stage_ready', ({ stage, mainReady, revivalReady, mainPoolSize, 
   }
 });
 
-socket.on('round_finished', ({ round, players, survivorIds, eliminatedIds, survivorCount: sc, isFinal, isRevival, isRevivalIntermediate, revivalRound: rRound, revivalMaxRounds: rMax, eliminatedRevivalIds, isGroupMatch: ig, isGroupMatchIntermediate, groupTier: gt, groupRound: gRound, groupMaxRounds: gMax, humanGroups: hg, cumulativeScores: cs, bottomGroupWinners: bw, middleGroupWinners: mw }) => {
+// 最後の札の正解発表・DJ実況が終わってから結果画面を出す。
+socket.on('round_finished', data => whenAudioIdle(() => onRoundFinished(data), 'result', 40000));
+
+function onRoundFinished({ round, players, survivorIds, eliminatedIds, survivorCount: sc, isFinal, isRevival, isRevivalIntermediate, revivalRound: rRound, revivalMaxRounds: rMax, eliminatedRevivalIds, isGroupMatch: ig, isGroupMatchIntermediate, groupTier: gt, groupRound: gRound, groupMaxRounds: gMax, humanGroups: hg, cumulativeScores: cs, bottomGroupWinners: bw, middleGroupWinners: mw }) {
   if (!isGroupMatchIntermediate) eliminatedIds.forEach(id => liveEliminatedIds.add(id));
-  if (eliminatedIds.includes(myId) && !isGroupMatchIntermediate) myIsSpectator = true;
+  // 練習モード（このイベントは常に練習モード）では敗退しても観戦モードには移行させない
   if (isGroupMatchIntermediate) {
     // グループ戦中間ラウンド: 脱落者を記録
     eliminatedIds.forEach(id => groupEliminatedIds.add(id));
@@ -2013,11 +2364,54 @@ socket.on('round_finished', ({ round, players, survivorIds, eliminatedIds, survi
   }
   if (hg) humanGroups = hg;
   if (gt) groupTier   = gt;
-  if (isFinal) postTournament = true;
   if (bw !== undefined) bottomGroupWinners = bw;
   if (mw !== undefined) middleGroupWinners = mw;
   showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal, isRevival, ig, gt, isRevivalIntermediate, rRound, rMax, isGroupMatchIntermediate, gRound, gMax);
-});
+
+  // 練習モードの結果画面ではDJが各自の順位を読み上げる
+  if (!isEventMode && !ig && !isRevival && !isRevivalIntermediate && !isGroupMatchIntermediate) {
+    speakRoundResultDj(round, players, new Set([...survivorIds, ...eliminatedIds]));
+  }
+}
+
+// 「惜しい」を流す条件：自分が4〜10位で、3位との点差がこの点数以内
+const DJ_CLOSE_MAX_RANK  = 10;
+const DJ_CLOSE_MAX_DIFF  = 3;   // 3枚差以内（得点が枚数になる前の300点に相当）
+
+// 試合結果画面のDJ音声（各端末で、その端末のユーザー自身の順位に合わせて読み上げる）。
+// 順位は結果画面のランキングと同じく、CPUを含む全参加者の中での順位。
+function speakRoundResultDj(round, players, participantIds) {
+  const sorted = Object.entries(players)
+    .filter(([id, p]) => participantIds.has(id) && (p.isBot || p.joined))
+    .sort(([, a], [, b]) => b.score - a.score);
+
+  // 優先度：3位以内「おめでとうございます」→ 10位以内「惜しい」→「○回戦終了です」。
+  // 上の条件を満たしたら、それ以降のメッセージは読み上げない（1つだけ流す）。
+  let line = `${round}回戦終了です。お疲れ様でした。`;
+
+  // 同じ枚数は同順位（1位,1位,3位…）。結果画面の順位表示と同じ数え方にする。
+  const ranks = competitionRanks(sorted);
+  const myIdx = sorted.findIndex(([id]) => id === myId);
+  if (myIdx !== -1) {
+    const rank  = ranks[myIdx];
+    const score = sorted[myIdx][1].score;
+    if (rank <= 3) {
+      line = `おめでとうございます。あなたは${score}枚で${rank}位です。`;
+    } else if (rank <= DJ_CLOSE_MAX_RANK) {
+      // 入賞圏内（3位以内）で一番下の人との差
+      let podiumIdx = -1;
+      ranks.forEach((r, i) => { if (r <= 3) podiumIdx = i; });
+      if (podiumIdx !== -1) {
+        const diff = sorted[podiumIdx][1].score - score;
+        if (diff > 0 && diff <= DJ_CLOSE_MAX_DIFF) {
+          line = `惜しい。あと${diff}枚で${ranks[podiumIdx]}位でした。`;
+        }
+      }
+    }
+  }
+  // showRoundResult() 内の cancel() 直後に話し始めると取りこぼすことがあるため少し待つ
+  setTimeout(() => enqueueDjComment(line), 300);
+}
 
 socket.on('back_to_lobby', ({ players, postTournament: pt, humanGroups: hg, bottomGroupWinners: bw, middleGroupWinners: mw }) => {
   gameStarted          = false;

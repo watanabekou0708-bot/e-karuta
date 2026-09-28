@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Webかるた トラブル対応ガイド</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .cover { background: linear-gradient(160deg, #2a0f1a 0%, #8a2b3a 100%); color: #fff; padding: 0; }
+  .cover .inner { padding: 30mm 20mm 0; }
+  .cover .club { font-size: 14pt; letter-spacing: .15em; color: #ffc9d2; }
+  .cover h1 { font-size: 38pt; line-height: 1.25; margin: 10mm 0 4mm; }
+  .cover .sub { font-size: 15pt; color: #ffe3e8; }
+  .cover .card { background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.35); border-radius: 4mm; padding: 6mm 8mm; margin-top: 12mm; }
+  .cover .card h2 { margin: 0 0 3mm; font-size: 16pt; color: #ffd66b; }
+  .cover .card li { font-size: 13pt; margin: 1.5mm 0; }
+  .cover .footer { color: #ffc9d2; border-top-color: rgba(255,255,255,.3); }
+  h2.step { background: linear-gradient(90deg, #b33a4d, #e2586c); }
+  h2.step .tag { color: #b33a4d; }
+  h3 { color: #9c2c3d; border-left-color: #e2586c; }
+  th { background: #fdeaee; }
+  .cat { background: #b33a4d; color: #fff; font-weight: 700; }
+  td.sym { width: 34%; font-weight: 700; background: #fff8f9; }
+  td.act ol { margin: 0; padding-left: 5mm; }
+  td.act li { margin: .5mm 0; }
+  .sm td, .sm th { font-size: 10pt; padding: 1.6mm 2.4mm; }
+  .chk li { list-style: none; margin: 2.2mm 0; font-size: 11.5pt; }
+  .chk li::before { content: "☐"; margin-left: -6mm; margin-right: 2.5mm; font-size: 14pt; }
+  .chk { padding-left: 6mm; }
+  .memo td { height: 13mm; }
+  .flowv { display: flex; flex-direction: column; gap: 2mm; margin: 3mm 0; }
+  .flowv .st { border: 2px solid #e2586c; border-radius: 3mm; padding: 2.2mm 5mm; background: #fff8f9; font-size: 12pt; }
+  .flowv .st b { color: #9c2c3d; }
+  .flowv .ar { text-align: center; color: #b33a4d; font-size: 14pt; line-height: 1; }
+  /* 貼り紙 */
+  .sign { padding: 0; }
+  .sign .frame { position: absolute; inset: 12mm; border: 4mm solid #b33a4d; border-radius: 8mm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 10mm; }
+  .sign h1 { font-size: 54pt; line-height: 1.3; color: #b33a4d; margin: 0 0 10mm; }
+  .sign p { font-size: 26pt; line-height: 1.7; margin: 0; }
+  .sign .club { position: absolute; bottom: 14mm; font-size: 18pt; color: #7a86a8; }
+  .sign .cut { position: absolute; top: 4mm; left: 0; right: 0; text-align: center; font-size: 9pt; color: #9aa3c2; }
+</style>
+</head>
+<body>
+
+<!-- ===== 表紙 ===== -->
+<section class="page cover">
+  <div class="inner">
+    <div class="club">Webデザインサークル</div>
+    <h1>Webかるた<br>トラブル対応ガイド</h1>
+    <div class="sub">運営スタッフ用｜パソコンの操作だけで直せる範囲の対処法</div>
+
+    <div class="card">
+      <h2>このガイドの使い方</h2>
+      <ol>
+        <li>困ったら、まず <b>「症状から探す」</b>（P.3〜4）を見る。</li>
+        <li>書いてある対処を、<b>上から順に</b>試す。</li>
+        <li>どれをやっても直らなければ、<b>貼り紙</b>（最終ページ）を出して、時間をおく。</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>安心してください</h2>
+      <ul>
+        <li>難しい操作（コマンド・プログラムの操作）は<b>一切ありません</b>。</li>
+        <li>ほとんどのトラブルは、<b>ページの更新（<span style="border:1px solid #fff;padding:0 2mm;border-radius:2mm">F5</span>）</b>か<b>音量の確認</b>で直ります。</li>
+        <li>直らないときに貼り紙を出すのは、<b>失敗ではなく正しい対応</b>です。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた トラブル対応ガイド</span></div>
+</section>
+
+<!-- ===== 基本の操作 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">基本</span>まず覚える4つの操作</h2>
+  <p>トラブル対応のほとんどは、この4つの操作だけです。<b>上のものから順に</b>試します。</p>
+
+  <table>
+    <tr><th style="width:24%">操作</th><th>やり方</th><th style="width:31%">どうなる？</th></tr>
+    <tr>
+      <td><b>① ページを更新</b><br><span class="kbd">F5</span></td>
+      <td>キーボードの <span class="kbd">F5</span> を押す。<br>（ノートPCで反応しないときは <span class="kbd">Fn</span> を押しながら <span class="kbd">F5</span>）</td>
+      <td>ゲームが<b>最初から</b>になり、名前入力の画面に戻ります。今のゲームの途中経過は消えます。</td>
+    </tr>
+    <tr>
+      <td><b>② 強めの更新</b><br><span class="kbd">Ctrl</span>+<span class="kbd">F5</span></td>
+      <td><span class="kbd">Ctrl</span> を押しながら <span class="kbd">F5</span> を押す。</td>
+      <td>古い画面が残っているときに、<b>新しく読み込み直します</b>。①で直らないときに使います。</td>
+    </tr>
+    <tr>
+      <td><b>③ Chromeを開き直す</b></td>
+      <td>
+        <ol style="margin:0;padding-left:5mm">
+          <li>Chromeの右上の <b>×</b> を押して閉じる。</li>
+          <li>共有フォルダ<b>「Webかるた」</b>の<b>「学園祭展示用」</b>をダブルクリック。</li>
+        </ol>
+      </td>
+      <td>ブラウザごとやり直します。音や画面の不具合が直ることがあります。</td>
+    </tr>
+    <tr>
+      <td><b>④ パソコンを再起動</b></td>
+      <td>
+        <ol style="margin:0;padding-left:5mm">
+          <li>画面左下（または中央）の<b>スタート</b>ボタンを押す。</li>
+          <li><b>電源</b>のマーク → <b>再起動</b>。</li>
+          <li>起動したら、③と同じ方法でリンクを開く。</li>
+        </ol>
+      </td>
+      <td>3〜5分かかります。①〜③で直らないときの最後の操作です。</td>
+    </tr>
+  </table>
+
+  <div class="box warn"><b class="t">⚠ 更新すると、遊んでいる人のゲームは最初からになります</b>
+    お客さんが遊んでいる途中の場合は、「ごめんなさい、最初からになります」と一声かけてから更新しましょう。
+  </div>
+  <div class="box ng"><b class="t">✖ やってはいけないこと</b>
+    <ul style="margin:0">
+      <li>知らないボタンや設定を、あちこち押す（特にChromeの「設定」やWindowsの「設定」）。</li>
+      <li>見たことのないソフトをインストールしたり、ファイルを削除・移動したりする。</li>
+      <li>共有フォルダの中のファイルを、書き換える・名前を変える・消す。</li>
+      <li>お客さんのスマホなど、<b>会場のパソコン以外</b>でゲームを開く（同じゲームが共有され、混ざってしまいます）。</li>
+    </ul>
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた トラブル対応ガイド　P.2</span></div>
+</section>
+
+<!-- ===== 症状から探す（1） ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">症状</span>症状から探す（その1：開けない・始まらない・見た目）</h2>
+  <table class="sm">
+    <tr><th class="cat" colspan="2">A．ゲームのページが開かない・つながらない</th></tr>
+    <tr>
+      <td class="sym">A1．リンクをダブルクリックしてもChromeが開かない</td>
+      <td class="act"><ol>
+        <li>もう一度、ゆっくりダブルクリックする（2回目が遅いと開きません）。</li>
+        <li>すでにChromeが開いていないか、画面下（タスクバー）を見る。</li>
+        <li>共有フォルダ自体が開けない場合は、パソコンのネット接続（下のA2）を確認する。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">A2．「このサイトにアクセスできません」「接続できません」と出る</td>
+      <td class="act"><ol>
+        <li>画面右下の<b>ネットのマーク</b>（Wi-Fiまたは有線）に、×や「!」が出ていないか見る。出ていれば、マークをクリックして学校／会場のWi-Fiにつなぎ直す。</li>
+        <li>ほかのページ（例：Google）が開くか試す。<b>開かなければ</b>会場のネットの問題です。数分待って、もう一度。</li>
+        <li>ほかは開くのにゲームだけ開けないときは、ゲームを動かしているサーバー側の問題です。<b>2〜3分おいて、<span class="kbd">F5</span>を何回か</b>試す。</li>
+        <li>10分たっても直らなければ、<b>貼り紙</b>を出す（最終ページ）。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">A3．真っ白／読み込み中のまま止まる</td>
+      <td class="act"><ol>
+        <li>30秒待つ。</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">F5</span> を押す。</li>
+        <li>直らなければ「Chromeを開き直す」→「パソコンを再起動」の順に試す。</li>
+      </ol></td>
+    </tr>
+
+    <tr><th class="cat" colspan="2">B．名前入力・ゲーム開始のトラブル</th></tr>
+    <tr>
+      <td class="sym">B1．「参加する」を押しても進まない</td>
+      <td class="act"><ol>
+        <li>名前の欄が<b>空っぽ</b>ではないか確認（1文字以上必要）。</li>
+        <li><span class="kbd">F5</span> を押して、もう一度、名前を入れて「参加する」。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">B2．表示が固まって動かない／「サーバーに接続できません」と出る</td>
+      <td class="act"><ol>
+        <li><span class="kbd">F5</span> を押す。</li>
+        <li>直らなければ、A2と同じ手順でネットとサーバーを確認する。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">B3．「ゲームスタート」を押しても、始まらない／暗い画面のまま</td>
+      <td class="act"><ol>
+        <li>10秒ほど待つ（札が並んだ画面に切り替わるのに少しかかることがあります）。</li>
+        <li>変わらなければ <span class="kbd">F5</span> を押して、最初からやり直す。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">B4．ボタンが押せない（灰色になっている）</td>
+      <td class="act"><ol>
+        <li>2〜3秒待つ。</li>
+        <li>変わらなければ <span class="kbd">F5</span>。</li>
+      </ol></td>
+    </tr>
+    <tr><th class="cat" colspan="2">C．画面の見た目</th></tr>
+    <tr>
+      <td class="sym">C1．文字や札が大きすぎる／小さすぎる／はみ出す</td>
+      <td class="act"><ol>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">0</span>（ゼロ）で、表示を100%に戻す。</li>
+        <li>それでも見づらいときは <span class="kbd">F11</span> で全画面にする（もう一度 <span class="kbd">F11</span> で戻る）。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">C2．古い画面のまま／変な表示が残る</td>
+      <td class="act"><span class="kbd">Ctrl</span>+<span class="kbd">F5</span> を押す。</td>
+    </tr>
+    <tr>
+      <td class="sym">C3．ポップアップ（通知・翻訳・保存の確認など）が出た</td>
+      <td class="act">「×」または「今はしない」「ブロック」を押して閉じる。「許可」や「保存」は押さない。</td>
+    </tr>
+
+  </table>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた トラブル対応ガイド　P.3</span></div>
+</section>
+
+<!-- ===== 症状から探す（2） ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">症状</span>症状から探す（その2：試合中・パソコン本体）</h2>
+  <table class="sm">
+    <tr><th class="cat" colspan="2">D．試合中のトラブル</th></tr>
+    <tr>
+      <td class="sym">D1．<b>音が出ない</b>（読み上げが聞こえない）</td>
+      <td class="act"><b>いちばん多いトラブルです。次のページ「音が出ないとき」を見てください。</b></td>
+    </tr>
+    <tr>
+      <td class="sym">D2．「読み上げ中…」のまま、または「準備中」のまま、30秒以上進まない</td>
+      <td class="act"><ol>
+        <li>まず30秒待つ（自動で進むことがあります）。</li>
+        <li>右上の<b>「即終了（デバッグ）」</b>を押して、その試合を終わらせ、結果画面から次の試合へ進む。</li>
+        <li>それでも進まなければ <span class="kbd">F5</span>。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">D3．声が途切れる／2つの声が重なる</td>
+      <td class="act"><ol>
+        <li>短い間なら、そのまま続けてかまいません。</li>
+        <li>何度も続くときは <span class="kbd">F5</span>。<b>会場のパソコン以外でゲームを開いていないか</b>も確認する。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">D4．札をクリックしても取れない</td>
+      <td class="act"><ol>
+        <li>上のバッジが<b>「盤面整理タイム」</b>なら、まだ取れません。試合が始まるまで待つ（急ぐときは「即終了」）。</li>
+        <li>赤い帯<b>「お手付き！次の札が読み上げられるまで取れません」</b>が出ていたら、次の札を待つ。</li>
+        <li>札の位置とクリックがずれるときは、<span class="kbd">Ctrl</span>+<span class="kbd">0</span>（ゼロ）で表示を100%に戻す。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">D5．CPUの枚数や順位が、急に変わった</td>
+      <td class="act">誰かが<b>「CPUポイント」</b>を押した可能性があります（押すとCPUの枚数がランダムに変わる機能です）。故障ではありません。</td>
+    </tr>
+
+    <tr><th class="cat" colspan="2">E．パソコン本体のトラブル</th></tr>
+    <tr>
+      <td class="sym">E1．画面が暗くなった／スリープした</td>
+      <td class="act"><ol>
+        <li>マウスを動かすか、キーを1つ押す。</li>
+        <li>復帰したら <span class="kbd">F5</span> でやり直す。</li>
+        <li>何度も起きるなら、P.6の「事前準備」のスリープ設定を確認する。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">E2．Chromeが固まった（クリックしても反応しない）</td>
+      <td class="act"><ol>
+        <li>30秒待つ。</li>
+        <li>右上の<b>×</b>で閉じられたら、リンクを開き直す。</li>
+        <li>閉じられないときは、パソコンを再起動する。</li>
+      </ol></td>
+    </tr>
+    <tr>
+      <td class="sym">E3．パソコン自体が固まった／電源が落ちた</td>
+      <td class="act"><ol>
+        <li>電源ケーブルが抜けていないか確認する。</li>
+        <li>数分待っても動かなければ、電源ボタンを<b>5秒ほど長押し</b>して切り、もう一度押して起動する。</li>
+        <li>起動したら、リンクを開いてやり直す。</li>
+      </ol></td>
+    </tr>
+  </table>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた トラブル対応ガイド　P.4</span></div>
+</section>
+
+<!-- ===== 音が出ないとき ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">音</span>音が出ないとき（いちばん大事）</h2>
+  <p>このゲームは、<b>札の読み上げを音声で聞いて</b>遊びます。画面には説明文が出ないので、<b>音が出ないと遊べません</b>。次の順番で確認します。</p>
+
+  <div class="flowv">
+    <div class="st"><b>① 「参加する」を押した？</b>　名前入力の画面のままだと、音は鳴りません。押していなければ、名前を入れて「参加する」を押す。</div>
+    <div class="ar">▼</div>
+    <div class="st"><b>② パソコンの音量とミュート</b>　画面右下の<b>スピーカーのマーク</b>をクリック。スライダーが左端（0）や、ミュート（スピーカーに×）になっていないか確認。キーボードの音量キーでもOK。</div>
+    <div class="ar">▼</div>
+    <div class="st"><b>③ 音の出力先（スピーカー／ヘッドホン）</b>　右下のスピーカーのマークをクリック → 音量スライダーの<b>右側の「＞」</b>を押す → 実際に使っている<b>スピーカーまたはヘッドホン</b>を選ぶ。ケーブルやUSB、Bluetoothの接続も確認。</div>
+    <div class="ar">▼</div>
+    <div class="st"><b>④ Chromeのタブがミュートになっていないか</b>　ブラウザ上部のタブに<b>斜線つきスピーカー</b>のマークがあれば、そのタブを<b>右クリック → 「サイトのミュートを解除」</b>。</div>
+    <div class="ar">▼</div>
+    <div class="st"><b>⑤ 「音量ミキサー」でChromeの音が小さくなっていないか</b>　右下のスピーカーのマークを<b>右クリック → 「音量ミキサーを開く」</b>→「Google Chrome」のスライダーを右へ上げる。</div>
+    <div class="ar">▼</div>
+    <div class="st"><b>⑥ ページを更新して、もう一度</b>　<span class="kbd">F5</span> → 名前入力 →「参加する」→ ゲームスタート。</div>
+    <div class="ar">▼</div>
+    <div class="st"><b>⑦ Chromeを開き直す → パソコンを再起動</b>（P.2の③・④）。それでも鳴らなければ、貼り紙を出す。</div>
+  </div>
+
+  <div class="box info"><b class="t">🎙 声が男の人／ロボットのよう／いつもと違う場合</b>
+    このゲームは、Windowsの日本語の声（<b>Haruka</b>）を使うように作られています。パソコンにその声が入っていないと、別の声になることがあります。<b>聞き取れて遊べるなら、そのまま続けてかまいません。</b><br>
+    確認したいときは、ゲームのアドレスの最後に <b>tts-check.html</b> を付けて Enter を押すと、「使用する声」が表示されます（「Haruka が見つかりません」と出たら、このパソコンでは別の声になります）。
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた トラブル対応ガイド　P.5</span></div>
+</section>
+
+<!-- ===== 事前準備 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">準備</span>事前準備チェックリスト</h2>
+
+  <h3>前日／開始前に確認すること</h3>
+  <ul class="chk">
+    <li><b>電源</b>：パソコンに電源ケーブルをつないだ。</li>
+    <li><b>スリープしない設定</b>：スタート →「設定」→「システム」→「電源とバッテリー」→「画面とスリープ」で、電源接続時の「スリープ」と「画面の電源を切る」を<b>「なし」</b>にした（Windows 10 の場合は「設定」→「システム」→「電源とスリープ」）。</li>
+    <li><b>音</b>：スピーカー（またはヘッドホン）をつなぎ、音量を<b>半分くらい</b>にした。</li>
+    <li><b>ゲームがひらく</b>：共有フォルダ「Webかるた」の「学園祭展示用」から、名前入力の画面が出た。</li>
+    <li><b>試し遊び</b>：実際に「参加する」→「ゲームスタート」→「即終了」で盤面整理を飛ばし、<b>読み上げの音が聞こえる</b>ことを確認した。</li>
+    <li><b>表示</b>：Chromeの表示が100%（<span class="kbd">Ctrl</span>+<span class="kbd">0</span>）で、札が全部見える。</li>
+    <li><b>紙の準備</b>：「遊び方ガイド」と、このガイドを印刷して、机に置いた。</li>
+    <li><b>貼り紙</b>：最終ページの貼り紙を印刷して、すぐ出せる場所に置いた。</li>
+  </ul>
+
+  <h3>お客さんが交代するとき</h3>
+  <ul class="chk">
+    <li>キーボードの <span class="kbd">F5</span> を押して、名前入力の画面に戻した。</li>
+    <li>音量が小さく／大きくなりすぎていないか見た。</li>
+  </ul>
+
+  <h3>おしまいのとき</h3>
+  <ul class="chk">
+    <li>Chromeを閉じた（パソコンの電源を切るかどうかは、運営の指示に従う）。</li>
+    <li>下の「トラブル記録メモ」に書いたことを、責任者に渡した。</li>
+  </ul>
+
+  <h3>トラブル記録メモ（あとで振り返るために書いておきましょう）</h3>
+  <table class="memo sm">
+    <tr><th style="width:18%">時刻</th><th style="width:38%">どんなトラブルだったか</th><th style="width:26%">やったこと</th><th>結果</th></tr>
+    <tr><td></td><td></td><td></td><td></td></tr>
+    <tr><td></td><td></td><td></td><td></td></tr>
+    <tr><td></td><td></td><td></td><td></td></tr>
+  </table>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた トラブル対応ガイド　P.6</span></div>
+</section>
+
+<!-- ===== 最後の手段 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">最後の手段</span>直らないときの判断</h2>
+  <p>開発者に連絡することはできません。ですが、<b>あわてなくて大丈夫</b>です。次の順番で進めて、直らなければ貼り紙を出します。</p>
+
+  <div class="flowv">
+    <div class="st"><b>① ページを更新</b>（<span class="kbd">F5</span>、だめなら <span class="kbd">Ctrl</span>+<span class="kbd">F5</span>）</div>
+    <div class="ar">▼ 直らない</div>
+    <div class="st"><b>② Chromeを開き直す</b>（×で閉じて、共有フォルダの「学園祭展示用」を開く）</div>
+    <div class="ar">▼ 直らない</div>
+    <div class="st"><b>③ パソコンを再起動</b>（3〜5分）</div>
+    <div class="ar">▼ 直らない</div>
+    <div class="st"><b>④ 貼り紙を出す</b>（最終ページを印刷したもの）。機材の前に置き、お客さんに「ただいま準備中です」と伝える。</div>
+    <div class="ar">▼</div>
+    <div class="st"><b>⑤ 10〜15分おいてから、もう一度①から試す</b>。ネットやサーバーの一時的な不調は、時間がたつと直ることがあります。</div>
+  </div>
+
+  <div class="box ok"><b class="t">✅ 直ったら</b>
+    貼り紙をはずし、お客さんに「お待たせしました」と伝えます。<b>P.6の「トラブル記録メモ」</b>に、いつ・何が・どうして直ったかを書いておきましょう。
+  </div>
+  <div class="box info"><b class="t">お客さんへの声かけの例</b>
+    「ごめんなさい、ただいまゲームの調子が悪いので、少しお待ちください。」<br>
+    「もう一度最初からになります。ごめんなさい。」
+  </div>
+  <div class="box warn"><b class="t">迷ったら</b>
+    無理に続けず、貼り紙を出して構いません。<b>お客さんに安全に楽しんでもらうこと</b>が一番大事です。
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた トラブル対応ガイド　P.7</span></div>
+</section>
+
+<!-- ===== 貼り紙 ===== -->
+<section class="page sign">
+  <div class="frame">
+    <h1>ただいま<br>プレイできません</h1>
+    <p>ごめんなさい。<br>ゲームの調子が悪いため、<br>しばらくお待ちください。</p>
+    <p style="margin-top:12mm;font-size:20pt;color:#555">準備ができしだい、再開します。</p>
+    <div class="club">Webデザインサークル｜Webかるた</div>
+  </div>
+</section>
+
+</body>
+</html>

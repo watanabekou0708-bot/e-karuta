@@ -11,57 +11,189 @@ const srv  = http.createServer(app);
 const io   = new Server(srv);
 
 // ── Karuta data（J検（情報活用試験）3級レベル＋Excel関数）─────
-// ids 1-15: 易しい / 16-30: 普通 / 31-45: 難しい（ROUND_CARD_IDS と対応）
+// ids 1-15,46-60: 易しい / 16-30,61-75: 普通 / 31-45,76-90: 難しい（ROUND_CARD_IDS と対応）
 // 難易度は一般IT用語・Excel関数どちらも各帯で揃えている。
+// 46番以降は「練習するたびに同じ15枚しか出ない」問題への対応で追加した分
+// （各帯30枚から毎回ランダムに15枚を抽出するようにした）。
 const KARUTA = [
-  // 易しい（1〜15）
-  { id:  1, yomi: 'コンピューターの頭脳と呼ばれ、計算と命令の処理を担う装置',             tori: 'CPU' },
-  { id:  2, yomi: '電源を切ると消えてしまう、作業中のデータを一時的に保管する主記憶装置', tori: 'メモリ' },
-  { id:  3, yomi: '電源を切っても消えない、写真や文書を永続的に記憶する補助記憶装置',     tori: 'ストレージ' },
-  { id:  4, yomi: '世界中のコンピューターをつないだ、巨大な情報通信ネットワーク',         tori: 'インターネット' },
-  { id:  5, yomi: '推測されにくい文字列で、アカウントへの不正アクセスを防ぐ秘密の認証情報', tori: 'パスワード' },
-  { id:  6, yomi: 'Excelの表を構成する、行と列が交差する一つの升目',                     tori: 'セル' },
-  { id:  7, yomi: 'Excelでデータを入力する、複数集めるとブックになる1枚の作業画面',       tori: 'ワークシート' },
-  { id:  8, yomi: '指定した範囲の数値をすべて合計するExcelの基本関数',                   tori: 'SUM関数' },
-  { id:  9, yomi: '指定した範囲の数値の平均値を求めるExcel関数',                         tori: 'AVERAGE関数' },
-  { id: 10, yomi: 'セルの右下をドラッグすることで、連続データや数式を隣のセルへ自動入力する機能', tori: 'オートフィル' },
-  { id: 11, yomi: 'URLを入力してウェブページを閲覧するためのソフトウェア',               tori: 'Webブラウザ' },
-  { id: 12, yomi: 'ファイルやアプリを絵柄で分かりやすく表したもの',                       tori: 'アイコン' },
-  { id: 13, yomi: 'コピーやカットしたデータを一時的に保存しておく場所',                   tori: 'クリップボード' },
-  { id: 14, yomi: '複数のキーを同時に押すことで、素早く操作を実行する機能',               tori: 'ショートカットキー' },
-  { id: 15, yomi: 'ファイル名の末尾につく、そのファイルの種類を表す文字列',               tori: '拡張子' },
-  // 普通（16〜30）
-  { id: 16, yomi: 'ハードウェアを管理し、アプリケーションが動く土台となるソフトウェア',   tori: 'OS' },
-  { id: 17, yomi: '会社や学校など限られた範囲で、コンピューターをつなぐネットワーク',     tori: 'LAN' },
-  { id: 18, yomi: 'パスワードに加えてスマートフォンなどで本人確認する、二段階の認証方式', tori: '二段階認証' },
-  { id: 19, yomi: '他人が作った著作物を、許可なく複製・配布することを禁ずる権利',         tori: '著作権' },
-  { id: 20, yomi: 'コンピューターに害を与える目的で作られた、悪意のあるソフトウェアの総称', tori: 'マルウェア' },
-  { id: 21, yomi: '数式をコピーすると、参照するセルの位置が自動的にずれるExcelの標準的な参照方式', tori: '相対参照' },
-  { id: 22, yomi: '数式をコピーしてもセルの参照先が変わらないようにする、$記号を使ったExcelの指定方法', tori: '絶対参照' },
-  { id: 23, yomi: '条件を満たすかどうかで異なる結果を返す、Excelの代表的な条件分岐関数', tori: 'IF関数' },
-  { id: 24, yomi: '指定した条件に一致するセルの個数を数えるExcel関数',                   tori: 'COUNTIF関数' },
-  { id: 25, yomi: '指定した桁数で数値を四捨五入するExcel関数',                           tori: 'ROUND関数' },
-  { id: 26, yomi: '指定した範囲の中で最大の数値を求めるExcel関数',                       tori: 'MAX関数' },
-  { id: 27, yomi: '指定した範囲の中で最小の数値を求めるExcel関数',                       tori: 'MIN関数' },
-  { id: 28, yomi: '指定した条件を満たすセルだけ自動的に色や書式を変えるExcelの機能',     tori: '条件付き書式' },
-  { id: 29, yomi: '表の中から条件に合うデータだけを絞り込んで表示するExcelの機能',       tori: 'フィルター' },
-  { id: 30, yomi: 'インターネット上にファイルを保存し、複数の端末から利用できるサービス', tori: 'クラウドストレージ' },
-  // 難しい（31〜45）
-  { id: 31, yomi: 'ネットワーク上の住所にあたる、コンピューターを識別するための番号',     tori: 'IPアドレス' },
-  { id: 32, yomi: 'ドメイン名をIPアドレスに変換する、インターネットの電話帳のような仕組み', tori: 'DNS' },
-  { id: 33, yomi: '実在する企業を装った偽のメールやサイトで、個人情報を盗もうとする攻撃', tori: 'フィッシング詐欺' },
-  { id: 34, yomi: 'インターネット経由でサーバーやソフトウェアをサービスとして利用する形態', tori: 'クラウドコンピューティング' },
-  { id: 35, yomi: '大量のデータを整理して保存し、素早く検索・更新・抽出できる仕組み',     tori: 'データベース' },
-  { id: 36, yomi: '指定した範囲の左端の列を縦方向に検索し、対応する値を返すExcelの検索関数', tori: 'VLOOKUP関数' },
-  { id: 37, yomi: '指定した条件に一致するセルの数値だけを合計するExcel関数',             tori: 'SUMIF関数' },
-  { id: 38, yomi: '数式がエラーになった場合に、代わりの値を表示させるExcel関数',         tori: 'IFERROR関数' },
-  { id: 39, yomi: '指定した範囲の中から、行と列の番号で位置を指定してデータを取り出すExcel関数', tori: 'INDEX関数' },
-  { id: 40, yomi: '大量のデータを集計・分析し、視点を変えて自在に表を組み替えられるExcelの機能', tori: 'ピボットテーブル' },
-  { id: 41, yomi: '指定した範囲の中で、数値が何番目に大きい（小さい）かの順位を求めるExcel関数', tori: 'RANK関数' },
-  { id: 42, yomi: '指定した範囲の中から検索値を探し、その位置が何番目かを返すExcel関数', tori: 'MATCH関数' },
-  { id: 43, yomi: 'Excelでの一連の操作を記録し、自動的に再実行できるようにする機能',     tori: 'マクロ' },
-  { id: 44, yomi: '感染したパソコンのデータを暗号化し、復元と引き換えに金銭を要求する悪意のあるソフトウェア', tori: 'ランサムウェア' },
-  { id: 45, yomi: '特定の組織や個人を狙い、業務連絡などを装って送られる巧妙な不正アクセス', tori: '標的型攻撃' },
+  // 易しい（一般常識 J検3級:容易 + Excel基本編関数, id 1-30）
+  { id: 1, yomi: "オンラインサービスで個人または組織を識別する名前", tori: "アカウント名" },
+  { id: 2, yomi: "情報を世界中のコンピュータネットワークで共有するグローバルなコミュニケーションネットワーク", tori: "インターネット" },
+  { id: 3, yomi: "情報をキーワードで検索し、関連するウェブページやファイルを一覧表示するプログラムやサービス", tori: "検索エンジン" },
+  { id: 4, yomi: "悪意のあるプログラムで、コンピュータに感染して機能を破壊・乗っ取る", tori: "コンピュータウィルス" },
+  { id: 5, yomi: "電子メールや文書に添付されるデータを指す", tori: "添付ファイル" },
+  { id: 6, yomi: "アクセス制御のための秘密の文字列", tori: "パスワード" },
+  { id: 7, yomi: "個人が日記や情報をウェブ上で発信するオンラインメディア", tori: "ブログ" },
+  { id: 8, yomi: "ウェブ上でアクセス可能な文書やメディアのまとまりで、情報やサービスを提供するためのインターネット上の個別のページ", tori: "ホームページ" },
+  { id: 9, yomi: "オンライン上でユーザーが交流するプラットフォーム（ソーシャル・ネットワーキング・サービス）", tori: "SNS" },
+  { id: 10, yomi: "インターネット上に存在する情報やコンテンツを表示するためのオンラインの場所", tori: "Webサイト" },
+  { id: 11, yomi: "Microsoftによるオペレーティングシステム", tori: "Windows" },
+  { id: 12, yomi: "情報処理分野でのマナーやルールに関するマナー", tori: "ネチケット" },
+  { id: 13, yomi: "電子メール送受信のための個人識別情報", tori: "メールアドレス" },
+  { id: 14, yomi: "数値データのみを対象に個数を数える関数", tori: "COUNT関数" },
+  { id: 15, yomi: "「もしも・・・なら」「真の場合」「偽の場合」を提示する関数", tori: "IF関数" },
+  { id: 16, yomi: "指定した数値やセル範囲の中から最大値を選んで表示する関数", tori: "MAX関数" },
+  { id: 17, yomi: "指定した数値やセル範囲の中から最小の値を選んで表示する関数", tori: "MIN関数" },
+  { id: 18, yomi: "順位の平均を表示する関数", tori: "RANK.AVG関数" },
+  { id: 19, yomi: "切り捨てする関数", tori: "ROUNDDOWN関数" },
+  { id: 20, yomi: "切り上げする関数", tori: "ROUNDUP関数" },
+  { id: 21, yomi: "四捨五入する関数", tori: "ROUND関数" },
+  { id: 22, yomi: "合計を算出する関数", tori: "SUM関数" },
+  { id: 23, yomi: "複数の条件をすべて満たす「かつ」という論理条件を示す関数", tori: "AND関数" },
+  { id: 24, yomi: "今日の日付を表示する関数", tori: "TODAY関数" },
+  { id: 25, yomi: "平均値を計算する関数", tori: "AVERAGE関数" },
+  { id: 26, yomi: "セルに入力されたすべてのデータを対象に個数を計算する関数", tori: "COUNTA関数" },
+  { id: 27, yomi: "数値が何番目にあるかを表示する関数", tori: "RANK.EQ関数" },
+  { id: 28, yomi: "指定した数値を超えない最大の整数を表示する関数", tori: "INT関数" },
+  { id: 29, yomi: "「または」という論理条件を示す関数", tori: "OR関数" },
+  { id: 30, yomi: "年数や日数、月数の経過期間を計算する関数", tori: "DATEDIF関数" },
+  // 普通（J検3級:標準 + Excel応用編関数, id 31-93）
+  { id: 31, yomi: "ウェブページやアプリ内でコンテンツをスクロールするためのバー", tori: "スクロールバー" },
+  { id: 32, yomi: "２回連続でマウスをクリックする操作", tori: "ダブルクリック" },
+  { id: 33, yomi: "ユーザーがテキストを入力できるGUI要素", tori: "テキストボックス" },
+  { id: 34, yomi: "文書内やWebページでクリックにより別の場所やリソースに移動させるリンク", tori: "ハイパーリンク" },
+  { id: 35, yomi: "選択肢がリストとして表示され、クリックすると選択できるインターフェース要素", tori: "プルダウンメニュー" },
+  { id: 36, yomi: "選択肢を一覧表示するGUI要素", tori: "リストボックス" },
+  { id: 37, yomi: "記録可能なDVD形式で、一度のみ書き込み可能な光ディスク", tori: "DVD-R" },
+  { id: 38, yomi: "インターネットを閲覧するソフトウェア。Webページを表示し、ユーザーが情報を検索・閲覧できる", tori: "ブラウザ" },
+  { id: 39, yomi: "コンピューターシステムに対するセキュリティ対策ソフトウェアで、悪意のあるプログラムから保護するもの", tori: "ワクチンソフト" },
+  { id: 40, yomi: "Webページを作成するための言語", tori: "HTML" },
+  { id: 41, yomi: "情報保存のための携帯可能な記憶デバイス", tori: "USBメモリ" },
+  { id: 42, yomi: "画像圧縮形式で、写真や図形のデジタル画像を小さくして保存するために利用されます", tori: "JPEG" },
+  { id: 43, yomi: "コンピューターやデバイスへの入力装置で、文字や操作を指定するためにキーを押すことで情報を入力するデバイス", tori: "キーボード" },
+  { id: 44, yomi: "ユーザがマウスやタッチデバイスで画面上の要素を選択または操作する行為", tori: "クリック" },
+  { id: 45, yomi: "コンピュータでの効率的な操作のためのキーボードショートカット", tori: "ショートカットキー" },
+  { id: 46, yomi: "選択項目を有効／無効にするUI要素", tori: "チェックボックス" },
+  { id: 47, yomi: "コンピューターの操作で、マウスや指でオブジェクトを選択し、別の場所に移動することを指す", tori: "ドラッグ" },
+  { id: 48, yomi: "情報処理でデータやファイルを整理・保存するための仮想的なコンテナ。関連するアイテムをまとめ、検索や管理を容易にする", tori: "フォルダ" },
+  { id: 49, yomi: "文字のスタイルや形状を指定する情報。テキスト表示に使用され、視覚的な印象を与えるために様々な種類やスタイルが存在する", tori: "フォント" },
+  { id: 50, yomi: "情報処理分野で入力デバイスとして使われ、カーソルを移動・クリックするための手持ちデバイス", tori: "マウス" },
+  { id: 51, yomi: "選択肢から1つを選択するための円形のUI要素", tori: "ラジオボタン" },
+  { id: 52, yomi: "高容量ディスクで、光学ディスク規格の一つ。データや映像を高品質で保存・再生する技術", tori: "Blue-ray Disc" },
+  { id: 53, yomi: "コンピューター上でハードウェアやソフトウェアを制御し、管理する基本ソフトウェア（Operating System）", tori: "OS" },
+  { id: 54, yomi: "ポータブルな文書フォーマット。文書や画像を独立した形式で表示するためのファイル形式", tori: "PDF" },
+  { id: 55, yomi: "インデックスを使用して引数リストに指定した値を表示する関数", tori: "CHOOSE関数" },
+  { id: 56, yomi: "指定した数値を日付型で表示する関数", tori: "DATE関数" },
+  { id: 57, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの中で数値が入力されているセルの個数を表示させる関数", tori: "DCOUNT関数" },
+  { id: 58, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの最小値を表示させる関数", tori: "DMIN関数" },
+  { id: 59, yomi: "「表引きによるデータ参照」をする関数、検索する値が行方向（横）に並んでいる", tori: "HLOOKUP関数" },
+  { id: 60, yomi: "空白セルかどうかを調べる関数", tori: "ISBLANK関数" },
+  { id: 61, yomi: "文字列の文字数を表示する関数", tori: "LEN関数" },
+  { id: 62, yomi: "文字列の任意の位置から指定された数の文字を取り出す関数", tori: "MID関数" },
+  { id: 63, yomi: "現在の日付と時刻を表示する関数", tori: "NOW関数" },
+  { id: 64, yomi: "文字列を指定された回数だけ繰り返して表示する関数", tori: "REPT関数" },
+  { id: 65, yomi: "「表引きによるデータ参照」をする関数、検索する値が列方向（縦）に並んでいる", tori: "VLOOKUP関数" },
+  { id: 66, yomi: "指定した検索文字列をほかの文字列の中で検索し、その検索文字列が最初に現れる位置を先頭文字からの位置で表示する関数", tori: "SEARCH関数" },
+  { id: 67, yomi: "ふりがなを表示する関数", tori: "PHONETIC関数" },
+  { id: 68, yomi: "数値を書式設定した文字列に変換する関数", tori: "TEXT関数" },
+  { id: 69, yomi: "指定した日付の曜日を0～7までの数値で表示する関数", tori: "WEEKDAY関数" },
+  { id: 70, yomi: "数値から符号の＋や－を除いた絶対値を表示する関数", tori: "ABS関数" },
+  { id: 71, yomi: "範囲内のデータの中で、指定した順位番目に小さな値を表示する関数", tori: "SMALL関数" },
+  { id: 72, yomi: "小数点以下を切り捨てる関数", tori: "TRUNC関数" },
+  { id: 73, yomi: "データ範囲から行の位置と列の位置を指定し、その行と列の交差する位置の値を表示する", tori: "INDEX関数" },
+  { id: 74, yomi: "複数の条件に一致するセルの平均を求める関数", tori: "AVERAGEIFS関数" },
+  { id: 75, yomi: "複数の条件に一致するセルの個数を求める関数", tori: "COUNTIFS関数" },
+  { id: 76, yomi: "指定した順位番目に大きな値を表示する関数", tori: "LARGE関数" },
+  { id: 77, yomi: "複数の条件に一致するセルの値を合計する関数", tori: "SUMIFS関数" },
+  { id: 78, yomi: "文字列の任意の位置から指定された数の文字をバイト数で取り出す関数", tori: "MIDB関数" },
+  { id: 79, yomi: "論理値「FALSE」を返す関数", tori: "FALSE関数" },
+  { id: 80, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの平均値を表示させる関数", tori: "DAVERAGE関数" },
+  { id: 81, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの中の空白でないセルの個数を表示させる関数", tori: "DCOUNTA関数" },
+  { id: 82, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの最大値を表示させる関数", tori: "DMAX関数" },
+  { id: 83, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの合計を表示させる関数", tori: "DSUM関数" },
+  { id: 84, yomi: "文字列の先頭から指定された数の文字を取り出す関数", tori: "LEFT関数" },
+  { id: 85, yomi: "ある値が特定の値と等しくないことを判断して使う関数", tori: "NOT関数" },
+  { id: 86, yomi: "文字列の末尾から指定された数の文字を取り出す関数", tori: "RIGHT関数" },
+  { id: 87, yomi: "指定した条件に一致するセルの平均値を算出する関数", tori: "AVERAGEIF関数" },
+  { id: 88, yomi: "指定した条件に一致するセルの個数を算出する関数", tori: "COUNTIF関数" },
+  { id: 89, yomi: "数式がエラーとして評価される場合は指定の値を表示し、それ以外の場合は数式の結果を表示する関数", tori: "IFERROR関数" },
+  { id: 90, yomi: "数値を除数で割ったときの余りを表示する関数", tori: "MOD関数" },
+  { id: 91, yomi: "指定した条件に一致するセルの値を合計する関数", tori: "SUMIF関数" },
+  { id: 92, yomi: "財務関数のひとつで、ローン計算をするときに使用する関数", tori: "PMT関数" },
+  { id: 93, yomi: "論理値「TRUE」を返す関数", tori: "TRUE関数" },
+  // 難しい（J検3級:中程度+高度, id 94-175）
+  { id: 94, yomi: "ファイルやデータを圧縮された状態から元の形式に戻す処理", tori: "解凍" },
+  { id: 95, yomi: "基数が10の数制で、0から9までの数字を用いて数を表す。10進法は日常的で直感的な計算が可能", tori: "10進数" },
+  { id: 96, yomi: "データを順にアクセスする手法。例：テープドライブ。ランダムアクセスに比べ効率は低いが、シンプル", tori: "順アクセス方式" },
+  { id: 97, yomi: "ダウンロードしながら再生できる", tori: "ストリーミング" },
+  { id: 98, yomi: "ファイルやディレクトリの完全な場所を示す", tori: "絶対パス" },
+  { id: 99, yomi: "ファイルやディレクトリの場所を現在の場所から相対的に示す方法", tori: "相対パス" },
+  { id: 100, yomi: "複数のデバイスが相互に接続され、情報を共有する仕組み", tori: "ネットワーク" },
+  { id: 101, yomi: "情報の最小単位。0または1の二進数で表され、コンピュータのデータ処理において基本的な情報単位", tori: "ビット" },
+  { id: 102, yomi: "ネットワークを通して攻撃する", tori: "不正アクセス" },
+  { id: 103, yomi: "文字を数字に変換する規則。例えば、ASCIIやUTF-8がある", tori: "文字コード" },
+  { id: 104, yomi: "文字の正しい表示ができないエラー", tori: "文字化け" },
+  { id: 105, yomi: "使いやすさを第一に考える", tori: "ユーザビリティ" },
+  { id: 106, yomi: "現実世界にコンピュータ生成の情報を重ね合わせる技術", tori: "AR" },
+  { id: 107, yomi: "オブジェクト指向プログラミング言語。様々なプラットフォームで動作し、堅牢性と移植性が特徴", tori: "Java" },
+  { id: 108, yomi: "データベースで使用される問い合わせ言語", tori: "SQL" },
+  { id: 109, yomi: "インターネット上のリソースの場所を示すアドレス", tori: "URL" },
+  { id: 110, yomi: "コンピューター技術を使い、現実世界とは異なる環境を体験する技術（仮想現実）", tori: "VR" },
+  { id: 111, yomi: "インターネット上の情報を検索・閲覧するためのシステム（World Wide Web）", tori: "WWW" },
+  { id: 112, yomi: "ウェブページの動的な振る舞いを制御するプログラミング言語", tori: "JavaScript" },
+  { id: 113, yomi: "情報処理でデータを表す単位。8ビットの集まりで、1文字を表したり、データを保存したりする", tori: "バイト" },
+  { id: 114, yomi: "情報処理で使用される入力デバイスで、カーソルやポインターを制御するための装置", tori: "ポインティングディバイス" },
+  { id: 115, yomi: "コンピュータを用いた設計や図面作成に使用されるソフトウェアや技術（Computer-Aided Design）", tori: "CAD" },
+  { id: 116, yomi: "ファイルをネットワーク上で転送するための通信プロトコル（File Transfer Protocol）", tori: "FTP" },
+  { id: 117, yomi: "ウェブ開発のためのサーバーサイド言語", tori: "PHP" },
+  { id: 118, yomi: "テキストを編集するソフトウェア。基本的な操作が容易であり、コードや文章の作成・編集に利用される", tori: "テキストエディタ" },
+  { id: 119, yomi: "0と1のみを使い数を表現する数制で、コンピューター内で情報を表す基本的な方式", tori: "2進数" },
+  { id: 120, yomi: "関連付けられたテーブルにデータを格納し、SQLを使って管理するデータベースシステム", tori: "リレーショナルデータベース" },
+  { id: 121, yomi: "データを小さくして、記憶や転送の効率を向上させる処理", tori: "圧縮" },
+  { id: 122, yomi: "手順や計算を解決するための明確な手法や指示", tori: "アルゴリズム" },
+  { id: 123, yomi: "ファイルの種類や形式を示すためのファイル名の末尾に追加される文字列", tori: "拡張子" },
+  { id: 124, yomi: "特定の機種や環境に依存して正しく表示される文字で、他の環境では正しく表示されない文字のこと", tori: "機種依存文字" },
+  { id: 125, yomi: "0から15までの数字を表す基数で、10進数の16進法。コンピュータなどで頻繁に使用され、0～9とA～Fで表現される", tori: "16進数" },
+  { id: 126, yomi: "10進数の代わりに0から7の数字を使う数法。8の倍数で表現され、2進数への変換が利用される", tori: "8進数" },
+  { id: 127, yomi: "情報処理で使われる視覚的な図で、プロセスやアルゴリズムを流れ図で表現し、理解や設計をサポートする", tori: "フローチャート" },
+  { id: 128, yomi: "テキストベースのユーザーインターフェース（Character User Interface）", tori: "CUI" },
+  { id: 129, yomi: "ウェブページなどを送受信するための通信規約（Hypertext Transfer Protocol）", tori: "HTTP" },
+  { id: 130, yomi: "コンピューターと周辺機器を接続するための標準インターフェース", tori: "USB" },
+  { id: 131, yomi: "データを保護するために情報を不可解な形に変換する技術", tori: "暗号化" },
+  { id: 132, yomi: "プロセスやシステムの操作・監視を行う装置", tori: "制御装置" },
+  { id: 133, yomi: "コンピューターの主要な部品であり、命令を実行し、データを処理する装置。CPUとも呼ばれる", tori: "中央処理装置" },
+  { id: 134, yomi: "情報処理でデータをシステムに入力する機器や手段", tori: "入力装置" },
+  { id: 135, yomi: "情報処理で実行中のプログラムの一部で、リソースやデータを操作し、タスクを完了するための実行単位", tori: "プロセス" },
+  { id: 136, yomi: "データを永続的に保存するためのデバイスで、例えばハードディスクドライブやSSDなどが該当します", tori: "補助記憶装置" },
+  { id: 137, yomi: "コンピューターの主要部分であり、命令を実行し、演算やデータ処理を行う（Central Processing Unit）", tori: "CPU" },
+  { id: 138, yomi: "ファイルを送受信するためのサーバ", tori: "FTPサーバ" },
+  { id: 139, yomi: "インターネット接続を提供する企業または組織（Internet Service Provider）", tori: "ISP" },
+  { id: 140, yomi: "データをローカルエリアネットワークで伝送するためのケーブル", tori: "LANケーブル" },
+  { id: 141, yomi: "オープンソースのオペレーティングシステムで、コンピュータの基本機能を提供するソフトウェア", tori: "Linux" },
+  { id: 142, yomi: "電子メールを受信するためのプロトコル", tori: "POPサーバ" },
+  { id: 143, yomi: "コンピューター内のデータや命令を一時的に保持するメモリ（Random Access Memory）", tori: "RAM" },
+  { id: 144, yomi: "コンピュータと周辺機器を接続するための標準インターフェース（Small Computer System Interface）", tori: "SCSI" },
+  { id: 145, yomi: "データストレージ用のコンピュータインターフェース規格", tori: "Serial ATA" },
+  { id: 146, yomi: "インターネットでデータを送受信するための通信プロトコル", tori: "TCP／IP" },
+  { id: 147, yomi: "ウェブページやファイルを提供するコンピュータ", tori: "Webサーバ" },
+  { id: 148, yomi: "コンピュータ内で数値演算や論理演算を実行する機能を持つ、計算処理を行う主要な部分", tori: "演算装置" },
+  { id: 149, yomi: "コンピュータのデータやプログラムを一時的に保存するためのメモリで、CPUがアクセスする高速なデータストレージ", tori: "主記憶装置" },
+  { id: 150, yomi: "ネットワークでデータを集約・転送する装置。信号を受け取り、複数のデバイスに送信する", tori: "ハブ" },
+  { id: 151, yomi: "データや命令を一時的に保存するコンピュータの要素で、処理速度向上に寄与する", tori: "メモリ" },
+  { id: 152, yomi: "IPアドレスを自動割り当てするプロトコル。ネットワーク上のデバイスがIPアドレスを取得し通信する仕組み", tori: "DHCP" },
+  { id: 153, yomi: "インターネットでドメイン名をIPアドレスに変換するシステム（Domain Name System）", tori: "DNS" },
+  { id: 154, yomi: "ドメイン名をIPアドレスに変換するサーバ", tori: "DNSサーバ" },
+  { id: 155, yomi: "ネットワーク上のデバイスを識別する番号", tori: "IPアドレス" },
+  { id: 156, yomi: "情報を読み取り専用に保存するコンピューターの記憶装置（Read-Only Memory）", tori: "ROM" },
+  { id: 157, yomi: "高速なデータ保存デバイス", tori: "SSD" },
+  { id: 158, yomi: "広域ネットワークを指し、地理的に広い範囲でコンピューターやネットワークを接続する通信インフラを指します", tori: "WAN" },
+  { id: 159, yomi: "どんな人でも使えることを意識する", tori: "アクセシビリティ" },
+  { id: 160, yomi: "サーバーからサービスやデータを要求する端末やソフトウェアのこと", tori: "クライアント" },
+  { id: 161, yomi: "コンピュータやソフトウェアがネットワーク上で情報を提供・管理するコンピューターシステム", tori: "サーバ" },
+  { id: 162, yomi: "情報処理分野でデータを表示・印刷・記録するデバイス。例：プリンタやモニタ", tori: "出力装置" },
+  { id: 163, yomi: "情報保護やデータの安全性を確保する対策", tori: "セキュリティ" },
+  { id: 164, yomi: "データを永続的に保存するコンピューターの記憶装置", tori: "ハードディスク装置" },
+  { id: 165, yomi: "情報処理での通信やデータ交換の規約を指し、異なるシステムやデバイスが連携するための手順や標準化された方法", tori: "プロトコル" },
+  { id: 166, yomi: "情報処理装置の主回路基板で、各種部品を接続し、データの伝達を可能にする重要なコンポーネント", tori: "マザーボード" },
+  { id: 167, yomi: "データを有線接続なしで無線で転送する技術。通常、Wi-Fiで使用", tori: "無線LAN" },
+  { id: 168, yomi: "メールを送受信するためのサーバ。電子メールの転送や保存を担当し、通信の中継や保管を行う", tori: "メールサーバ" },
+  { id: 169, yomi: "身代金を要求するウイルス", tori: "ランサムウェア" },
+  { id: 170, yomi: "ネットワークでデータを送受信する装置。異なるネットワーク間を中継して通信を可能にする", tori: "ルータ" },
+  { id: 171, yomi: "コンピューターの起動時に基本入出力システムを管理するプログラム", tori: "BIOS" },
+  { id: 172, yomi: "インターネット・デバイスに割り当てる識別番号。IPv4を置き換える次世代プロトコルで、アドレス枯渇問題に対処する", tori: "IPv6" },
+  { id: 173, yomi: "コンピューターに組み込まれるネットワーク接続用のデバイス（Network Interface Card）", tori: "NIC" },
+  { id: 174, yomi: "データを複数のディスクに分散保存し、信頼性とパフォーマンスを向上させる技術（Redundant Array of Independent Disks）", tori: "RAID" },
+  { id: 175, yomi: "メール送受信を管理するサーバ", tori: "SMTPサーバ" },
 ];
 
 // 難易度を上げた際に登場するダミーの読み（盤面のどの札にも対応しない）。
@@ -76,11 +208,13 @@ const DECOYS = [
   { id: 'decoy8', yomi: '第三者に通信内容を読み取られないよう、データを別の形式に変換すること', tori: '暗号化' },
 ];
 
-// 難易度帯ごとの札ID（45枚を易しい／普通／難しいの3帯（各15枚）に分割）
+// 難易度帯ごとの札ID（90枚を易しい／普通／難しいの3帯（各30枚）に分割）。
+// 練習モードは buildPracticeCardIds() で各帯からランダムに15枚だけ抽選するため、
+// 1帯30枚あることで「練習するたびに顔ぶれが変わる」ようになる。
 const ROUND_CARD_IDS = {
-  1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-  2: [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-  3: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
+  1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+  2: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93],
+  3: [94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175],
 };
 
 // 大会モードの本戦ラウンドで使う「易・普通・難しい」の抽出枚数（1試合10枚）。
@@ -103,21 +237,42 @@ function buildEventRoundCardIds(roundIndex) {
   return shuffle([...pick(1, mix[0]), ...pick(2, mix[1]), ...pick(3, mix[2])]);
 }
 
-// 練習モードのホストが選んだ難易度（easy/normal/hard）に対応する帯（1/2/3）のIDだけを
-// シャッフルして返す。この帯の札しか出題されない。
+// 練習モードのホストが選んだ難易度（easy/normal/hard）に対応する帯（1/2/3）から、
+// 毎回ランダムに15枚だけ抽選する（帯は各30枚あるため、同じ難易度で遊んでも
+// 毎回顔ぶれが変わる）。この帯以外の札は出題されない。
+// Excel関数の札か（答えが「〇〇関数」）。
+const isExcelFunctionCard = id => {
+  const k = KARUTA.find(x => x.id === id);
+  return !!k && k.tori.endsWith('関数');
+};
+
+// 練習モードの15枚は、Excel関数とそれ以外の用語の比率ができるだけ同じ（7:8か8:7）に
+// なるように抽選する。難しい帯にはExcel関数が無いため、難しいを選んだ場合のExcel関数は
+// 普通帯から抽選して混ぜる。帯にExcel関数が足りない場合は、ある分だけ入れて残りを他の用語で埋める。
 function buildPracticeCardIds() {
+  const TOTAL = 15;
   const tier = gs.difficulty === 'easy' ? 1 : gs.difficulty === 'hard' ? 3 : 2;
-  return shuffle(ROUND_CARD_IDS[tier]);
+  const excelSource = gs.difficulty === 'hard' ? ROUND_CARD_IDS[2] : ROUND_CARD_IDS[tier];
+  const excelPool = shuffle(excelSource.filter(isExcelFunctionCard));
+  const otherPool = shuffle(ROUND_CARD_IDS[tier].filter(id => !isExcelFunctionCard(id)));
+
+  const half = Math.floor(TOTAL / 2);
+  const wantExcel = Math.random() < 0.5 ? half : TOTAL - half;   // 7か8をランダムに
+  let nExcel = Math.min(wantExcel, excelPool.length);
+  const nOther = Math.min(TOTAL - nExcel, otherPool.length);
+  nExcel = Math.min(TOTAL - nOther, excelPool.length);   // 他の用語が足りない分をExcel関数で補う
+  return shuffle([...excelPool.slice(0, nExcel), ...otherPool.slice(0, nOther)]);
 }
 
-// 1試合で読み上げる45枚の並び順を作る。易→普通→難の帯順に並べ、
-// 各帯の中だけシャッフルすることで、試合が進む（終盤に近づく）ほど
-// 難易度の高い用語が出るようにする（練習モードの復活戦で使用）。
+// 1試合で読み上げる45枚（易15・普通15・難15）の並び順を作る。各帯30枚の
+// プールからランダムに15枚ずつ抽選し、易→普通→難の帯順に並べることで、
+// 試合が進む（終盤に近づく）ほど難易度の高い用語が出るようにする
+// （練習モードの復活戦・グループ戦で使用）。帯からの抽選なので、毎回顔ぶれが変わる。
 function buildDifficultyOrderedCardIds() {
   return [
-    ...shuffle(ROUND_CARD_IDS[1]),
-    ...shuffle(ROUND_CARD_IDS[2]),
-    ...shuffle(ROUND_CARD_IDS[3]),
+    ...shuffle(ROUND_CARD_IDS[1]).slice(0, 15),
+    ...shuffle(ROUND_CARD_IDS[2]).slice(0, 15),
+    ...shuffle(ROUND_CARD_IDS[3]).slice(0, 15),
   ];
 }
 
@@ -139,25 +294,28 @@ function getDecoyChance() {
 }
 
 // ── CPU（コンピュータープレイヤー）────────────────────────
-// 75人を3ティアに分割：上位25（強）/ 中位25（中）/ 下位25（弱）
+// 90人を3ティアに分割：上位30（強）/ 中位30（中）/ 下位30（弱）。
+// 練習モードの模擬トーナメント（1回戦80人規模）で人数が不足しないよう、
+// 1ティアあたり25→30人に拡張している（addCpuPlayersForPractice参照）。
+const CPU_PER_TIER = 30;
 const CPU_NAMES = [
-  ...Array.from({length: 25}, (_, i) => `強CPU${String(i+1).padStart(2,'0')}`),
-  ...Array.from({length: 25}, (_, i) => `中CPU${String(i+1).padStart(2,'0')}`),
-  ...Array.from({length: 25}, (_, i) => `弱CPU${String(i+1).padStart(2,'0')}`),
+  ...Array.from({length: CPU_PER_TIER}, (_, i) => `強CPU${String(i+1).padStart(2,'0')}`),
+  ...Array.from({length: CPU_PER_TIER}, (_, i) => `中CPU${String(i+1).padStart(2,'0')}`),
+  ...Array.from({length: CPU_PER_TIER}, (_, i) => `弱CPU${String(i+1).padStart(2,'0')}`),
 ];
-// 黄金角（137.5°）でHSLを分散させ75色を生成
-const CPU_COLORS = Array.from({length: 75}, (_, i) => {
+// 黄金角（137.5°）でHSLを分散させ色を生成
+const CPU_COLORS = Array.from({length: CPU_PER_TIER * 3}, (_, i) => {
   const h = Math.round((i * 137.508) % 360);
   const s = 65 + (i % 4) * 5;
   const l = 45 + (i % 3) * 6;
   return `hsl(${h},${s}%,${l}%)`;
 });
-const CPU_IDS = Array.from({length: 75}, (_, i) => `cpu-${i + 1}`);
+const CPU_IDS = Array.from({length: CPU_PER_TIER * 3}, (_, i) => `cpu-${i + 1}`);
 
 // ティア別インデックス
-const CPU_TIER_TOP    = CPU_IDS.slice(0, 25);
-const CPU_TIER_MIDDLE = CPU_IDS.slice(25, 50);
-const CPU_TIER_BOTTOM = CPU_IDS.slice(50, 75);
+const CPU_TIER_TOP    = CPU_IDS.slice(0, CPU_PER_TIER);
+const CPU_TIER_MIDDLE = CPU_IDS.slice(CPU_PER_TIER, CPU_PER_TIER * 2);
+const CPU_TIER_BOTTOM = CPU_IDS.slice(CPU_PER_TIER * 2, CPU_PER_TIER * 3);
 
 // ティア別反応設定（ロビーの cpuDifficulty で倍率調整）
 const CPU_TIER_SETTINGS = {
@@ -198,6 +356,7 @@ const gs = {
   currentDecoy:   null,   // ダミー読み中の札情報（time_up で正解発表に使用）
   grabCandidates: [],     // 受付時間中に届いた正解候補（速さ＋精度判定用）
   grabWindowTimer: null,
+  lockedPlayers:  new Set(),   // お手付きをして「次の札が読まれるまで」取れないプレイヤー
 
   // ── トーナメント管理 ────────────────────────────────────
   round:               1,
@@ -255,6 +414,49 @@ function localIPs() {
     .flat()
     .filter(n => n.family === 'IPv4' && !n.internal)
     .map(n => n.address);
+}
+
+// ホストになれるのは、このサーバーを起動しているPC自身から接続してきた
+// ブラウザだけ（127.0.0.1/::1 経由、またはこのPCのLAN IP宛のアクセス）。
+// 他PCの接続元アドレスはこのPC自身のIPとは一致しないため、ホストにはなれない。
+function isHostEligible(socket) {
+  // nginx などのリバースプロキシ経由だと、接続元がすべて 127.0.0.1（プロキシ自身）に見えて
+  // 全員が「サーバーPC」扱いになってしまう。X-Forwarded-For があれば、本当の接続元で判定する。
+  const fwd  = socket.handshake.headers && socket.handshake.headers['x-forwarded-for'];
+  const real = fwd ? String(fwd).split(',')[0].trim() : (socket.handshake.address || '');
+  const addr = String(real).replace(/^::ffff:/, '');
+  if (addr === '127.0.0.1' || addr === '::1') return true;
+  return localIPs().includes(addr);
+}
+
+// 参加登録（名前入力）済みの人間プレイヤーか
+function isJoinedHuman(socketId) {
+  const p = gs.players[socketId];
+  return !!p && !p.isBot && !!p.joined;
+}
+
+// サーバーPC自身のブラウザで参加登録済みのソケットID（いなければ null）
+// デバッグ操作（即終了・CPUポイント・盤面整理のスキップ）を使えるか。
+// 練習モードは参加登録済みなら誰でも。大会モード中は、参加者が対局を止めてしまわないよう
+// サーバーPCだけに限る。
+function canUseDebug(socket) {
+  if (gs.event.active) return isHostEligible(socket);
+  return isJoinedHuman(socket.id) || isHostEligible(socket);
+}
+
+function findServerPcId() {
+  for (const [id, sock] of io.sockets.sockets) {
+    if (isJoinedHuman(id) && isHostEligible(sock)) return id;
+  }
+  return null;
+}
+
+// ホスト（＝読み上げの進行役）を切り替えて全員に知らせる。
+// 練習ゲームは開始した人、大会モードはサーバーPCが進行役になる。
+function setHost(id) {
+  if (gs.hostId === id) return;
+  gs.hostId = id;
+  io.emit('host_changed', { hostId: id });
 }
 
 function shuffle(arr) {
@@ -329,11 +531,35 @@ function clearCpuTimers() {
   gs.cpuTimers = [];
 }
 
+// CPU の強さ（弱い/ふつう/強い）設定に応じて、参加させる CPU の層そのものを
+// 絞り込む（弱い→弱CPUのみ25体、ふつう→中CPUのみ25体、強い→強CPUのみ25体）。
 function addCpuPlayers() {
-  CPU_IDS.forEach((id, i) => {
+  const tierIds = gs.cpuDifficulty === 'easy' ? CPU_TIER_BOTTOM
+                : gs.cpuDifficulty === 'hard' ? CPU_TIER_TOP
+                : CPU_TIER_MIDDLE;
+  tierIds.forEach(id => {
     if (!gs.eliminatedPlayers.has(id)) {
+      const i = CPU_IDS.indexOf(id);
       gs.players[id] = { name: CPU_NAMES[i], color: CPU_COLORS[i], score: 0, misses: 0, isBot: true };
     }
+  });
+}
+
+// 練習モードの模擬トーナメント（本番のイメージをつかむための1試合目）で、
+// 人間の人数に応じて合計 targetTotal 人になるまで CPU を追加する。
+// ロビーで選んだ難易度（cpuDifficulty）のティアを優先的に使い、
+// 人数が足りない場合は他のティアからも補充する（最大 CPU_PER_TIER*3 人）。
+function addCpuPlayersForPractice(targetTotal) {
+  const preferredTier = gs.cpuDifficulty === 'easy' ? CPU_TIER_BOTTOM
+                       : gs.cpuDifficulty === 'hard' ? CPU_TIER_TOP
+                       : CPU_TIER_MIDDLE;
+  const otherTiers = [CPU_TIER_TOP, CPU_TIER_MIDDLE, CPU_TIER_BOTTOM].filter(t => t !== preferredTier);
+  const orderedIds = [...preferredTier, ...otherTiers.flat()];
+  const humanCount = Object.values(gs.players).filter(p => !p.isBot && p.joined).length;
+  const need = Math.max(0, targetTotal - humanCount);
+  orderedIds.slice(0, need).forEach(id => {
+    const i = CPU_IDS.indexOf(id);
+    gs.players[id] = { name: CPU_NAMES[i], color: CPU_COLORS[i], score: 0, misses: 0, isBot: true };
   });
 }
 
@@ -356,7 +582,9 @@ function removeCpuPlayers() {
 function computeHeadcount({ excludeEliminated = false, participantIds = null } = {}) {
   let humanCount = 0, cpuCount = 0;
   Object.entries(gs.players).forEach(([id, p]) => {
-    if (id === gs.hostId) return;
+    // 大会モードのホストは進行役のため集計から除く。練習モードのホストは
+    // 通常プレイヤーとして参加できるため集計に含める。
+    if (id === gs.hostId && gs.event.active) return;
     if (participantIds && !participantIds.has(id)) return;
     if (excludeEliminated && gs.eliminatedPlayers.has(id)) return;
     if (p.isBot) cpuCount++;
@@ -368,7 +596,7 @@ function computeHeadcount({ excludeEliminated = false, participantIds = null } =
 // DJ 実況：札取得のたびにランダムでコメントを選ぶ（毎回同じ文言だと単調なため）
 const DJ_TAKE_TEMPLATES = [
   (name, score) => `${name}さんが札をとりました！`,
-  (name, score) => `${name}さん、ナイスキャッチ！ 現在${score}ポイントです。`,
+  (name, score) => `${name}さん、ナイスキャッチ！ 現在${score}枚です。`,
   (name, score) => `お見事、${name}さん！`,
   (name, score) => `${name}さんが1枚ゲットです！`,
 ];
@@ -377,21 +605,22 @@ function pickDjTakeLine(name, score) {
   return f(name, score);
 }
 
-// ホストを除いた参加者をスコア降順で並べる（表示用ランキングと同じ並び）
+// 進行役（大会モードのホスト）を除いた参加者をスコア降順で並べる（表示用ランキングと同じ並び）。
+// 練習モードのホストは通常プレイヤーとして参加するためランキングに含める。
 function rankedNonHost() {
   return Object.entries(gs.players)
-    .filter(([id]) => id !== gs.hostId)
+    .filter(([id]) => !(id === gs.hostId && gs.event.active))
     .sort(([, a], [, b]) => b.score - a.score);
 }
 
-// 2位が1位に1枚分（100点）以内まで詰め寄った「その瞬間」だけ実況する。
+// 2位が1位に1枚差以内まで詰め寄った「その瞬間」だけ実況する。
 // beforeGap（今回の得点加算前の1位・2位差）と比べて、しきい値を新たに
 // 下回った時だけ発火するため、同じ状況が続いても連呼しない。
 function checkNearFirstPlace(beforeGap) {
   const sorted = rankedNonHost();
   if (sorted.length < 2) return;
   const afterGap = sorted[0][1].score - sorted[1][1].score;
-  if (afterGap <= 100 && (beforeGap === null || beforeGap > 100)) {
+  if (afterGap <= 1 && (beforeGap === null || beforeGap > 1)) {
     io.emit('dj_comment', { text: `${sorted[1][1].name}さん、あと少しで1位です！` });
   }
 }
@@ -408,7 +637,7 @@ function processCorrectGrab(grabberId, card) {
   const beforeSorted = rankedNonHost();
   const beforeGap = beforeSorted.length < 2 ? null : beforeSorted[0][1].score - beforeSorted[1][1].score;
 
-  player.score += 100;
+  player.score += 1;   // 得点は取った札の枚数（1枚＝1）
   gs.remaining.delete(card.id);
 
   const takenCard  = card;
@@ -449,7 +678,7 @@ function scheduleCpuGrabs(card) {
                  : gs.cpuDifficulty === 'easy' ? 1.55 : 1.0;
   CPU_IDS.forEach((cpuId, cpuIdx) => {
     if (!gs.players[cpuId]) return;
-    const tierKey = cpuIdx < 25 ? 'top' : cpuIdx < 50 ? 'middle' : 'bottom';
+    const tierKey = cpuIdx < CPU_PER_TIER ? 'top' : cpuIdx < CPU_PER_TIER * 2 ? 'middle' : 'bottom';
     const base = CPU_TIER_SETTINGS[tierKey];
     const minMs = base.minMs * lobbyMod;
     const maxMs = base.maxMs * lobbyMod;
@@ -463,7 +692,7 @@ function scheduleCpuGrabs(card) {
       if (!gs.remaining.has(card.id)) return;
       if (Math.random() < missRate) {
         gs.players[cpuId].misses++;
-        gs.players[cpuId].score -= 20;
+        gs.players[cpuId].score -= 1;
         io.emit('players_updated', gs.players);
       } else {
         processCorrectGrab(cpuId, card);
@@ -476,6 +705,7 @@ function scheduleCpuGrabs(card) {
 // 本物の札（gs.currentCard）を読み上げる。
 // 上の句の読み上げ完了通知（yomi_finished）を待ってから制限時間と CPU を起動する。
 function startRealRead() {
+  gs.lockedPlayers.clear();   // 次の札が読まれ始めたので、お手付きのロックを解除
   gs.phase = 'reading';
   const card = gs.currentCard;
   io.emit('read_card', {
@@ -502,9 +732,12 @@ function armReadTimeout(card) {
 }
 
 // 制限時間経過の処理。「そこまで」→ 正解発表 → 次の札待機へ。
+// 誰も取れなかった札は remaining から外す（外さないと pickNext() が同じ札を
+// 何度も選び続け、次の札に進めなくなる／同じ札が繰り返し読まれるバグになる）。
 function triggerTimeUp(card) {
   clearCpuTimers();
   gs.phase = 'announcing';
+  gs.remaining.delete(card.id);
   io.emit('time_up', { card, playAt: hiResNow() + 250 });
 
   gs.currentCard  = pickNext();
@@ -553,6 +786,7 @@ function armDecoyTimeout() {
 // 盤面のどの札にも対応しないダミーの読みを再生する。
 // ホスト端末から再生完了の通知（decoy_finished）を受け取ってから READ_TIMEOUT_MS 待つ。
 function startDecoyRead() {
+  gs.lockedPlayers.clear();   // 次の読み上げが始まったので、お手付きのロックを解除
   gs.phase = 'decoy';
   const decoy = DECOYS[Math.floor(Math.random() * DECOYS.length)];
   io.emit('decoy_read', {
@@ -633,7 +867,7 @@ function endRound() {
       // 上位グループ戦終了後に全員を再振り分け
       if (finishedTier === 'top') {
         const allHumans = Object.entries(gs.players)
-          .filter(([id, p]) => id !== gs.hostId && !p.isBot && p.joined)
+          .filter(([id, p]) => !(id === gs.hostId && gs.event.active) && !p.isBot && p.joined)
           .sort(([idA], [idB]) => (gs.groupMatchScores[idB] || 0) - (gs.groupMatchScores[idA] || 0));
         const numH2  = allHumans.length;
         const base2  = Math.floor(numH2 / 3);
@@ -736,90 +970,36 @@ function endRound() {
     return;
   }
 
-  // ── 最終試合終了 ──────────────────────────────────────────
-  if (gs.round >= gs.maxRounds) {
-    gs.phase = 'round_finished';
-    const finalParticipants = Object.entries(gs.players)
-      .filter(([id, p]) => id !== gs.hostId && !gs.eliminatedPlayers.has(id) && (p.isBot || p.joined))
-      .sort(([, a], [, b]) => b.score - a.score);
+  // ── 練習モード：敗退なし ──────────────────────────────────
+  // 点数に関わらず全員を「進出」扱いにし、次の試合でも引き続き札を取れる。
+  // 結果画面はその試合で実際に取った点数の順にランキング表示する。
+  gs.phase = 'round_finished';
+  const isFinalRound = gs.round >= gs.maxRounds;
+  const competitors = Object.entries(gs.players)
+    .filter(([id, p]) => !(id === gs.hostId && gs.event.active) && (p.isBot || p.joined))
+    .sort(([, a], [, b]) => b.score - a.score);
+  const survivorIds   = competitors.map(([id]) => id);
+  const eliminatedIds = [];
 
-    // 最終試合も通過人数を適用（脱落者を復活戦の対象に）
-    const nFinal       = Math.min(gs.survivorCount, finalParticipants.length);
-    const survivorIds  = finalParticipants.slice(0, nFinal).map(([id]) => id);
-    const lostFinal    = finalParticipants.slice(nFinal);
-    const eliminatedIds = lostFinal.filter(([, p]) => !p.isBot).map(([id]) => id);
-    eliminatedIds.forEach(id => {
-      gs.eliminatedPlayers.add(id);
-      if (gs.players[id]) gs.players[id].isEliminated = true;
-    });
-    lostFinal.filter(([, p]) => p.isBot).forEach(([id]) => { gs.eliminatedPlayers.add(id); });
-    io.emit('players_updated', gs.players);
-
-    // 累積スコアに最終試合分を加算
-    Object.entries(gs.players)
-      .filter(([, p]) => !p.isBot && p.joined)
-      .forEach(([id, p]) => {
-        gs.cumulativeScores[id] = (gs.cumulativeScores[id] || 0) + p.score;
-      });
-
-    // 人間プレイヤーをスコア順に3グループへ均等に振り分け（全員対象）
-    const humanRanking = Object.entries(gs.players)
-      .filter(([id, p]) => id !== gs.hostId && !p.isBot && p.joined)
-      .sort(([idA], [idB]) => (gs.cumulativeScores[idB] || 0) - (gs.cumulativeScores[idA] || 0));
-    const numH    = humanRanking.length;
-    const base    = Math.floor(numH / 3);
-    const extra   = numH - base * 3;
-    const topCnt  = base + (extra > 0 ? 1 : 0);
-    const midCnt  = base + (extra > 1 ? 1 : 0);
-    gs.humanGroups = {
-      top:    humanRanking.slice(0, topCnt).map(([id]) => id),
-      middle: humanRanking.slice(topCnt, topCnt + midCnt).map(([id]) => id),
-      bottom: humanRanking.slice(topCnt + midCnt).map(([id]) => id),
-    };
-    gs.postTournament     = true;
+  if (isFinalRound) {
+    // 最終試合：ランキングを表示して終了（敗者復活戦・グループ戦には進まない）
+    gs.postTournament     = false;
+    gs.humanGroups        = null;
     gs.bottomGroupWinners = null;
     gs.middleGroupWinners = null;
-
-    const playersSnap = snap();
-    gs.lastRoundResult = {
-      round: gs.round, survivorIds, eliminatedIds,
-      survivorCount: gs.survivorCount, players: playersSnap, isFinal: true,
-      humanGroups: gs.humanGroups, cumulativeScores: gs.cumulativeScores,
-    };
-    setTimeout(() => {
-      io.emit('round_finished', {
-        round: gs.round, players: playersSnap,
-        survivorIds, eliminatedIds, survivorCount: gs.survivorCount, isFinal: true,
-        humanGroups: gs.humanGroups, cumulativeScores: gs.cumulativeScores,
-      });
-    }, 3000);
-    return;
   }
 
-  // ── 通常試合終了 ──────────────────────────────────────────
-  gs.phase = 'round_finished';
-  const competitors = Object.entries(gs.players)
-    .filter(([id, p]) => id !== gs.hostId && !gs.eliminatedPlayers.has(id) && (p.isBot || p.joined))
-    .sort(([, a], [, b]) => b.score - a.score);
-  const n = Math.min(gs.survivorCount, competitors.length);
-  const survivorIds = competitors.slice(0, n).map(([id]) => id);
-  const eliminated  = competitors.slice(n);
-  const eliminatedIds = eliminated.filter(([, p]) => !p.isBot).map(([id]) => id);
-  eliminatedIds.forEach(id => {
-    gs.eliminatedPlayers.add(id);
-    if (gs.players[id]) gs.players[id].isEliminated = true;
-  });
-  eliminated.filter(([, p]) => p.isBot).forEach(([id]) => { gs.eliminatedPlayers.add(id); });
-  io.emit('players_updated', gs.players);
   const playersSnap = snap();
   gs.lastRoundResult = {
     round: gs.round, survivorIds, eliminatedIds,
     survivorCount: gs.survivorCount, players: playersSnap,
+    ...(isFinalRound ? { isFinal: true } : {}),
   };
   setTimeout(() => {
     io.emit('round_finished', {
       round: gs.round, players: playersSnap,
       survivorIds, eliminatedIds, survivorCount: gs.survivorCount,
+      ...(isFinalRound ? { isFinal: true } : {}),
     });
   }, 3000);
 }
@@ -839,6 +1019,12 @@ function eventCutCounts(poolSize) {
   const pass = Math.max(1, Math.min(poolSize, Math.round(poolSize / 3)));
   return { pass, lose: poolSize - pass };
 }
+
+// 練習モードの模擬トーナメント（本番の雰囲気をつかむためのモード）。
+// 1回戦は80人規模で開始し、1回戦→40人・2回戦→20人・3回戦（最終）→上位3人
+// という「本番はこう進む」がわかる縮小コピーの進行にする。
+const PRACTICE_MOCK_TOTAL_TARGET    = 80;
+const PRACTICE_MOCK_SURVIVOR_SCHEDULE = [40, 20, 3];
 
 // gs.event.stage を設定する。'main' に入るたびに回戦カウンタを+1し、
 // EVENT_ROUND_MIX（易→難の配分）を回すのに使う。
@@ -1072,6 +1258,7 @@ io.on('connection', socket => {
     cards:             KARUTA,
     endsAt:            gs.memorizeEndsAt,
     hostId:            gs.hostId,
+    isServerPc:        isHostEligible(socket),   // サーバーPC自身のブラウザか（大会モードの操作可否）
     round:             gs.round,
     maxRounds:         gs.maxRounds,
     survivorCount:       gs.survivorCount,
@@ -1125,26 +1312,29 @@ io.on('connection', socket => {
         if (payload.grade)  gs.players[socket.id].grade  = String(payload.grade);
         if (payload.course) gs.players[socket.id].course = String(payload.course);
       }
-      const becameHost = !gs.hostId;
+      const becameHost = !gs.hostId && isHostEligible(socket);
       if (becameHost) gs.hostId = socket.id;
       io.emit('players_updated', gs.players);
       if (becameHost) io.emit('host_changed', { hostId: gs.hostId });
     }
   });
 
-  // ── ハウス編成（ホストのみ・大会モード）─────────────────
+  // ── ハウス編成（サーバーPCのみ・大会モード）─────────────────
   // 学年×コースの各グループを出席者だけでシャッフルし、4ハウスへ
   // スネークドラフト（グループごとに開始ハウスを1つずつローテーション）で
   // 均等配分する。出欠が変わった場合は何度でも再実行できる。
   socket.on('assign_houses', () => {
-    if (socket.id !== gs.hostId) return;
+    if (!isHostEligible(socket) || !isJoinedHuman(socket.id) || gs.phase !== 'lobby') return;
+    setHost(socket.id);   // ハウス編成は進行役（サーバーPC）を除いた参加者で行う
     gs.houses = assignHouses();
     io.emit('houses_assigned', { houses: gs.houses, players: gs.players });
   });
 
-  // ── Start game（ホストのみ）──────────────────────────────
+  // ── Start game（参加登録済みの誰でも。先に押した人の設定が全員に適用される）──
   socket.on('start_game', (opts) => {
-    if (gs.phase !== 'lobby' || socket.id !== gs.hostId) return;
+    if (gs.phase !== 'lobby' || !isJoinedHuman(socket.id)) return;
+    // 開始した人が読み上げの進行役（次の札の読み上げ通知を出す端末）になる
+    setHost(socket.id);
     const diff    = opts && opts.difficulty;
     const cpuDiff = opts && opts.cpuDifficulty;
     gs.difficulty     = ['easy', 'normal', 'hard'].includes(diff)    ? diff    : 'normal';
@@ -1167,9 +1357,9 @@ io.on('connection', socket => {
       p.score = 0; p.misses = 0; p.isEliminated = false;
     });
 
-    addCpuPlayers();
+    addCpuPlayersForPractice(PRACTICE_MOCK_TOTAL_TARGET);
     const { humanCount, cpuCount, totalCount } = computeHeadcount();
-    gs.survivorCount = eventCutCounts(totalCount).pass;
+    gs.survivorCount = Math.min(PRACTICE_MOCK_SURVIVOR_SCHEDULE[0], totalCount);
 
     const roundCardIds = buildPracticeCardIds();
     const roundCards   = KARUTA.filter(k => roundCardIds.includes(k.id));
@@ -1194,7 +1384,7 @@ io.on('connection', socket => {
 
   // ── Skip memorization（ホストのみ・デバッグ用）───────────
   socket.on('skip_memorize', () => {
-    if (gs.phase !== 'memorizing' || socket.id !== gs.hostId) return;
+    if (gs.phase !== 'memorizing' || !canUseDebug(socket)) return;
     doStartPlaying();
   });
 
@@ -1238,7 +1428,9 @@ io.on('connection', socket => {
       ? Math.max(0, Math.min(1, payload.precision)) : 1;
 
     if (!gs.players[socket.id]) return;
-    if (socket.id === gs.hostId) return;
+    // ホストは進行役なので大会モード（本番）では取得不可。練習モードでは
+    // サーバーPC自身のブラウザ＝ホストも通常プレイヤーとして参加できる。
+    if (socket.id === gs.hostId && gs.event.active) return;
 
     if (gs.event.active) {
       // 大会モード: 現在のステージの参加者のみ取れる
@@ -1256,10 +1448,18 @@ io.on('connection', socket => {
       if (gs.eliminatedPlayers.has(socket.id)) return;
     }
 
+    // お手付きをした人は、次の札が読み上げられるまで取れない
+    // （手当たり次第にクリックして札を取られるのを防ぐため）。
+    if (gs.lockedPlayers.has(socket.id)) {
+      if (gs.phase === 'reading' || gs.phase === 'decoy') socket.emit('grab_locked');
+      return;
+    }
+
     if (gs.phase === 'decoy') {
       const player = gs.players[socket.id];
       player.misses++;
-      player.score -= 20;
+      player.score -= 1;
+      gs.lockedPlayers.add(socket.id);
       socket.emit('wrong_grab', { cardId });
       io.emit('players_updated', gs.players);
       return;
@@ -1279,7 +1479,8 @@ io.on('connection', socket => {
       }
     } else if (gs.remaining.has(cardId)) {
       player.misses++;
-      player.score -= 20;
+      player.score -= 1;
+      gs.lockedPlayers.add(socket.id);
       socket.emit('wrong_grab', { cardId });
       io.emit('players_updated', gs.players);
     }
@@ -1287,7 +1488,7 @@ io.on('connection', socket => {
 
   // ── Debug: 即ゲーム終了（ホストのみ）─────────────────────
   socket.on('debug_end_game', () => {
-    if (socket.id !== gs.hostId) return;
+    if (!canUseDebug(socket)) return;
     if (!['waiting', 'reading', 'decoy', 'announcing'].includes(gs.phase)) return;
     clearAllTimers();
     endRound();
@@ -1295,18 +1496,19 @@ io.on('connection', socket => {
 
   // ── Debug: CPUにランダムポイントを付与（ホストのみ）───────
   socket.on('debug_cpu_points', () => {
-    if (socket.id !== gs.hostId) return;
+    if (!canUseDebug(socket)) return;
     CPU_IDS.forEach(id => {
       if (gs.players[id]) {
-        gs.players[id].score = Math.floor(Math.random() * 600);
+        gs.players[id].score = Math.floor(Math.random() * 7);   // 0〜6枚
       }
     });
     io.emit('players_updated', gs.players);
   });
 
-  // ── 次の試合を開始（ホストのみ）─────────────────────────
+  // ── 次の試合を開始（参加登録済みの誰でも）─────────────────────────
   socket.on('start_next_round', () => {
-    if (socket.id !== gs.hostId || gs.phase !== 'round_finished') return;
+    if (!isJoinedHuman(socket.id) || gs.event.active || gs.phase !== 'round_finished') return;
+    setHost(socket.id);   // 次の試合を始めた人が進行役になる
 
     // スコアリセット前に累積スコアへ加算
     Object.entries(gs.players)
@@ -1330,10 +1532,13 @@ io.on('connection', socket => {
 
     Object.values(gs.players).forEach(p => { p.score = 0; p.misses = 0; });
 
-    addCpuPlayers();
+    // 敗退なし：1回戦と同じ人数規模（80人）で毎試合行う
+    addCpuPlayersForPractice(PRACTICE_MOCK_TOTAL_TARGET);
     const { humanCount, cpuCount, totalCount } = computeHeadcount({ excludeEliminated: true });
-    // 最終（3試合目）は必ず上位3名に絞り込む。それ以外は自動算出（約1/3）。
-    gs.survivorCount = (gs.round >= gs.maxRounds) ? 3 : eventCutCounts(totalCount).pass;
+    // （通過人数は練習モードでは使わない。以前の絞り込み設定の名残り）
+    gs.survivorCount = (gs.round >= gs.maxRounds)
+      ? 3
+      : Math.min(PRACTICE_MOCK_SURVIVOR_SCHEDULE[gs.round - 1] ?? eventCutCounts(totalCount).pass, totalCount);
 
     gs.phase          = 'memorizing';
     gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
@@ -1597,7 +1802,8 @@ io.on('connection', socket => {
   // ── 大会モードを開始（ホストのみ）─────────────────────────
   // その時点で参加登録済み（joined）の人間プレイヤー全員を対象に第1試合を開始する。
   socket.on('start_event', () => {
-    if (socket.id !== gs.hostId || gs.phase !== 'lobby') return;
+    if (!isHostEligible(socket) || !isJoinedHuman(socket.id) || gs.phase !== 'lobby') return;
+    setHost(socket.id);   // 大会モードの進行役はサーバーPC。参加者はそれ以外のロビーにいる全員
     const participantIds = Object.entries(gs.players)
       .filter(([id, p]) => id !== gs.hostId && !p.isBot && p.joined)
       .map(([id]) => id);
@@ -1648,6 +1854,8 @@ io.on('connection', socket => {
   // ── Back to lobby ────────────────────────────────────────
   socket.on('go_to_lobby', () => {
     if (['reading', 'decoy', 'announcing'].includes(gs.phase)) return;
+    // 対局の途中（試合結果・ロビー以外）で中断できるのは進行役かサーバーPCだけ
+    if (!['round_finished', 'lobby'].includes(gs.phase) && socket.id !== gs.hostId && !isHostEligible(socket)) return;
     clearAllTimers();
     removeCpuPlayers();
 
@@ -1683,6 +1891,7 @@ io.on('connection', socket => {
 
     gs.phase = 'lobby'; gs.currentCard = null;
     gs.remaining = new Set(ROUND_CARD_IDS[1]); gs.memorizeEndsAt = 0;
+    setHost(findServerPcId());   // ロビーに戻ったら進行役は（いれば）サーバーPCに戻す
     io.emit('back_to_lobby', {
       players:             gs.players,
       postTournament:      gs.postTournament,
@@ -1699,10 +1908,15 @@ io.on('connection', socket => {
     io.emit('player_left', { id: socket.id, players: gs.players });
 
     if (wasHost) {
-      const humanIds = Object.keys(gs.players)
-        .filter(id => !gs.players[id].isBot && gs.players[id].joined);
-      gs.hostId = humanIds.length ? humanIds[0] : null;
-      if (gs.hostId) io.emit('host_changed', { hostId: gs.hostId });
+      // 進行役が抜けたら、サーバーPCがいればそこへ、対局中ならほかの参加者へ引き継ぐ。
+      // ロビーで誰もいなければホスト不在にする（サーバーPCが入れば再びホストになる）。
+      gs.hostId = null;
+      let next = findServerPcId();
+      if (!next && gs.phase !== 'lobby') {
+        next = Object.keys(gs.players).find(id => isJoinedHuman(id)) || null;
+      }
+      gs.hostId = next;
+      io.emit('host_changed', { hostId: next });
     }
 
     gs.eliminatedPlayers.delete(socket.id);
@@ -1724,6 +1938,9 @@ io.on('connection', socket => {
     }
   });
 });
+
+// 読み上げ確認ページ（/tts-check.html）用：全札のデータと難易度帯を返す
+app.get('/api/karuta', (req, res) => res.json({ karuta: KARUTA, tiers: ROUND_CARD_IDS }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
