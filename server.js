@@ -1947,7 +1947,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 srv.listen(PORT, '0.0.0.0', () => {
   const ips = localIPs();
   console.log('\n====================================');
-  console.log('  💻 IT かるた サーバー起動中');
+  console.log('  💻 Webかるた サーバー起動中');
   console.log('====================================');
   console.log(`  このPC : http://localhost:${PORT}`);
   ips.forEach(ip => console.log(`  LAN    : http://${ip}:${PORT}`));

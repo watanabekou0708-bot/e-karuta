@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Webかるた チラシ</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0; width: 210mm; height: 297mm; overflow: hidden;
+    font-family: "Yu Gothic UI", "Yu Gothic", "Meiryo", "MS PGothic", sans-serif;
+    color: #1c2540; background: #0b1230;
+  }
+  .page { width: 210mm; height: 297mm; position: relative; display: flex; flex-direction: column; }
+
+  /* ── ヘッダー ── */
+  .head {
+    background: linear-gradient(160deg, #0b1230 0%, #142a6e 55%, #1d3a8a 100%);
+    color: #fff; padding: 10mm 15mm 6mm; position: relative;
+  }
+  .head .credit {
+    font-size: 10.5pt; color: #b8ccff; line-height: 1.6;
+  }
+  /* .head .credit .line {
+    display: inline-block; border-bottom: 1px solid #b8ccff; min-width: 55mm; height: 4.5mm; margin-left: 2mm;
+  } */
+  .head h1 {
+    margin: 4mm 0 2mm; font-size: 44pt; line-height: 1.05; letter-spacing: .02em;
+    text-shadow: 0 4px 18px rgba(0,0,0,.35);
+  }
+  .head .sub { font-size: 14.5pt; color: #eaf1ff; font-weight: 700; }
+  .head .badges { display: flex; gap: 3mm; margin-top: 4mm; flex-wrap: wrap; }
+  .badge {
+    background: rgba(255,255,255,.14); border: 1.3px solid rgba(255,255,255,.4); color: #fff;
+    border-radius: 999px; padding: 1.6mm 4.5mm; font-size: 10pt; font-weight: 700;
+  }
+
+  /* ── 本文 ── */
+  .body { background: #fff; padding: 6mm 15mm 0; flex: 1 1 auto; min-height: 0; }
+
+  h2.sec {
+    display: inline-block; margin: 0 0 3mm; font-size: 15pt; color: #142a6e;
+    border-bottom: 3.5px solid #4a8cff; padding-bottom: .8mm;
+  }
+  .lead { font-size: 11pt; line-height: 1.7; color: #2a355c; margin: 0 0 4.5mm; }
+  .lead b { color: #142a6e; }
+
+  .flow { display: flex; gap: 3mm; margin: 0 0 5mm; }
+  .flow div {
+    flex: 1; text-align: center; background: #eef3ff; border: 1.6px solid #b9cdff; border-radius: 4mm;
+    padding: 3mm 1.5mm 2.5mm; font-size: 11pt; font-weight: 700; color: #1f3fa8;
+  }
+  .flow div .em { display: block; font-size: 18pt; margin-bottom: 1mm; }
+  .flow div span { display: block; font-weight: 400; font-size: 9pt; color: #4b5a86; margin-top: 1mm; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; align-items: start; margin-bottom: 5mm; }
+  .feat { list-style: none; margin: 0; padding: 0; }
+  .feat li {
+    display: flex; gap: 3mm; align-items: flex-start; font-size: 11pt; line-height: 1.45; margin: 0 0 3mm; color: #232d4c;
+  }
+  .feat li .ic { font-size: 15pt; flex-shrink: 0; }
+  .feat li b { color: #142a6e; }
+
+  .shot-wrap { text-align: center; }
+  .shot-wrap img { width: 100%; border-radius: 3mm; border: 2px solid #142a6e; box-shadow: 0 6px 22px rgba(20,42,110,.28); }
+  .shot-wrap .cap { font-size: 9.5pt; color: #7078a0; margin-top: 2mm; }
+
+  .terms {
+    background: #0e1633; border-radius: 4mm; padding: 3mm 5mm; margin: 0 0 5mm;
+  }
+  .terms .t { color: #ffd66b; font-weight: 800; font-size: 10.5pt; margin-bottom: 1.8mm; }
+  .terms .chips { display: flex; flex-wrap: wrap; gap: 1.8mm; }
+  .terms .chip {
+    background: #1c2a5e; color: #cfe0ff; border: 1px solid #3a52a0; border-radius: 999px;
+    font-size: 9pt; padding: 1mm 3.2mm;
+  }
+
+  .cta {
+    flex: 0 0 auto;
+    background: linear-gradient(90deg, #1d3a8a, #2d5bd6); color: #fff;
+    text-align: center; padding: 4.5mm 15mm 6mm;
+  }
+  .cta .big { font-size: 16pt; font-weight: 800; margin-bottom: 1.3mm; }
+  .cta .small { font-size: 10.5pt; color: #dbe6ff; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="head">
+    <div class="credit">制作：Webデザインサークル　　担当：<span class="line">渡辺　昊</span></div>
+    <h1>🎴 Webかるた</h1>
+    <div class="sub">音声を聞いて、答えの札をクリック！ITの言葉で盛り上がる早押しかるた</div>
+    <div class="badges">
+      <span class="badge">🎧 耳で聞くクイズ</span>
+      <span class="badge">🖱 マウスだけで遊べる</span>
+      <span class="badge">🤖 CPUも参戦</span>
+      <span class="badge">🔰 3段階の難易度</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <h2 class="sec">どんなゲーム？</h2>
+    <p class="lead">
+      本物のかるたのように、<b>読み上げられる説明文</b>を聞いて、答えが書かれた札を誰よりも早く<b>クリック</b>して取り合うゲームです。
+      お題はIT用語やExcelの関数。パソコンの“CPU”たちもいっしょに参戦するので、1人で遊んでも大人数のかるた大会のような盛り上がりが味わえます。
+    </p>
+
+    <h2 class="sec">あそびかた</h2>
+    <div class="flow">
+      <div><span class="em">🎧</span>① 耳で聞く<span>説明文が読み上げられる</span></div>
+      <div><span class="em">🔍</span>② 札をさがす<span>答えが書かれた札をさがす</span></div>
+      <div><span class="em">🖱️</span>③ クリック！<span>見つけたらすぐクリック</span></div>
+      <div><span class="em">✅</span>④ 正解発表<span>「そこまで」の合図で答え合わせ</span></div>
+    </div>
+
+    <div class="cols">
+      <ul class="feat">
+        <li><span class="ic">🎧</span><span><b>耳で聞くヒント</b>だけが頼り。聞き取る力と早さの勝負です。</span></li>
+        <li><span class="ic">🖱</span><span>操作は<b>クリックだけ</b>。マウスがあればすぐに遊べます。</span></li>
+        <li><span class="ic">🤖</span><span><b>CPU（コンピューター）</b>も一緒に対戦。1人でも盛り上がれます。</span></li>
+        <li><span class="ic">📊</span><span>取った札の枚数と<b>順位がその場で分かる</b>ランキング表示つき。</span></li>
+        <li><span class="ic">🔰</span><span><b>かんたん・ふつう・難しい</b>の3段階。初めてでも安心です。</span></li>
+      </ul>
+      <div class="shot-wrap">
+        <img src="img/play_clean.png" alt="対局画面">
+        <div class="cap">実際の対局画面</div>
+      </div>
+    </div>
+
+    <div class="terms">
+      <div class="t">こんな言葉が出題されます</div>
+      <div class="chips">
+        <span class="chip">CPU</span><span class="chip">メモリ</span><span class="chip">SUM関数</span>
+        <span class="chip">IF関数</span><span class="chip">VLOOKUP関数</span><span class="chip">パスワード</span>
+        <span class="chip">Wi-Fi</span><span class="chip">クラウド</span><span class="chip">ピボットテーブル</span>
+        <span class="chip">フィッシング詐欺</span><span class="chip">…など</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta">
+    <div class="big">この近くで体験できます</div>
+    <div class="small">耳で聞いて、クリックするだけ。ぜひ遊んでみてください！</div>
+  </div>
+
+</div>
+</body>
+</html>

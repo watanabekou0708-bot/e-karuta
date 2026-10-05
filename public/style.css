@@ -511,6 +511,23 @@ body {
   100% { opacity: 0; }
 }
 
+/* 今は1枚も取れない状態（お手付き中／正解発表中・次の札待ち／ホスト・観戦中）のとき、
+   クリックしなくてもカーソルを乗せた瞬間に🚫を出す。マウスを乗せている間だけ表示され、
+   クリック時の一瞬だけの演出（cForbiddenMark）とは別に、静的に表示し続ける。 */
+.grid.grab-forbidden .card:not(.removed):hover {
+  cursor: not-allowed;
+}
+.grid.grab-forbidden .card:not(.removed):hover::after {
+  content: '🚫'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; background: rgba(10, 14, 24, .55);
+}
+/* すでに誰かが取った直後（消える演出中）の札は、盤面全体の状態に関わらず個別に禁止表示する */
+.card.correct-mine:hover, .card.correct-other:hover, .card.wrong:hover { cursor: not-allowed; }
+.card.correct-mine:hover::after, .card.correct-other:hover::after, .card.wrong:hover::after {
+  content: '🚫'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; background: rgba(10, 14, 24, .55);
+}
+
 /* ── Float score ─────────────────────────────────────────── */
 .float-score {
   position: fixed; pointer-events: none; z-index: 300;

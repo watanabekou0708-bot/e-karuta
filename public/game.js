@@ -980,6 +980,8 @@ function updateHostNotice() {
   if (progWrap) progWrap.classList.toggle('hidden', isArranging || !(myIsHost && isEventMode));
   const leftCountWrap = $('leftCountWrap');
   if (leftCountWrap) leftCountWrap.classList.toggle('hidden', !(myIsHost && isEventMode));
+  // ホスト／観戦・盤面整理タイムの状態もここでまとめて変わるため、ホバー禁止マークも同期する
+  syncGrabAvailability();
 }
 
 // デバッグ用：CPUに0〜600のランダムポイントを与える（ホストのみ）
@@ -1024,7 +1026,7 @@ function maybeAutoReadNext() {
 function showReadBtn() {
   canReadNext = true;
   autoReadPending = false;
-  currentPhase = 'waiting';
+  setCurrentPhase('waiting');
   if (myId !== null) myIsHost = (liveHostId === myId);
   updateReadBtnAvailability();
 }
@@ -1152,7 +1154,7 @@ function applyInit(d) {
       $('readingText').textContent = '— 準備中 —';
       showReadBtn();
     } else {
-      currentPhase = (d.phase === 'reading' || d.phase === 'decoy') ? d.phase : 'announcing';
+      setCurrentPhase((d.phase === 'reading' || d.phase === 'decoy') ? d.phase : 'announcing');
       if (d.phase === 'reading' || d.phase === 'decoy') {
         $('readingText').textContent = '📢 読み上げ中...';
       } else {
@@ -1423,6 +1425,10 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
       .filter(([id, p]) => !(id === liveHostId && isEventMode) && participantIds.has(id) && (p.isBot || p.joined))
       .sort(([, a], [, b]) => b.score - a.score);
 
+    // 練習モードの通常試合結果（このどれにも当てはまらない場合）は、
+    // 敗退がなく全員が survivorIds に入るため、CPUの「進出」強調表示は
+    // 意味を持たない（誤解を招く）ので付けない。
+    const isPracticeNormalRound = !isGroupMatchIntermediate && !isRevivalIntermediate && !isRevival && !isFinal;
     const rrRanks = competitionRanks(sorted);
     sorted.forEach(([id, p], i) => {
       const isSurv = survivorIds.includes(id);
@@ -1432,7 +1438,7 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
       const rankCls = rank === 1 ? ' rank-1' : rank === 2 ? ' rank-2' : rank === 3 ? ' rank-3' : '';
       row.className = 'rr-row'
         + rankCls
-        + (isSurv && !isGroupMatchResult && p.isBot ? ' survivor' : '')   // 人間は進出の強調表示をしない
+        + (isSurv && !isGroupMatchResult && !isPracticeNormalRound && p.isBot ? ' survivor' : '')   // 人間は進出の強調表示をしない
         + (isElim ? ' eliminated' : '')
         + (id === myId ? ' me' : '');
       const rankLabel = rankEmoji[rank - 1] || `${rank}位`;
@@ -1451,11 +1457,9 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
         badgeHtml = isSurv
           ? '<span class="rr-badge adv">本戦復帰！</span>'
           : '<span class="rr-badge elim">惜しくも...</span>';
-      } else if (!isFinal) {
-        // 練習モード：CPUのみ「進出」を表示。人間プレイヤーは順位と点数だけで、
-        // 進出・敗退の表示はしない。
-        if (p.isBot && isSurv) badgeHtml = '<span class="rr-badge adv">→ 進出</span>';
       }
+      // 練習モードは敗退がなく全員が次の試合に続けて参加するため、
+      // CPU・人間とも「進出」などのバッジは出さない（誤解を招くため）。
       row.innerHTML = `
         <span class="rr-rank">${rankLabel}</span>
         <span class="rr-name">${escHtml(p.name)}${cpuBadge}${youBadge}</span>
@@ -1733,22 +1737,65 @@ function setGrabLocked(locked) {
     banner.textContent = '✋ お手付き！次の札が読み上げられるまで取れません';
     banner.classList.toggle('hidden', !locked);
   }
+  syncGrabAvailability();
+}
+
+// 「今、札を1枚も取れない」状態かどうか（ホバー禁止マーク・クリック禁止マーク共通の判定）。
+// 盤面整理タイム中は「取る」操作自体が無い（ドラッグで並べ替えるだけ）ので対象外にする。
+function cannotTakeAnyCard() {
+  if (isArranging) return false;
+  if ((myIsHost && isEventMode) || myIsSpectator || myIsRevivalSpectator || myIsGroupSpectator) return true;
+  if (myGrabLocked) return true;
+  return currentPhase !== 'reading' && currentPhase !== 'decoy';
+}
+
+// currentPhase やロック状態が変わるたびに呼び、盤面に「今は何も取れない」を反映する。
+// これを .grid につけておくと、CSS の :hover だけでクリックせずに🚫を出せる
+// （毎回どの札をホバーしているか JS で追跡する必要がない）。
+function syncGrabAvailability() {
+  const grid = $('grid');
+  if (grid) grid.classList.toggle('grab-forbidden', cannotTakeAnyCard());
+}
+
+// currentPhase の唯一の書き込み口。代入と同時に盤面の表示を同期する。
+function setCurrentPhase(p) {
+  currentPhase = p;
+  syncGrabAvailability();
+}
+
+// 札の上に🚫を一瞬強調表示する（クリックしたときの合図。ホバーでは常時 CSS 側で表示される）
+function flashForbidden(el) {
+  el.classList.remove('host-forbidden');
+  void el.offsetWidth;
+  el.classList.add('host-forbidden');
+  setTimeout(() => el.classList.remove('host-forbidden'), 450);
 }
 
 function onCardClick(id, el, ev) {
   if ((myIsHost && isEventMode) || myIsSpectator || myIsRevivalSpectator || myIsGroupSpectator) {
     if (el.classList.contains('removed')) return;
-    el.classList.remove('host-forbidden');
-    void el.offsetWidth;
-    el.classList.add('host-forbidden');
-    setTimeout(() => el.classList.remove('host-forbidden'), 450);
+    flashForbidden(el);
     return;
   }
-  if (myGrabLocked) return;
-  if (el.classList.contains('removed') ||
-      el.classList.contains('correct-mine') ||
+  if (myGrabLocked) {
+    if (!el.classList.contains('removed')) flashForbidden(el);
+    return;
+  }
+  if (el.classList.contains('removed')) return;   // 消えた札はクリック自体が届かない（保険で無視）
+  if (el.classList.contains('correct-mine') ||
       el.classList.contains('correct-other') ||
-      el.classList.contains('wrong')) return;
+      el.classList.contains('wrong')) {
+    // 誰かがすでに取った直後の札（消える演出中）をクリックしたとき
+    flashForbidden(el);
+    return;
+  }
+  if (currentPhase !== 'reading' && currentPhase !== 'decoy') {
+    // 誰かが札を取った後（正解発表）や、次の札の読み上げがまだ始まっていない間は、
+    // そもそも誰も取れない。クリックしても何も起きないと分かりにくいので合図を出す。
+    // （ダミー読み中はわざと引っかける仕掛けなので、ここでは対象にしない＝通常どおりお手付き扱い）
+    flashForbidden(el);
+    return;
+  }
   const precision = computeGrabPrecision(el, ev);
   socket.emit('grab_card', { cardId: id, t: hiResNow() + serverOffset, precision });
 }
@@ -1985,7 +2032,7 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
 // playAt = イントロ開始時刻（全 PC でハードウェアレベルで同期）
 socket.on('read_card', ({ card, remaining, playAt }) => {
   setGrabLocked(false);   // 次の札が読み上げられ始めたので、お手付きのロックを解除
-  currentPhase = 'reading';
+  setCurrentPhase('reading');
   hideReadBtn();
   $('leftCount').textContent = remaining.length;
   $('progFill').style.width = ((liveTotalCards - remaining.length) / liveTotalCards * 100).toFixed(1) + '%';
@@ -2010,7 +2057,7 @@ socket.on('read_card', ({ card, remaining, playAt }) => {
 // ホスト端末がその完了を decoy_finished でサーバーに通知する。
 socket.on('decoy_read', ({ id, yomi, playAt }) => {
   setGrabLocked(false);
-  currentPhase = 'decoy';
+  setCurrentPhase('decoy');
   hideReadBtn();
   $('readingText').textContent = '📢 読み上げ中...';
   whenAudioIdle(() => {
@@ -2038,7 +2085,10 @@ socket.on('announce_taken', payload => runAfterDjClear(() => startAnnounceTaken(
 function startAnnounceTaken({ name, color, card, playAt }) {
   stopAllAudio();   // ここで世代カウンタをインクリメントする
   const gen = audioGeneration;
-  currentPhase = 'announcing';
+  setCurrentPhase('announcing');
+  // 「○○が獲得！」（card_taken到着時に表示済み）から「そこまで」に切り替える。
+  // ここは実際に「そこまで」の音声を鳴らし始める直前なので、表示と音声がほぼ同時になる。
+  showTimeUpNotif();
   isAnnouncing = true;
   updateReadBtnAvailability();
 
@@ -2083,7 +2133,7 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
   // time_up は必ず read_card/decoy_read の後に起きるため、DJ キューは
   // そちらの stopDjSpeech() で既にクリア済み。
   const gen = audioGeneration;
-  currentPhase = 'announcing';
+  setCurrentPhase('announcing');
   showTimeUpNotif();
 
   isAnnouncing = true;
@@ -2184,6 +2234,11 @@ socket.on('card_taken', ({ cardId, by, players }) => {
   // このあと announce_taken で「そこまで」→正解の読み上げ→DJの順に流れる。
   dropIdleWaiters('read');   // まだ始められていない詠み上げは取り消す
   stopAllAudio();
+  // isAnnouncing はDJ実況待ちで startAnnounceTaken() まで立てないが、
+  // currentPhase（＝札を取れるかの判定）はここで即座に切り替える。
+  // 遅らせると、取られた直後〜正解発表が実際に始まるまでの間（DJ実況待ちで
+  // 数秒空くことがある）、まだ「読み上げ中」のまま扱われて禁止マークが出ない。
+  setCurrentPhase('announcing');
   // 「○○が獲得！」は札を取った瞬間に表示する（音声の順番待ちに合わせて遅らせない）
   showTakenNotif(by.name, by.color || '#4a9eff');
   const el = $(`card-${cardId}`);
@@ -2374,9 +2429,8 @@ function onRoundFinished({ round, players, survivorIds, eliminatedIds, survivorC
   }
 }
 
-// 「惜しい」を流す条件：自分が4〜10位で、3位との点差がこの点数以内
-const DJ_CLOSE_MAX_RANK  = 10;
-const DJ_CLOSE_MAX_DIFF  = 3;   // 3枚差以内（得点が枚数になる前の300点に相当）
+// 「惜しい」を流す条件：順位に関係なく、3位との枚数差がこの枚数以内
+const DJ_CLOSE_MAX_DIFF  = 3;
 
 // 試合結果画面のDJ音声（各端末で、その端末のユーザー自身の順位に合わせて読み上げる）。
 // 順位は結果画面のランキングと同じく、CPUを含む全参加者の中での順位。
@@ -2385,7 +2439,8 @@ function speakRoundResultDj(round, players, participantIds) {
     .filter(([id, p]) => participantIds.has(id) && (p.isBot || p.joined))
     .sort(([, a], [, b]) => b.score - a.score);
 
-  // 優先度：3位以内「おめでとうございます」→ 10位以内「惜しい」→「○回戦終了です」。
+  // 優先度：3位以内「おめでとうございます」→ 3位との枚数差が3枚以内なら「惜しい」→「○回戦終了です」。
+  // 順位そのものは問わない（何位でも、3位との差が3枚以内なら惜しいを流す）。
   // 上の条件を満たしたら、それ以降のメッセージは読み上げない（1つだけ流す）。
   let line = `${round}回戦終了です。お疲れ様でした。`;
 
@@ -2397,8 +2452,8 @@ function speakRoundResultDj(round, players, participantIds) {
     const score = sorted[myIdx][1].score;
     if (rank <= 3) {
       line = `おめでとうございます。あなたは${score}枚で${rank}位です。`;
-    } else if (rank <= DJ_CLOSE_MAX_RANK) {
-      // 入賞圏内（3位以内）で一番下の人との差
+    } else {
+      // 入賞圏内（3位以内）で一番下の人との差。順位の上限は設けない。
       let podiumIdx = -1;
       ranks.forEach((r, i) => { if (r <= 3) podiumIdx = i; });
       if (podiumIdx !== -1) {
