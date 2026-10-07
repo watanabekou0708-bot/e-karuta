@@ -4,277 +4,116 @@ const http       = require('http');
 const { Server } = require('socket.io');
 const path       = require('path');
 const os         = require('os');
+const fs         = require('fs');
 
 const PORT = process.env.PORT || 3000;
 const app  = express();
 const srv  = http.createServer(app);
 const io   = new Server(srv);
 
-// ── Karuta data（J検（情報活用試験）3級レベル＋Excel関数）─────
-// ids 1-15,46-60: 易しい / 16-30,61-75: 普通 / 31-45,76-90: 難しい（ROUND_CARD_IDS と対応）
-// 難易度は一般IT用語・Excel関数どちらも各帯で揃えている。
-// 46番以降は「練習するたびに同じ15枚しか出ない」問題への対応で追加した分
-// （各帯30枚から毎回ランダムに15枚を抽出するようにした）。
-const KARUTA = [
-  // 易しい（一般常識 J検3級:容易 + Excel基本編関数, id 1-30）
-  { id: 1, yomi: "オンラインサービスで個人または組織を識別する名前", tori: "アカウント名" },
-  { id: 2, yomi: "情報を世界中のコンピュータネットワークで共有するグローバルなコミュニケーションネットワーク", tori: "インターネット" },
-  { id: 3, yomi: "情報をキーワードで検索し、関連するウェブページやファイルを一覧表示するプログラムやサービス", tori: "検索エンジン" },
-  { id: 4, yomi: "悪意のあるプログラムで、コンピュータに感染して機能を破壊・乗っ取る", tori: "コンピュータウィルス" },
-  { id: 5, yomi: "電子メールや文書に添付されるデータを指す", tori: "添付ファイル" },
-  { id: 6, yomi: "アクセス制御のための秘密の文字列", tori: "パスワード" },
-  { id: 7, yomi: "個人が日記や情報をウェブ上で発信するオンラインメディア", tori: "ブログ" },
-  { id: 8, yomi: "ウェブ上でアクセス可能な文書やメディアのまとまりで、情報やサービスを提供するためのインターネット上の個別のページ", tori: "ホームページ" },
-  { id: 9, yomi: "オンライン上でユーザーが交流するプラットフォーム（ソーシャル・ネットワーキング・サービス）", tori: "SNS" },
-  { id: 10, yomi: "インターネット上に存在する情報やコンテンツを表示するためのオンラインの場所", tori: "Webサイト" },
-  { id: 11, yomi: "Microsoftによるオペレーティングシステム", tori: "Windows" },
-  { id: 12, yomi: "情報処理分野でのマナーやルールに関するマナー", tori: "ネチケット" },
-  { id: 13, yomi: "電子メール送受信のための個人識別情報", tori: "メールアドレス" },
-  { id: 14, yomi: "数値データのみを対象に個数を数える関数", tori: "COUNT関数" },
-  { id: 15, yomi: "「もしも・・・なら」「真の場合」「偽の場合」を提示する関数", tori: "IF関数" },
-  { id: 16, yomi: "指定した数値やセル範囲の中から最大値を選んで表示する関数", tori: "MAX関数" },
-  { id: 17, yomi: "指定した数値やセル範囲の中から最小の値を選んで表示する関数", tori: "MIN関数" },
-  { id: 18, yomi: "順位の平均を表示する関数", tori: "RANK.AVG関数" },
-  { id: 19, yomi: "切り捨てする関数", tori: "ROUNDDOWN関数" },
-  { id: 20, yomi: "切り上げする関数", tori: "ROUNDUP関数" },
-  { id: 21, yomi: "四捨五入する関数", tori: "ROUND関数" },
-  { id: 22, yomi: "合計を算出する関数", tori: "SUM関数" },
-  { id: 23, yomi: "複数の条件をすべて満たす「かつ」という論理条件を示す関数", tori: "AND関数" },
-  { id: 24, yomi: "今日の日付を表示する関数", tori: "TODAY関数" },
-  { id: 25, yomi: "平均値を計算する関数", tori: "AVERAGE関数" },
-  { id: 26, yomi: "セルに入力されたすべてのデータを対象に個数を計算する関数", tori: "COUNTA関数" },
-  { id: 27, yomi: "数値が何番目にあるかを表示する関数", tori: "RANK.EQ関数" },
-  { id: 28, yomi: "指定した数値を超えない最大の整数を表示する関数", tori: "INT関数" },
-  { id: 29, yomi: "「または」という論理条件を示す関数", tori: "OR関数" },
-  { id: 30, yomi: "年数や日数、月数の経過期間を計算する関数", tori: "DATEDIF関数" },
-  // 普通（J検3級:標準 + Excel応用編関数, id 31-93）
-  { id: 31, yomi: "ウェブページやアプリ内でコンテンツをスクロールするためのバー", tori: "スクロールバー" },
-  { id: 32, yomi: "２回連続でマウスをクリックする操作", tori: "ダブルクリック" },
-  { id: 33, yomi: "ユーザーがテキストを入力できるGUI要素", tori: "テキストボックス" },
-  { id: 34, yomi: "文書内やWebページでクリックにより別の場所やリソースに移動させるリンク", tori: "ハイパーリンク" },
-  { id: 35, yomi: "選択肢がリストとして表示され、クリックすると選択できるインターフェース要素", tori: "プルダウンメニュー" },
-  { id: 36, yomi: "選択肢を一覧表示するGUI要素", tori: "リストボックス" },
-  { id: 37, yomi: "記録可能なDVD形式で、一度のみ書き込み可能な光ディスク", tori: "DVD-R" },
-  { id: 38, yomi: "インターネットを閲覧するソフトウェア。Webページを表示し、ユーザーが情報を検索・閲覧できる", tori: "ブラウザ" },
-  { id: 39, yomi: "コンピューターシステムに対するセキュリティ対策ソフトウェアで、悪意のあるプログラムから保護するもの", tori: "ワクチンソフト" },
-  { id: 40, yomi: "Webページを作成するための言語", tori: "HTML" },
-  { id: 41, yomi: "情報保存のための携帯可能な記憶デバイス", tori: "USBメモリ" },
-  { id: 42, yomi: "画像圧縮形式で、写真や図形のデジタル画像を小さくして保存するために利用されます", tori: "JPEG" },
-  { id: 43, yomi: "コンピューターやデバイスへの入力装置で、文字や操作を指定するためにキーを押すことで情報を入力するデバイス", tori: "キーボード" },
-  { id: 44, yomi: "ユーザがマウスやタッチデバイスで画面上の要素を選択または操作する行為", tori: "クリック" },
-  { id: 45, yomi: "コンピュータでの効率的な操作のためのキーボードショートカット", tori: "ショートカットキー" },
-  { id: 46, yomi: "選択項目を有効／無効にするUI要素", tori: "チェックボックス" },
-  { id: 47, yomi: "コンピューターの操作で、マウスや指でオブジェクトを選択し、別の場所に移動することを指す", tori: "ドラッグ" },
-  { id: 48, yomi: "情報処理でデータやファイルを整理・保存するための仮想的なコンテナ。関連するアイテムをまとめ、検索や管理を容易にする", tori: "フォルダ" },
-  { id: 49, yomi: "文字のスタイルや形状を指定する情報。テキスト表示に使用され、視覚的な印象を与えるために様々な種類やスタイルが存在する", tori: "フォント" },
-  { id: 50, yomi: "情報処理分野で入力デバイスとして使われ、カーソルを移動・クリックするための手持ちデバイス", tori: "マウス" },
-  { id: 51, yomi: "選択肢から1つを選択するための円形のUI要素", tori: "ラジオボタン" },
-  { id: 52, yomi: "高容量ディスクで、光学ディスク規格の一つ。データや映像を高品質で保存・再生する技術", tori: "Blue-ray Disc" },
-  { id: 53, yomi: "コンピューター上でハードウェアやソフトウェアを制御し、管理する基本ソフトウェア（Operating System）", tori: "OS" },
-  { id: 54, yomi: "ポータブルな文書フォーマット。文書や画像を独立した形式で表示するためのファイル形式", tori: "PDF" },
-  { id: 55, yomi: "インデックスを使用して引数リストに指定した値を表示する関数", tori: "CHOOSE関数" },
-  { id: 56, yomi: "指定した数値を日付型で表示する関数", tori: "DATE関数" },
-  { id: 57, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの中で数値が入力されているセルの個数を表示させる関数", tori: "DCOUNT関数" },
-  { id: 58, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの最小値を表示させる関数", tori: "DMIN関数" },
-  { id: 59, yomi: "「表引きによるデータ参照」をする関数、検索する値が行方向（横）に並んでいる", tori: "HLOOKUP関数" },
-  { id: 60, yomi: "空白セルかどうかを調べる関数", tori: "ISBLANK関数" },
-  { id: 61, yomi: "文字列の文字数を表示する関数", tori: "LEN関数" },
-  { id: 62, yomi: "文字列の任意の位置から指定された数の文字を取り出す関数", tori: "MID関数" },
-  { id: 63, yomi: "現在の日付と時刻を表示する関数", tori: "NOW関数" },
-  { id: 64, yomi: "文字列を指定された回数だけ繰り返して表示する関数", tori: "REPT関数" },
-  { id: 65, yomi: "「表引きによるデータ参照」をする関数、検索する値が列方向（縦）に並んでいる", tori: "VLOOKUP関数" },
-  { id: 66, yomi: "指定した検索文字列をほかの文字列の中で検索し、その検索文字列が最初に現れる位置を先頭文字からの位置で表示する関数", tori: "SEARCH関数" },
-  { id: 67, yomi: "ふりがなを表示する関数", tori: "PHONETIC関数" },
-  { id: 68, yomi: "数値を書式設定した文字列に変換する関数", tori: "TEXT関数" },
-  { id: 69, yomi: "指定した日付の曜日を0～7までの数値で表示する関数", tori: "WEEKDAY関数" },
-  { id: 70, yomi: "数値から符号の＋や－を除いた絶対値を表示する関数", tori: "ABS関数" },
-  { id: 71, yomi: "範囲内のデータの中で、指定した順位番目に小さな値を表示する関数", tori: "SMALL関数" },
-  { id: 72, yomi: "小数点以下を切り捨てる関数", tori: "TRUNC関数" },
-  { id: 73, yomi: "データ範囲から行の位置と列の位置を指定し、その行と列の交差する位置の値を表示する", tori: "INDEX関数" },
-  { id: 74, yomi: "複数の条件に一致するセルの平均を求める関数", tori: "AVERAGEIFS関数" },
-  { id: 75, yomi: "複数の条件に一致するセルの個数を求める関数", tori: "COUNTIFS関数" },
-  { id: 76, yomi: "指定した順位番目に大きな値を表示する関数", tori: "LARGE関数" },
-  { id: 77, yomi: "複数の条件に一致するセルの値を合計する関数", tori: "SUMIFS関数" },
-  { id: 78, yomi: "文字列の任意の位置から指定された数の文字をバイト数で取り出す関数", tori: "MIDB関数" },
-  { id: 79, yomi: "論理値「FALSE」を返す関数", tori: "FALSE関数" },
-  { id: 80, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの平均値を表示させる関数", tori: "DAVERAGE関数" },
-  { id: 81, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの中の空白でないセルの個数を表示させる関数", tori: "DCOUNTA関数" },
-  { id: 82, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの最大値を表示させる関数", tori: "DMAX関数" },
-  { id: 83, yomi: "データベース内の指定された列を検索し、条件を満たすレコードの合計を表示させる関数", tori: "DSUM関数" },
-  { id: 84, yomi: "文字列の先頭から指定された数の文字を取り出す関数", tori: "LEFT関数" },
-  { id: 85, yomi: "ある値が特定の値と等しくないことを判断して使う関数", tori: "NOT関数" },
-  { id: 86, yomi: "文字列の末尾から指定された数の文字を取り出す関数", tori: "RIGHT関数" },
-  { id: 87, yomi: "指定した条件に一致するセルの平均値を算出する関数", tori: "AVERAGEIF関数" },
-  { id: 88, yomi: "指定した条件に一致するセルの個数を算出する関数", tori: "COUNTIF関数" },
-  { id: 89, yomi: "数式がエラーとして評価される場合は指定の値を表示し、それ以外の場合は数式の結果を表示する関数", tori: "IFERROR関数" },
-  { id: 90, yomi: "数値を除数で割ったときの余りを表示する関数", tori: "MOD関数" },
-  { id: 91, yomi: "指定した条件に一致するセルの値を合計する関数", tori: "SUMIF関数" },
-  { id: 92, yomi: "財務関数のひとつで、ローン計算をするときに使用する関数", tori: "PMT関数" },
-  { id: 93, yomi: "論理値「TRUE」を返す関数", tori: "TRUE関数" },
-  // 難しい（J検3級:中程度+高度, id 94-175）
-  { id: 94, yomi: "ファイルやデータを圧縮された状態から元の形式に戻す処理", tori: "解凍" },
-  { id: 95, yomi: "基数が10の数制で、0から9までの数字を用いて数を表す。10進法は日常的で直感的な計算が可能", tori: "10進数" },
-  { id: 96, yomi: "データを順にアクセスする手法。例：テープドライブ。ランダムアクセスに比べ効率は低いが、シンプル", tori: "順アクセス方式" },
-  { id: 97, yomi: "ダウンロードしながら再生できる", tori: "ストリーミング" },
-  { id: 98, yomi: "ファイルやディレクトリの完全な場所を示す", tori: "絶対パス" },
-  { id: 99, yomi: "ファイルやディレクトリの場所を現在の場所から相対的に示す方法", tori: "相対パス" },
-  { id: 100, yomi: "複数のデバイスが相互に接続され、情報を共有する仕組み", tori: "ネットワーク" },
-  { id: 101, yomi: "情報の最小単位。0または1の二進数で表され、コンピュータのデータ処理において基本的な情報単位", tori: "ビット" },
-  { id: 102, yomi: "ネットワークを通して攻撃する", tori: "不正アクセス" },
-  { id: 103, yomi: "文字を数字に変換する規則。例えば、ASCIIやUTF-8がある", tori: "文字コード" },
-  { id: 104, yomi: "文字の正しい表示ができないエラー", tori: "文字化け" },
-  { id: 105, yomi: "使いやすさを第一に考える", tori: "ユーザビリティ" },
-  { id: 106, yomi: "現実世界にコンピュータ生成の情報を重ね合わせる技術", tori: "AR" },
-  { id: 107, yomi: "オブジェクト指向プログラミング言語。様々なプラットフォームで動作し、堅牢性と移植性が特徴", tori: "Java" },
-  { id: 108, yomi: "データベースで使用される問い合わせ言語", tori: "SQL" },
-  { id: 109, yomi: "インターネット上のリソースの場所を示すアドレス", tori: "URL" },
-  { id: 110, yomi: "コンピューター技術を使い、現実世界とは異なる環境を体験する技術（仮想現実）", tori: "VR" },
-  { id: 111, yomi: "インターネット上の情報を検索・閲覧するためのシステム（World Wide Web）", tori: "WWW" },
-  { id: 112, yomi: "ウェブページの動的な振る舞いを制御するプログラミング言語", tori: "JavaScript" },
-  { id: 113, yomi: "情報処理でデータを表す単位。8ビットの集まりで、1文字を表したり、データを保存したりする", tori: "バイト" },
-  { id: 114, yomi: "情報処理で使用される入力デバイスで、カーソルやポインターを制御するための装置", tori: "ポインティングディバイス" },
-  { id: 115, yomi: "コンピュータを用いた設計や図面作成に使用されるソフトウェアや技術（Computer-Aided Design）", tori: "CAD" },
-  { id: 116, yomi: "ファイルをネットワーク上で転送するための通信プロトコル（File Transfer Protocol）", tori: "FTP" },
-  { id: 117, yomi: "ウェブ開発のためのサーバーサイド言語", tori: "PHP" },
-  { id: 118, yomi: "テキストを編集するソフトウェア。基本的な操作が容易であり、コードや文章の作成・編集に利用される", tori: "テキストエディタ" },
-  { id: 119, yomi: "0と1のみを使い数を表現する数制で、コンピューター内で情報を表す基本的な方式", tori: "2進数" },
-  { id: 120, yomi: "関連付けられたテーブルにデータを格納し、SQLを使って管理するデータベースシステム", tori: "リレーショナルデータベース" },
-  { id: 121, yomi: "データを小さくして、記憶や転送の効率を向上させる処理", tori: "圧縮" },
-  { id: 122, yomi: "手順や計算を解決するための明確な手法や指示", tori: "アルゴリズム" },
-  { id: 123, yomi: "ファイルの種類や形式を示すためのファイル名の末尾に追加される文字列", tori: "拡張子" },
-  { id: 124, yomi: "特定の機種や環境に依存して正しく表示される文字で、他の環境では正しく表示されない文字のこと", tori: "機種依存文字" },
-  { id: 125, yomi: "0から15までの数字を表す基数で、10進数の16進法。コンピュータなどで頻繁に使用され、0～9とA～Fで表現される", tori: "16進数" },
-  { id: 126, yomi: "10進数の代わりに0から7の数字を使う数法。8の倍数で表現され、2進数への変換が利用される", tori: "8進数" },
-  { id: 127, yomi: "情報処理で使われる視覚的な図で、プロセスやアルゴリズムを流れ図で表現し、理解や設計をサポートする", tori: "フローチャート" },
-  { id: 128, yomi: "テキストベースのユーザーインターフェース（Character User Interface）", tori: "CUI" },
-  { id: 129, yomi: "ウェブページなどを送受信するための通信規約（Hypertext Transfer Protocol）", tori: "HTTP" },
-  { id: 130, yomi: "コンピューターと周辺機器を接続するための標準インターフェース", tori: "USB" },
-  { id: 131, yomi: "データを保護するために情報を不可解な形に変換する技術", tori: "暗号化" },
-  { id: 132, yomi: "プロセスやシステムの操作・監視を行う装置", tori: "制御装置" },
-  { id: 133, yomi: "コンピューターの主要な部品であり、命令を実行し、データを処理する装置。CPUとも呼ばれる", tori: "中央処理装置" },
-  { id: 134, yomi: "情報処理でデータをシステムに入力する機器や手段", tori: "入力装置" },
-  { id: 135, yomi: "情報処理で実行中のプログラムの一部で、リソースやデータを操作し、タスクを完了するための実行単位", tori: "プロセス" },
-  { id: 136, yomi: "データを永続的に保存するためのデバイスで、例えばハードディスクドライブやSSDなどが該当します", tori: "補助記憶装置" },
-  { id: 137, yomi: "コンピューターの主要部分であり、命令を実行し、演算やデータ処理を行う（Central Processing Unit）", tori: "CPU" },
-  { id: 138, yomi: "ファイルを送受信するためのサーバ", tori: "FTPサーバ" },
-  { id: 139, yomi: "インターネット接続を提供する企業または組織（Internet Service Provider）", tori: "ISP" },
-  { id: 140, yomi: "データをローカルエリアネットワークで伝送するためのケーブル", tori: "LANケーブル" },
-  { id: 141, yomi: "オープンソースのオペレーティングシステムで、コンピュータの基本機能を提供するソフトウェア", tori: "Linux" },
-  { id: 142, yomi: "電子メールを受信するためのプロトコル", tori: "POPサーバ" },
-  { id: 143, yomi: "コンピューター内のデータや命令を一時的に保持するメモリ（Random Access Memory）", tori: "RAM" },
-  { id: 144, yomi: "コンピュータと周辺機器を接続するための標準インターフェース（Small Computer System Interface）", tori: "SCSI" },
-  { id: 145, yomi: "データストレージ用のコンピュータインターフェース規格", tori: "Serial ATA" },
-  { id: 146, yomi: "インターネットでデータを送受信するための通信プロトコル", tori: "TCP／IP" },
-  { id: 147, yomi: "ウェブページやファイルを提供するコンピュータ", tori: "Webサーバ" },
-  { id: 148, yomi: "コンピュータ内で数値演算や論理演算を実行する機能を持つ、計算処理を行う主要な部分", tori: "演算装置" },
-  { id: 149, yomi: "コンピュータのデータやプログラムを一時的に保存するためのメモリで、CPUがアクセスする高速なデータストレージ", tori: "主記憶装置" },
-  { id: 150, yomi: "ネットワークでデータを集約・転送する装置。信号を受け取り、複数のデバイスに送信する", tori: "ハブ" },
-  { id: 151, yomi: "データや命令を一時的に保存するコンピュータの要素で、処理速度向上に寄与する", tori: "メモリ" },
-  { id: 152, yomi: "IPアドレスを自動割り当てするプロトコル。ネットワーク上のデバイスがIPアドレスを取得し通信する仕組み", tori: "DHCP" },
-  { id: 153, yomi: "インターネットでドメイン名をIPアドレスに変換するシステム（Domain Name System）", tori: "DNS" },
-  { id: 154, yomi: "ドメイン名をIPアドレスに変換するサーバ", tori: "DNSサーバ" },
-  { id: 155, yomi: "ネットワーク上のデバイスを識別する番号", tori: "IPアドレス" },
-  { id: 156, yomi: "情報を読み取り専用に保存するコンピューターの記憶装置（Read-Only Memory）", tori: "ROM" },
-  { id: 157, yomi: "高速なデータ保存デバイス", tori: "SSD" },
-  { id: 158, yomi: "広域ネットワークを指し、地理的に広い範囲でコンピューターやネットワークを接続する通信インフラを指します", tori: "WAN" },
-  { id: 159, yomi: "どんな人でも使えることを意識する", tori: "アクセシビリティ" },
-  { id: 160, yomi: "サーバーからサービスやデータを要求する端末やソフトウェアのこと", tori: "クライアント" },
-  { id: 161, yomi: "コンピュータやソフトウェアがネットワーク上で情報を提供・管理するコンピューターシステム", tori: "サーバ" },
-  { id: 162, yomi: "情報処理分野でデータを表示・印刷・記録するデバイス。例：プリンタやモニタ", tori: "出力装置" },
-  { id: 163, yomi: "情報保護やデータの安全性を確保する対策", tori: "セキュリティ" },
-  { id: 164, yomi: "データを永続的に保存するコンピューターの記憶装置", tori: "ハードディスク装置" },
-  { id: 165, yomi: "情報処理での通信やデータ交換の規約を指し、異なるシステムやデバイスが連携するための手順や標準化された方法", tori: "プロトコル" },
-  { id: 166, yomi: "情報処理装置の主回路基板で、各種部品を接続し、データの伝達を可能にする重要なコンポーネント", tori: "マザーボード" },
-  { id: 167, yomi: "データを有線接続なしで無線で転送する技術。通常、Wi-Fiで使用", tori: "無線LAN" },
-  { id: 168, yomi: "メールを送受信するためのサーバ。電子メールの転送や保存を担当し、通信の中継や保管を行う", tori: "メールサーバ" },
-  { id: 169, yomi: "身代金を要求するウイルス", tori: "ランサムウェア" },
-  { id: 170, yomi: "ネットワークでデータを送受信する装置。異なるネットワーク間を中継して通信を可能にする", tori: "ルータ" },
-  { id: 171, yomi: "コンピューターの起動時に基本入出力システムを管理するプログラム", tori: "BIOS" },
-  { id: 172, yomi: "インターネット・デバイスに割り当てる識別番号。IPv4を置き換える次世代プロトコルで、アドレス枯渇問題に対処する", tori: "IPv6" },
-  { id: 173, yomi: "コンピューターに組み込まれるネットワーク接続用のデバイス（Network Interface Card）", tori: "NIC" },
-  { id: 174, yomi: "データを複数のディスクに分散保存し、信頼性とパフォーマンスを向上させる技術（Redundant Array of Independent Disks）", tori: "RAID" },
-  { id: 175, yomi: "メール送受信を管理するサーバ", tori: "SMTPサーバ" },
-];
+// ── Karuta data（IT用語一覧.xlsm Sheet1 の全790語。public/karuta-data.js に一本化）
+// lv: A〜D=出題レベル / 空=レベル未設定（出題せず、ダミー読みの素材にだけ使う）
+const KARUTA = require('./public/karuta-data.js');
+const KMAP   = Object.fromEntries(KARUTA.map(k => [k.id, k]));
 
-// 難易度を上げた際に登場するダミーの読み（盤面のどの札にも対応しない）。
-const DECOYS = [
-  { id: 'decoy1', yomi: '文字や記号をコンピューターが識別するために割り当てられた番号の体系', tori: '文字コード' },
-  { id: 'decoy2', yomi: '一定の規則に従ってデータを並べ替え、目的の情報を探しやすくする処理', tori: 'ソート' },
-  { id: 'decoy3', yomi: 'ネットワークを通じて遠隔地のコンピューターを操作するための技術', tori: 'リモートアクセス' },
-  { id: 'decoy4', yomi: '利用者が誰であるかをパスワードなどで確認する一連の手続き', tori: '認証' },
-  { id: 'decoy5', yomi: 'ソフトウェアの不具合を修正するために配布される更新プログラム', tori: 'パッチ' },
-  { id: 'decoy6', yomi: '複数の処理を同時に実行できるよう、CPU内に搭載された処理装置の数', tori: 'コア数' },
-  { id: 'decoy7', yomi: 'インターネット上の文章や画像を保存し、後で読み返せるようにする機能', tori: 'ブックマーク' },
-  { id: 'decoy8', yomi: '第三者に通信内容を読み取られないよう、データを別の形式に変換すること', tori: '暗号化' },
-];
+// ── レベル（A〜D）とダミー読み ──────────────────────────────
+// A=一般常識 / B=標準 / C=中程度 / D=高度（IT用語一覧.xlsm の区分）。
+// レベルの付いていない札(lv='')は出題せず、「ダミー読み」の素材にだけ使う。
+// 出題札と絶対に重ならないので、ダミー読みの答えが盤面に存在してしまうことがない。
+const LEVELS    = ['A', 'B', 'C', 'D'];
+const LEVEL_IDS = { A: [], B: [], C: [], D: [] };
+const UNLEVELED = [];
+KARUTA.forEach(k => { if (LEVEL_IDS[k.lv]) LEVEL_IDS[k.lv].push(k.id); else UNLEVELED.push(k); });
+const levelIndexOfCard = id => { const k = KMAP[id]; return k ? LEVELS.indexOf(k.lv) : -1; };
 
-// 難易度帯ごとの札ID（90枚を易しい／普通／難しいの3帯（各30枚）に分割）。
-// 練習モードは buildPracticeCardIds() で各帯からランダムに15枚だけ抽選するため、
-// 1帯30枚あることで「練習するたびに顔ぶれが変わる」ようになる。
-const ROUND_CARD_IDS = {
-  1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-  2: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93],
-  3: [94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175],
-};
+// 最後の1枚になったとき、本物の札を読む前に必ず連発するダミー読みの最低回数（レベルが上がるほど増える）
+const FINAL_DECOYS = { A: 3, B: 4, C: 5, D: 6 };
 
-// 大会モードの本戦ラウンドで使う「易・普通・難しい」の抽出枚数（1試合10枚）。
-// 回戦が進む（終盤に近づく）ほど難しい札の比重が増える。
-// 準決勝・決勝5人・3位決定戦・決勝戦は最後の要素（最難）を使う。
-const EVENT_ROUND_MIX = [
-  [10, 0, 0],
-  [7, 3, 0],
-  [5, 4, 1],
-  [3, 4, 3],
-  [1, 4, 5],
-  [0, 3, 7],
-  [0, 1, 9],
-];
-
-// 大会モードの本戦ラウンド用に、易・普通・難しいから指定枚数ずつ抽出してシャッフルする。
-function buildEventRoundCardIds(roundIndex) {
-  const mix = EVENT_ROUND_MIX[Math.min(Math.max(roundIndex, 1), EVENT_ROUND_MIX.length) - 1];
-  const pick = (tier, n) => shuffle(ROUND_CARD_IDS[tier]).slice(0, n);
-  return shuffle([...pick(1, mix[0]), ...pick(2, mix[1]), ...pick(3, mix[2])]);
+// 直近に使ったダミーは続けて選ばない（最後の1枚の連発で同じ読みが続かないように）
+let recentDecoyIds = [];
+function pickDecoy() {
+  // 試合ごとに用意した候補（その試合の準備時に音声を作っておく）から選ぶ。無ければ未設定札全体から選ぶ。
+  if (gs.decoyPool && gs.decoyPool.length) {
+    const cand = gs.decoyPool.filter(d => !recentDecoyIds.includes(d.id));
+    const d = (cand.length ? cand : gs.decoyPool)[Math.floor(Math.random() * (cand.length || gs.decoyPool.length))];
+    recentDecoyIds.push(d.id);
+    if (recentDecoyIds.length > Math.max(3, gs.decoyPool.length - 2)) recentDecoyIds.shift();
+    return d;
+  }
+  const pool = UNLEVELED.filter(k => !recentDecoyIds.includes(k.id));
+  const k = pool[Math.floor(Math.random() * pool.length)] || UNLEVELED[0];
+  recentDecoyIds.push(k.id);
+  if (recentDecoyIds.length > 12) recentDecoyIds.shift();
+  return { id: 'decoy' + k.id, yomi: k.yomi, tori: k.tori };
 }
 
-// 練習モードのホストが選んだ難易度（easy/normal/hard）に対応する帯（1/2/3）から、
-// 毎回ランダムに15枚だけ抽選する（帯は各30枚あるため、同じ難易度で遊んでも
-// 毎回顔ぶれが変わる）。この帯以外の札は出題されない。
+// 試合に使う札IDの集まりから、その試合のレベル（一番高いレベルの添字 0〜3）を求める
+function matchLevelIndex(cardIds) {
+  return cardIds.reduce((m, id) => Math.max(m, levelIndexOfCard(id)), 0);
+}
+
 // Excel関数の札か（答えが「〇〇関数」）。
 const isExcelFunctionCard = id => {
-  const k = KARUTA.find(x => x.id === id);
+  const k = KMAP[id];
   return !!k && k.tori.endsWith('関数');
 };
 
-// 練習モードの15枚は、Excel関数とそれ以外の用語の比率ができるだけ同じ（7:8か8:7）に
-// なるように抽選する。難しい帯にはExcel関数が無いため、難しいを選んだ場合のExcel関数は
-// 普通帯から抽選して混ぜる。帯にExcel関数が足りない場合は、ある分だけ入れて残りを他の用語で埋める。
+// ids から n 枚を抽選する。練習モードでは Excel関数とそれ以外の用語がほぼ半々
+// （7:8か8:7）になるよう抽選する。足りない分はもう一方で補う。
+function pickCards(ids, n, balanceExcel) {
+  if (!balanceExcel) return shuffle(ids).slice(0, n);
+  const ex = shuffle(ids.filter(isExcelFunctionCard));
+  const ot = shuffle(ids.filter(id => !isExcelFunctionCard(id)));
+  const half = Math.floor(n / 2);
+  const wantEx = Math.random() < 0.5 ? half : n - half;
+  let nEx = Math.min(wantEx, ex.length);
+  const nOt = Math.min(n - nEx, ot.length);
+  nEx = Math.min(n - nOt, ex.length);
+  return [...ex.slice(0, nEx), ...ot.slice(0, nOt)];
+}
+
+// レベルが上がる試合では、ひとつ前のレベルの札をこの割合だけ混ぜる（一気に難しくなりすぎないように）
+const CARRY_RATIO = 0.3;
+
+// レベル levelIdx(0=A〜3=D) の試合用に total 枚を作る。levelIdx>0 なら前レベルの札を約3割混ぜる。
+function buildLevelCardIds(levelIdx, total, balanceExcel) {
+  const idx  = Math.min(Math.max(levelIdx, 0), LEVELS.length - 1);
+  const nPrev = idx > 0 ? Math.round(total * CARRY_RATIO) : 0;
+  const cur  = pickCards(LEVEL_IDS[LEVELS[idx]], total - nPrev, balanceExcel);
+  const prev = nPrev ? pickCards(LEVEL_IDS[LEVELS[idx - 1]], nPrev, balanceExcel) : [];
+  return shuffle([...cur, ...prev]);
+}
+
+// 大会モードの本戦ラウンドで使うレベル別の枚数 [A, B, C, D]（1試合10枚）。
+// 回戦が進むほどレベルが上がり、上がる回戦は前のレベルを3割ほど残す。
+// 準決勝・決勝5人・3位決定戦・決勝戦は最後の要素（最難）を使う。
+const EVENT_ROUND_MIX = [
+  [10, 0, 0, 0],
+  [3, 7, 0, 0],
+  [0, 3, 7, 0],
+  [0, 0, 3, 7],
+  [0, 0, 2, 8],
+  [0, 0, 1, 9],
+  [0, 0, 0, 10],
+];
+
+function buildEventRoundCardIds(roundIndex) {
+  const mix = EVENT_ROUND_MIX[Math.min(Math.max(roundIndex, 1), EVENT_ROUND_MIX.length) - 1];
+  return shuffle(LEVELS.flatMap((lv, i) => shuffle(LEVEL_IDS[lv]).slice(0, mix[i])));
+}
+
+// 練習モード：第N試合はレベルN（A→B→C→D）。1試合15枚。
 function buildPracticeCardIds() {
-  const TOTAL = 15;
-  const tier = gs.difficulty === 'easy' ? 1 : gs.difficulty === 'hard' ? 3 : 2;
-  const excelSource = gs.difficulty === 'hard' ? ROUND_CARD_IDS[2] : ROUND_CARD_IDS[tier];
-  const excelPool = shuffle(excelSource.filter(isExcelFunctionCard));
-  const otherPool = shuffle(ROUND_CARD_IDS[tier].filter(id => !isExcelFunctionCard(id)));
-
-  const half = Math.floor(TOTAL / 2);
-  const wantExcel = Math.random() < 0.5 ? half : TOTAL - half;   // 7か8をランダムに
-  let nExcel = Math.min(wantExcel, excelPool.length);
-  const nOther = Math.min(TOTAL - nExcel, otherPool.length);
-  nExcel = Math.min(TOTAL - nOther, excelPool.length);   // 他の用語が足りない分をExcel関数で補う
-  return shuffle([...excelPool.slice(0, nExcel), ...otherPool.slice(0, nOther)]);
+  return buildLevelCardIds(gs.round - 1, 15, true);
 }
 
-// 1試合で読み上げる45枚（易15・普通15・難15）の並び順を作る。各帯30枚の
-// プールからランダムに15枚ずつ抽選し、易→普通→難の帯順に並べることで、
-// 試合が進む（終盤に近づく）ほど難易度の高い用語が出るようにする
-// （練習モードの復活戦・グループ戦で使用）。帯からの抽選なので、毎回顔ぶれが変わる。
+// 復活戦・グループ戦用の20枚（A4・B5・C6・D5）をレベルの低い順に並べる。
+// 画面に札を大きく表示するため、以前の45枚から20枚に減らしている。
+const LONG_MATCH_MIX = [4, 5, 6, 5];
 function buildDifficultyOrderedCardIds() {
-  return [
-    ...shuffle(ROUND_CARD_IDS[1]).slice(0, 15),
-    ...shuffle(ROUND_CARD_IDS[2]).slice(0, 15),
-    ...shuffle(ROUND_CARD_IDS[3]).slice(0, 15),
-  ];
+  return LEVELS.flatMap((lv, i) => shuffle(LEVEL_IDS[lv]).slice(0, LONG_MATCH_MIX[i]));
 }
+
 
 // ダミー読みの発生確率を試合進行に応じて動的に計算する
 // 序盤は低く、中盤・終盤に向けて上昇。試合回が上がるほど全体の水準も上がる。
@@ -287,6 +126,7 @@ function getDecoyChance() {
     1: { base: 0.03, peak: 0.20 },
     2: { base: 0.08, peak: 0.35 },
     3: { base: 0.15, peak: 0.50 },
+    4: { base: 0.20, peak: 0.55 },
   };
   const { base, peak } = rates[gs.round] || rates[1];
   const chance = base + (peak - base) * progress;
@@ -336,10 +176,116 @@ function hiResNow() {
   return anchorDate + Number(process.hrtime.bigint() - anchorHr) / 1e6;
 }
 
-const MEMO_SECONDS    = 2.5 * 60;   // 盤面整理タイム（暗記ではなく、取りやすい配置に並べ替える時間）
+// ── ログ ───────────────────────────────────────────────────
+// 記録できるものはすべて logs/game-<起動日時>.jsonl に1行1イベントで書き出す
+// （読み上げの開始・終了、誰がいつ・どこをクリックしたか、判定の内訳、得点、CPUの反応など）。
+const LOG_DIR = path.join(__dirname, 'logs');
+let logStream = null;
+try {
+  fs.mkdirSync(LOG_DIR, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  logStream = fs.createWriteStream(path.join(LOG_DIR, `game-${stamp}-p${PORT}.jsonl`), { flags: 'a' });
+} catch (e) { console.warn('ログファイルを作成できません:', e.message); }
+function logEvent(type, data = {}) {
+  if (!logStream) return;
+  logStream.write(JSON.stringify({ at: new Date().toISOString(), t: Math.round(hiResNow()), type, ...data }) + '\n');
+}
+
+const VD = require('./public/voice-defs.js');
+const { VoiceEngine } = require('./voice-engine.js');
+// VOICEVOX エンジン（CT107）。環境変数 VOICEVOX_URL で変更できる。音声の保存先は VOICE_CACHE_DIR（既定 ./voice-cache）。
+const VOICE_CACHE_DIR = process.env.VOICE_CACHE_DIR || path.join(__dirname, 'voice-cache');
+const voiceEngine = new VoiceEngine({
+  baseUrl: process.env.VOICEVOX_URL || 'http://192.168.0.19:50021',
+  dir: VOICE_CACHE_DIR,
+  log: logEvent,
+});
+const VOICE_WAIT_MAX_MS = +process.env.KARUTA_VOICE_WAIT_MS || 60 * 1000;   // 盤面整理が終わっても音声が揃わないとき、最大これだけ待ってから始める
+
+// DJ の実況：文章を部品に分けて音声を作り（キャッシュ済みなら即）、できてから全員に送る。
+// 順番が入れ替わらないよう1本ずつ処理する。6秒で作れなければ、文字だけ送ってブラウザ音声で代用させる。
+let djChain = Promise.resolve();
+function emitDj(text, segments) {
+  djChain = djChain.then(async () => {
+    let segs = null;
+    if (segments && segments.length) {
+      const r = await Promise.race([
+        voiceEngine.ensure(segments, { prio: 'dj' }),
+        new Promise(res => setTimeout(() => res({ failed: segments.length }), 6000)),
+      ]);
+      if (!r.failed) segs = segments;
+    }
+    io.emit('dj_comment', { text, segments: segs });
+  }).catch(() => {});
+  return djChain;
+}
+
+const MEMO_SECONDS    = +process.env.KARUTA_MEMO_SECONDS || 2 * 60;   // 環境変数はテスト用   // 盤面整理タイム（暗記ではなく、取りやすい配置に並べ替える時間）
 const READ_TIMEOUT_MS = 10 * 1000;   // 上の句 / ダミー読み完了後の制限時間
-const GRAB_WINDOW_MS  = 180;   // 正解の最初の申告からこの時間だけ他の候補も受け付ける
-const GRAB_BUCKET_MS  = 70;    // この時間差以内は「同時」とみなし、精度で決着する
+// 読み上げの前に「マウスを定位置に戻します。フライングに注意してください。」を発声するので、
+// 「読み上げます」が始まるまでの目安。実際の開始はホスト端末の報告(intro_started)で上書きする。
+const INTRO_START_EST_MS = 4700;
+const INTRO_GRACE_MS = 400;   // 端末ごとの「読み上げます」開始のずれ（通信・音声合成の立ち上がり）の許容
+const GRAB_WINDOW_MS  = 500;   // 最初の正解申告からこの時間だけ他の候補も受け付け、点数の高い人が取る
+
+// ── ポイント制 ─────────────────────────────────────────────
+// 1枚あたり最大1000点 = 速度(400) + 精度(400) + マウスコントロール力(200)。
+// これとは別に、精度が350点以上のときは精度ボーナス1000点が加わる（札1枚の上限の外）。
+// 各項目は「少し変わると点が大きく動く」ように指数・べき乗カーブにしている。
+//  速度  : 「読み上げます」の発声開始からの経過時間。1秒で約270点 / 3秒で約120点 / 6秒で約35点
+//  精度  : 札の中心からクリック位置までの距離(mm)。0mmで400点 / 約3.8mmで300点 / 約10mmで約180点 / 札の角(約42mm)で0点
+//  距離  : 定位置(円)から札の中心までの距離(mm)。遠い札を取るほど高得点(最大200点)
+// 0.5秒の受付時間内に複数人がクリックしたときは、精度の点数が一番高い人が取る（同点なら速い人）。
+// 速度・距離は誰が取るかには使わず、取った人の得点にだけ加算される。
+// 長さはすべて mm。画面上の札(横180px)を実物の取り札(横 CARD_REAL_W_MM mm)に見立てた縮尺で px から換算する。
+const SPEED_MAX_PTS = 400;
+const SPEED_TAU_MS  = 2500;
+const ACC_MAX_PTS   = 400;
+const CTRL_MAX_PTS  = 200;
+const ACC_BONUS_THRESHOLD = 350;   // 精度の点数がこれ以上なら精度ボーナス（DJの「いい精度」も同じ条件）
+const ACC_BONUS_PTS = 1000;        // 精度ボーナス。札1枚の上限・1試合の上限(SCORE_CAP)とは別枠で加算する（ハンデはかかる）
+const DJ_MOUSE_DIST_PTS = 100;     // 距離の点数がこれ以上＋精度ボーナス → DJ「ナイスマウスさばき」
+const MISS_PENALTY  = 100;     // お手付き・フライング1回の減点（ハンデで増える）
+const NEAR_POINTS   = 300;     // 「あと少しで1位」「惜しい」の判定に使う点差（約1枚分）
+const SCORE_CAP     = +process.env.KARUTA_SCORE_CAP || 20000;   // 1試合で積める点数の上限（環境変数はテスト用）
+
+// 盤面(論理サイズ)と定位置。クライアント(game.js)の BOARD_W/BOARD_H と一致させること。
+const BOARD_W = 1280;
+const BOARD_H = 880;
+const HOME_X  = BOARD_W / 2;
+const HOME_Y  = BOARD_H - 46;
+const GAME_CONFIG = require('./public/game-config.js');
+const CARD_W_PX = 180, CARD_H_PX = 100;
+const MM_PER_PX = GAME_CONFIG.CARD_REAL_W_MM / CARD_W_PX;   // キャリブレーション：画面の札が実物の何mmにあたるか
+const PX_PER_MM = 1 / MM_PER_PX;
+const BOARD_FAR = Math.hypot(Math.max(HOME_X, BOARD_W - HOME_X), HOME_Y);   // 定位置から一番遠い角までの距離(px)
+const FAR_MM    = BOARD_FAR / PX_PER_MM;                                     // 同(mm)
+const ACC_FULL_MM = Math.hypot(CARD_W_PX / 2, CARD_H_PX / 2) * MM_PER_PX;                // 札(180×100px)の中心から角までの距離(mm)。これ以上ズレると精度0点
+
+function speedPoints(ms)  { return Math.round(SPEED_MAX_PTS * Math.exp(-Math.max(0, ms) / SPEED_TAU_MS)); }
+function accuracyPoints(offsetMm) { return Math.round(ACC_MAX_PTS * Math.pow(1 - Math.min(1, Math.max(0, offsetMm / ACC_FULL_MM)), 3)); }
+function controlPoints(distMm) {
+  const f = Math.min(1, Math.max(0, distMm / FAR_MM));
+  return Math.round(CTRL_MAX_PTS * f * f);
+}
+
+// ── 学年・コース別ハンデ（学年・コースを入力した人にだけ。大会モードでも練習モードでも同じ）──────────────────────
+// gain=獲得点にかける倍率 / penalty=お手付き減点にかける倍率。複数条件は掛け算で合成する。
+// 1年は全員ハンデなし。2・3年のうち「プログラミング系コース」にも倍率がかかる。
+// 画像・アプリ系のコースはハンデなし。
+const PROGRAMMING_COURSES = ['ITスペシャリストコース', 'ITエンジニアコース'];
+const HANDICAP_GRADE = { '2': { gain: 0.7, penalty: 1.5 }, '3': { gain: 0.5, penalty: 2 } };
+const HANDICAP_PROGRAMMING = { gain: 0.7, penalty: 1.5 };
+function handicapOf(p) {
+  const h = { gain: 1, penalty: 1 };
+  if (!p || p.isBot) return h;   // 学年・コースを入力していない人（練習用リンク）はハンデなし
+  const g = HANDICAP_GRADE[String(p.grade)];
+  if (g) { h.gain *= g.gain; h.penalty *= g.penalty; }
+  if (g && PROGRAMMING_COURSES.includes(p.course)) { h.gain *= HANDICAP_PROGRAMMING.gain; h.penalty *= HANDICAP_PROGRAMMING.penalty; }
+  h.gain = Math.round(h.gain * 1000) / 1000;
+  h.penalty = Math.round(h.penalty * 1000) / 1000;
+  return h;
+}
 
 // ── Game state ────────────────────────────────────────────
 const gs = {
@@ -348,19 +294,23 @@ const gs = {
   cpuDifficulty:  'normal',
   currentCard:    null,
   cardOrder:      [],
-  remaining:      new Set(ROUND_CARD_IDS[1]),
+  remaining:      new Set(LEVEL_IDS.A),
   players:        {},
   memorizeEndsAt: 0,
   hostId:         null,
   cpuTimers:      [],
   currentDecoy:   null,   // ダミー読み中の札情報（time_up で正解発表に使用）
   grabCandidates: [],     // 受付時間中に届いた正解候補（速さ＋精度判定用）
+  readStartAt:    0,      // 現在の読み上げの開始予定時刻（サーバー時計）。速度ポイントの基準
+  yomiFinishedAt: 0,
+  matchLevel:     0,      // 今の試合のレベル（0=A〜3=D）
+  finalDecoyLeft: null,   // 最後の1枚の前に連発するダミー読みの残り回数（null=未設定）
   grabWindowTimer: null,
   lockedPlayers:  new Set(),   // お手付きをして「次の札が読まれるまで」取れないプレイヤー
 
   // ── トーナメント管理 ────────────────────────────────────
   round:               1,
-  maxRounds:           3,
+  maxRounds:           4,
   survivorCount:       3,
   eliminatedPlayers:   new Set(),
   lastRoundResult:     null,
@@ -428,6 +378,27 @@ function isHostEligible(socket) {
   if (addr === '127.0.0.1' || addr === '::1') return true;
   return localIPs().includes(addr);
 }
+
+// 名前の先頭に付ける「学年＋コース略称」。選んだ学年・コースを他の人にも見えるようにして、偽った入力を防ぐ。
+// 例：2年ITスペシャリストコース → 「2SC」。表示は「2SC　太郎」（全角スペース）。
+const COURSE_ABBR = {
+  'アプリコース': 'AP', 'プログラムコース': 'PG',
+  'ITスペシャリストコース': 'SC', '画像クリエイトコース': 'GC', 'ITエンジニアコース': 'EC',
+  'ビジュアルデザインコース': 'VC', 'ビジネスITコース': 'BC',
+};
+const GRADE_COURSES = {
+  '1': ['アプリコース', 'プログラムコース'],
+  '2': ['ITスペシャリストコース', '画像クリエイトコース', 'ITエンジニアコース', 'ビジュアルデザインコース', 'ビジネスITコース'],
+  '3': ['ITスペシャリストコース', '画像クリエイトコース'],
+};
+function gradeCourseTag(grade, course) {
+  const g = String(grade || '');
+  if (!GRADE_COURSES[g]) return '';
+  const abbr = GRADE_COURSES[g].includes(course) ? COURSE_ABBR[course] : '';
+  return g + (abbr || '');
+}
+// DJ の読み上げには学年・コースを付けない素の名前を使う
+const djName = p => (p && (p.rawName || p.name)) || '';
 
 // 参加登録（名前入力）済みの人間プレイヤーか
 function isJoinedHuman(socketId) {
@@ -540,7 +511,7 @@ function addCpuPlayers() {
   tierIds.forEach(id => {
     if (!gs.eliminatedPlayers.has(id)) {
       const i = CPU_IDS.indexOf(id);
-      gs.players[id] = { name: CPU_NAMES[i], color: CPU_COLORS[i], score: 0, misses: 0, isBot: true };
+      gs.players[id] = { name: CPU_NAMES[i], color: CPU_COLORS[i], score: 0, bonus: 0, cards: 0, misses: 0, isBot: true };
     }
   });
 }
@@ -559,7 +530,7 @@ function addCpuPlayersForPractice(targetTotal) {
   const need = Math.max(0, targetTotal - humanCount);
   orderedIds.slice(0, need).forEach(id => {
     const i = CPU_IDS.indexOf(id);
-    gs.players[id] = { name: CPU_NAMES[i], color: CPU_COLORS[i], score: 0, misses: 0, isBot: true };
+    gs.players[id] = { name: CPU_NAMES[i], color: CPU_COLORS[i], score: 0, bonus: 0, cards: 0, misses: 0, isBot: true };
   });
 }
 
@@ -569,7 +540,7 @@ function addGroupCpuPlayers() {
                 : CPU_TIER_BOTTOM;
   tierIds.forEach(id => {
     const idx = CPU_IDS.indexOf(id);
-    gs.players[id] = { name: CPU_NAMES[idx], color: CPU_COLORS[idx], score: 0, misses: 0, isBot: true };
+    gs.players[id] = { name: CPU_NAMES[idx], color: CPU_COLORS[idx], score: 0, bonus: 0, cards: 0, misses: 0, isBot: true };
   });
 }
 
@@ -596,10 +567,20 @@ function computeHeadcount({ excludeEliminated = false, participantIds = null } =
 // DJ 実況：札取得のたびにランダムでコメントを選ぶ（毎回同じ文言だと単調なため）
 const DJ_TAKE_TEMPLATES = [
   (name, score) => `${name}さんが札をとりました！`,
-  (name, score) => `${name}さん、ナイスキャッチ！ 現在${score}枚です。`,
+  (name, score) => `${name}さん、ナイスキャッチ！ 現在${spokenPoints(score)}です。`,
   (name, score) => `お見事、${name}さん！`,
   (name, score) => `${name}さんが1枚ゲットです！`,
 ];
+// 読み上げ用の点数表記（"12,340" → "1万2340点"）。数字の羅列より聞き取りやすい。
+function spokenPoints(n) {
+  const v = Math.round(n);
+  if (v < 0) return `マイナス${spokenPoints(-v)}`;
+  if (v >= 10000) {
+    const man = Math.floor(v / 10000), rest = v % 10000;
+    return rest ? `${man}万${rest}点` : `${man}万点`;
+  }
+  return `${v}点`;
+}
 function pickDjTakeLine(name, score) {
   const f = DJ_TAKE_TEMPLATES[Math.floor(Math.random() * DJ_TAKE_TEMPLATES.length)];
   return f(name, score);
@@ -613,20 +594,39 @@ function rankedNonHost() {
     .sort(([, a], [, b]) => b.score - a.score);
 }
 
-// 2位が1位に1枚差以内まで詰め寄った「その瞬間」だけ実況する。
+// 2位が1位に約1枚分(NEAR_POINTS)以内まで詰め寄った「その瞬間」だけ実況する。
 // beforeGap（今回の得点加算前の1位・2位差）と比べて、しきい値を新たに
 // 下回った時だけ発火するため、同じ状況が続いても連呼しない。
 function checkNearFirstPlace(beforeGap) {
   const sorted = rankedNonHost();
   if (sorted.length < 2) return;
   const afterGap = sorted[0][1].score - sorted[1][1].score;
-  if (afterGap <= 1 && (beforeGap === null || beforeGap > 1)) {
-    io.emit('dj_comment', { text: `${sorted[1][1].name}さん、あと少しで1位です！` });
+  if (afterGap <= NEAR_POINTS && (beforeGap === null || beforeGap > NEAR_POINTS)) {
+    emitDj(`${djName(sorted[1][1])}さん、あと少しで1位です！`, VD.djNearSegments(djName(sorted[1][1])));
   }
 }
 
-// 正解取得の共通処理（人間・CPU 共用）
-function processCorrectGrab(grabberId, card) {
+// 1回の申告(candidate)を採点する。
+//  cand: { id, t(クリック時刻・サーバー時計), offsetMm(札の中心からの距離mm), distMm(定位置から札の中心までmm) }
+function scoreCandidate(cand) {
+  const speedMs   = Math.max(0, cand.t - gs.readStartAt);
+  const speedPts  = speedPoints(speedMs);
+  const accPts    = accuracyPoints(cand.offsetMm);
+  const ctrlPts   = controlPoints(cand.distMm);
+  const p = gs.players[cand.id];
+  return {
+    id: cand.id, name: p ? p.name : '?', color: p ? p.color : '#888', isBot: !!(p && p.isBot),
+    speedMs: Math.round(speedMs), speedPts,
+    offsetMm: Math.round(cand.offsetMm * 10) / 10, accPts,
+    distMm: Math.round(cand.distMm * 10) / 10, ctrlPts,
+    key:  accPts,                       // 誰が取るかの決定に使う値（精度の点数。同点なら速い人）
+    base: speedPts + accPts + ctrlPts,  // ハンデ適用前の獲得点
+  };
+}
+
+// 正解取得の共通処理（人間・CPU 共用）。scored は scoreCandidate() の結果（勝者）、
+// contenders は同じ受付時間内に申告した全員の採点結果。
+function processCorrectGrab(grabberId, card, scored, contenders) {
   if (!gs.remaining.has(card.id)) return;
   if (readTimeoutTimer) { clearTimeout(readTimeoutTimer); readTimeoutTimer = null; }
   clearCpuTimers();
@@ -637,7 +637,19 @@ function processCorrectGrab(grabberId, card) {
   const beforeSorted = rankedNonHost();
   const beforeGap = beforeSorted.length < 2 ? null : beforeSorted[0][1].score - beforeSorted[1][1].score;
 
-  player.score += 1;   // 得点は取った札の枚数（1枚＝1）
+  const hc = handicapOf(player);
+  const wanted  = Math.round(scored.base * hc.gain);
+  // 1試合の上限(2万点)は通常の得点にだけかかる。精度ボーナスは別枠でその上に加算する。
+  const bonusPrev  = player.bonus || 0;
+  const baseBefore = player.score - bonusPrev;
+  const baseAfter  = Math.min(SCORE_CAP, baseBefore + wanted);
+  const awarded    = baseAfter - baseBefore;
+  const capped     = awarded < wanted;
+  const bonusBase  = scored.accPts >= ACC_BONUS_THRESHOLD ? ACC_BONUS_PTS : 0;
+  const bonus      = Math.round(bonusBase * hc.gain);   // 精度ボーナスにもハンデ（得点倍率）をかける。1試合の上限(2万点)の外であることは変わらない
+  player.bonus = bonusPrev + bonus;
+  player.score = baseAfter + player.bonus;
+  player.cards = (player.cards || 0) + 1;
   gs.remaining.delete(card.id);
 
   const takenCard  = card;
@@ -646,30 +658,71 @@ function processCorrectGrab(grabberId, card) {
   gs.currentCard   = pickNext();
   gs.phase         = 'announcing';
 
+  const result = { ...scored, awarded, wanted, capped, bonus, bonusBase, handicap: hc.gain, total: player.score };
+  logEvent('card_taken', {
+    cardId: card.id, tori: card.tori, level: card.lv, winner: grabberId, name: takerName, isBot: !!player.isBot,
+    ...result, handicapPenalty: hc.penalty,
+    contenders: contenders.map(c => ({ id: c.id, name: c.name, isBot: c.isBot, speedMs: c.speedMs, speedPts: c.speedPts, offsetMm: c.offsetMm, accPts: c.accPts, distMm: c.distMm, ctrlPts: c.ctrlPts, key: c.key })),
+    sinceReadStartMs: Math.round(hiResNow() - gs.readStartAt),
+  });
+
   io.emit('card_taken', {
     cardId:  card.id,
     by:      { id: grabberId, name: takerName, color: takerColor },
     players: gs.players,
+    result,
+    contenders: contenders.slice(0, 10).map(c => ({ id: c.id, name: c.name, color: c.color, speedMs: c.speedMs, offsetMm: c.offsetMm, distMm: c.distMm, key: c.key, base: c.base, win: c.id === grabberId })),
   });
-  io.emit('dj_comment', { text: pickDjTakeLine(takerName, player.score) });
+  // 精度が高いときは専用のDJ。距離も遠い札を取ったときは、さらに特別なセリフ。
+  const dj = djName(player);
+  let djText, djSegs;
+  if (bonusBase && scored.ctrlPts >= DJ_MOUSE_DIST_PTS) { djText = `素晴らしい！${dj}さん。ナイスマウスさばき`; djSegs = VD.djMouseSegments(dj); }
+  else if (bonusBase) { djText = `流石です！${dj}さん。いい精度。`; djSegs = VD.djBonusSegments(dj); }
+  else {
+    const i = Math.floor(Math.random() * DJ_TAKE_TEMPLATES.length);
+    djText = DJ_TAKE_TEMPLATES[i](dj, player.score);
+    djSegs = VD.DJ_TAKE[i](dj, player.score);
+  }
+  emitDj(djText, djSegs);
   checkNearFirstPlace(beforeGap);
 
   const nextCard  = gs.currentCard;
   const remaining = [...gs.remaining];
+  // 順番は「DJの実況 → そこまで → 上の句 → 下の句」。DJ の音声（部品の生成を含む）が各PCに配られてから
+  // 正解発表を送る。以前は発表が先に届いてしまい、DJ が正解の読み上げのあとに鳴っていた。
   setTimeout(() => {
-    io.emit('announce_taken', { name: takerName, color: takerColor, card: takenCard, playAt: hiResNow() + 250 });
-    if (nextCard) {
-      gs.phase = 'waiting';
-      io.emit('game_waiting', {
-        remaining, players: gs.players, hostId: gs.hostId, difficulty: gs.difficulty,
-        round: gs.round, totalCards: gs.cardOrder.length || 10,
-        isRevival: gs.isRevival,
-      });
-    } else {
-      endRound();
-    }
+    djChain.then(() => {
+      io.emit('announce_taken', { name: takerName, color: takerColor, card: takenCard, playAt: hiResNow() + 250 });
+      if (nextCard) {
+        gs.phase = 'waiting';
+        io.emit('game_waiting', {
+          remaining, players: gs.players, hostId: gs.hostId, difficulty: gs.difficulty,
+          round: gs.round, totalCards: gs.cardOrder.length || 10,
+          isRevival: gs.isRevival,
+        });
+      } else {
+        endRound();
+      }
+    });
   }, 700);
 }
+
+// お手付き（誤った札のクリック・ダミー読み中のクリック・CPUの空振り）の共通処理
+function applyMiss(playerId, cardId, kind, extra = {}) {
+  const player = gs.players[playerId];
+  if (!player) return 0;
+  const hc = handicapOf(player);
+  const penalty = Math.round(MISS_PENALTY * hc.penalty);
+  player.misses++;
+  player.score -= penalty;
+  logEvent('miss', { player: playerId, name: player.name, isBot: !!player.isBot, kind, cardId, penalty, total: player.score,
+    sinceReadStartMs: Math.round(hiResNow() - gs.readStartAt), ...extra });
+  return penalty;
+}
+
+// CPU の「クリックの上手さ」(札の中心からのズレ 0〜1)。ティアが強いほど中心を正確に狙える。
+// 札の中心からのズレ(mm)の範囲。強いCPUほど中心を正確に狙え、ロビーの「CPUの強さ」でもさらに変わる。
+const CPU_OFFSET_RANGE_MM = { top: [0.8, 6], middle: [2.5, 13], bottom: [6, 22] };
 
 // yomi_finished 受信後に呼び出し、各 CPU の反応タイマーを仕掛ける
 function scheduleCpuGrabs(card) {
@@ -687,19 +740,37 @@ function scheduleCpuGrabs(card) {
       : gs.cpuDifficulty === 'easy'
       ? Math.min(base.missRate * 1.5, 0.8) : base.missRate;
     const delay = minMs + Math.random() * (maxMs - minMs);
+    const accMod = gs.cpuDifficulty === 'hard' ? 0.6 : gs.cpuDifficulty === 'easy' ? 1.6 : 1.0;
+    const [oMin, oMax] = CPU_OFFSET_RANGE_MM[tierKey];
+    const offsetMm = (oMin + Math.random() * (oMax - oMin)) * accMod;
+    const distMm   = FAR_MM * (0.2 + Math.random() * 0.7);   // 札の位置は端末ごとに違うので、定位置からの距離は仮想的に決める
+    const willMiss = Math.random() < missRate;
+    logEvent('cpu_plan', { cpu: cpuId, name: gs.players[cpuId].name, tier: tierKey, cardId: card.id, delayMs: Math.round(delay), willMiss, offsetMm: +offsetMm.toFixed(1), distMm: +distMm.toFixed(1) });
     const t = setTimeout(() => {
       if (gs.phase !== 'reading' || !gs.currentCard || gs.currentCard.id !== card.id) return;
       if (!gs.remaining.has(card.id)) return;
-      if (Math.random() < missRate) {
-        gs.players[cpuId].misses++;
-        gs.players[cpuId].score -= 1;
+      if (willMiss) {
+        applyMiss(cpuId, card.id, 'cpu_miss');
         io.emit('players_updated', gs.players);
       } else {
-        processCorrectGrab(cpuId, card);
+        addGrabCandidate({ id: cpuId, cardId: card.id, t: hiResNow(), offsetMm, distMm }, 'cpu');
       }
     }, delay);
     gs.cpuTimers.push(t);
   });
+}
+
+// 正解の申告を受け付け、最初の申告から GRAB_WINDOW_MS 後に勝者を決める。
+function addGrabCandidate(cand, source) {
+  cand.arrive = hiResNow();
+  gs.grabCandidates.push(cand);
+  logEvent('grab_click', { source, player: cand.id, name: gs.players[cand.id] && gs.players[cand.id].name, cardId: cand.cardId,
+    clientT: Math.round(cand.t), offsetMm: +cand.offsetMm.toFixed(1), distMm: +cand.distMm.toFixed(1),
+    sinceReadStartMs: Math.round(cand.t - gs.readStartAt), arriveDelayMs: Math.round(cand.arrive - cand.t) });
+  if (!gs.grabWindowTimer) {
+    const cardId = cand.cardId;
+    gs.grabWindowTimer = setTimeout(() => resolveGrabWindow(cardId), GRAB_WINDOW_MS);
+  }
 }
 
 // 本物の札（gs.currentCard）を読み上げる。
@@ -708,22 +779,29 @@ function startRealRead() {
   gs.lockedPlayers.clear();   // 次の札が読まれ始めたので、お手付きのロックを解除
   gs.phase = 'reading';
   const card = gs.currentCard;
+  const playAt = hiResNow() + 400;
+  gs.readStartAt = playAt + INTRO_START_EST_MS;   // ホストの「読み上げます」開始報告(intro_started)で正確な値に置き換わる
+  gs.yomiFinishedAt = 0;
+  logEvent('read_start', { kind: 'real', cardId: card.id, tori: card.tori, level: card.lv, yomiChars: card.yomi.length,
+    remaining: gs.remaining.size, playAt: Math.round(playAt) });
   io.emit('read_card', {
     card,
     remaining: [...gs.remaining],
-    playAt:    hiResNow() + 400,
+    playAt,
   });
   if (readTimeoutTimer) clearTimeout(readTimeoutTimer);
   // yomi_finished が来ない場合の安全フォールバック（8s 後に計測開始）
   readTimeoutTimer = setTimeout(() => {
     if (gs.phase !== 'reading' || gs.currentCard !== card) return;
     armReadTimeout(card);
-  }, 8000);
+  }, 24000);   // 警告の発声(約4.5秒)＋「読み上げます」＋上の句(長いものは約17秒)の分も見込む
 }
 
 // 上の句の読み上げ完了後に呼ばれる。制限時間タイマーと CPU タイマーを起動する。
 function armReadTimeout(card) {
   if (readTimeoutTimer) clearTimeout(readTimeoutTimer);
+  gs.yomiFinishedAt = hiResNow();
+  logEvent('read_end', { kind: 'real', cardId: card.id, readDurationMs: Math.round(gs.yomiFinishedAt - gs.readStartAt) });
   scheduleCpuGrabs(card);
   readTimeoutTimer = setTimeout(() => {
     if (gs.phase !== 'reading' || gs.currentCard !== card) return;
@@ -736,6 +814,7 @@ function armReadTimeout(card) {
 // 何度も選び続け、次の札に進めなくなる／同じ札が繰り返し読まれるバグになる）。
 function triggerTimeUp(card) {
   clearCpuTimers();
+  logEvent('time_up', { kind: 'real', cardId: card.id, tori: card.tori, sinceReadStartMs: Math.round(hiResNow() - gs.readStartAt), clicksDuringWindow: gs.grabCandidates.length });
   gs.phase = 'announcing';
   gs.remaining.delete(card.id);
   io.emit('time_up', { card, playAt: hiResNow() + 250 });
@@ -762,6 +841,7 @@ function armDecoyTimeout() {
   decoyTimeoutTimer = setTimeout(() => {
     if (gs.phase !== 'decoy') return;
     gs.phase = 'announcing';
+    logEvent('time_up', { kind: 'decoy', sinceReadStartMs: Math.round(hiResNow() - gs.readStartAt) });
     const decoy = gs.currentDecoy;
     gs.currentDecoy = null;
     // そこまで → 上の句（デコイ yomi）→ これは盤面にない札でした の順で再生させる
@@ -788,11 +868,15 @@ function armDecoyTimeout() {
 function startDecoyRead() {
   gs.lockedPlayers.clear();   // 次の読み上げが始まったので、お手付きのロックを解除
   gs.phase = 'decoy';
-  const decoy = DECOYS[Math.floor(Math.random() * DECOYS.length)];
+  const decoy = pickDecoy();
+  const playAt = hiResNow() + 400;
+  gs.readStartAt = playAt + INTRO_START_EST_MS;
+  logEvent('read_start', { kind: 'decoy', decoyId: decoy.id, tori: decoy.tori, remaining: gs.remaining.size,
+    finalDecoyLeft: gs.finalDecoyLeft, playAt: Math.round(playAt) });
   io.emit('decoy_read', {
     id:     decoy.id,
     yomi:   decoy.yomi,
-    playAt: hiResNow() + 400,
+    playAt,
   });
   gs.currentDecoy = decoy;   // time_up 発火時に上の句として再読み上げる
   if (decoyTimer) clearTimeout(decoyTimer);
@@ -805,6 +889,10 @@ function startDecoyRead() {
 
 // 試合終了処理
 function endRound() {
+  logEvent('match_end', { round: gs.round, mode: gs.event.active ? 'event:' + gs.event.stage : 'practice',
+    scores: Object.entries(gs.players).filter(([, p]) => p.isBot || p.joined)
+      .sort(([, a], [, b]) => b.score - a.score)
+      .map(([id, p]) => ({ id, name: p.name, isBot: !!p.isBot, score: p.score, cards: p.cards || 0, misses: p.misses || 0 })) });
   // ── 大会モード（1/8本番用）終了処理 ─────────────────────────
   if (gs.event.active) { endEventRound(); return; }
 
@@ -1024,7 +1112,7 @@ function eventCutCounts(poolSize) {
 // 1回戦は80人規模で開始し、1回戦→40人・2回戦→20人・3回戦（最終）→上位3人
 // という「本番はこう進む」がわかる縮小コピーの進行にする。
 const PRACTICE_MOCK_TOTAL_TARGET    = 80;
-const PRACTICE_MOCK_SURVIVOR_SCHEDULE = [40, 20, 3];
+const PRACTICE_MOCK_SURVIVOR_SCHEDULE = [40, 20, 10, 3];
 
 // gs.event.stage を設定する。'main' に入るたびに回戦カウンタを+1し、
 // EVENT_ROUND_MIX（易→難の配分）を回すのに使う。
@@ -1040,7 +1128,7 @@ function startEventMatch(participantIds) {
   gs.event.participantIds = new Set(participantIds);
   removeCpuPlayers();
   participantIds.forEach(id => {
-    if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].misses = 0; }
+    if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].bonus = 0; gs.players[id].cards = 0; gs.players[id].misses = 0; }
   });
 
   const cardIds = gs.event.stage === 'revival'
@@ -1068,7 +1156,7 @@ function startEventMatch(participantIds) {
     gamesPlayed:    gs.event.gamesPlayed,
     humanCount, cpuCount, totalCount,
   });
-  memorizeTimer = setTimeout(doStartPlaying, MEMO_SECONDS * 1000);
+  armMemorize();
 }
 
 // 現在のステージの参加者を games played にカウントし、次に打てる手（本戦／敗者復活戦の
@@ -1184,12 +1272,80 @@ function endEventRound() {
   }, 3000);
 }
 
+// ── 試合の音声の準備 ───────────────────────────────────────────
+// 盤面整理(暗記)が始まったら、その試合で使う音声（札の上の句・答え・ダミー読み候補・固定セリフ・DJの名前）を
+// VOICEVOX で生成し、できたらクライアントに配信を知らせる。キャッシュ済みの分はすぐ使える。
+let voiceToken = 0;
+function voiceSummary() {
+  const v = gs.voice;
+  return v ? { ready: v.ready, done: v.done, total: v.total, failed: v.failed, items: v.items } : null;
+}
+function prepareMatchVoice() {
+  const token = ++voiceToken;
+  // ダミー読みの候補を先に決めて、音声も作っておく
+  const pool = [...UNLEVELED].sort(() => Math.random() - 0.5).slice(0, 12);
+  gs.decoyPool = pool.map(k => ({ id: 'decoy' + k.id, yomi: k.yomi, tori: k.tori }));
+  const items = [];
+  gs.cardOrder.forEach(id => {
+    const k = KMAP[id];
+    if (k) items.push(VD.seg(k.yomi, 'metan'), VD.seg(k.tori, 'zunda'));
+  });
+  gs.decoyPool.forEach(d => items.push(VD.seg(d.yomi, 'metan'), VD.seg(d.tori, 'zunda')));
+  VD.warmupItems().filter(it => Object.values(VD.FIXED).includes(it.text)).forEach(it => items.push(it));
+  Object.values(gs.players).filter(p => !p.isBot && p.joined).forEach(p => items.push(VD.nameSeg(djName(p))));
+  const seen = new Set();
+  const uniq = items.filter(it => { const k = it.voice + '|' + it.text; if (seen.has(k)) return false; seen.add(k); return true; });
+  gs.voice = { token, ready: false, done: 0, failed: 0, total: uniq.length, items: uniq };
+  io.emit('voice_manifest', { items: uniq, total: uniq.length });
+  const t0 = Date.now();
+  let last = 0;
+  voiceEngine.ensure(uniq, { prio: 'match', onEach: (it, ok) => {
+    if (token !== voiceToken || !gs.voice) return;
+    gs.voice.done++; if (!ok) gs.voice.failed++;
+    if (Date.now() - last > 400) { last = Date.now(); io.emit('voice_progress', { done: gs.voice.done, total: gs.voice.total }); }
+  } }).then(r => {
+    if (token !== voiceToken || !gs.voice) return;
+    gs.voice.ready = true; gs.voice.done = gs.voice.total;
+    logEvent('voice_ready', { total: uniq.length, failed: r.failed, ms: Date.now() - t0, stats: voiceEngine.stats });
+    io.emit('voice_ready', { done: gs.voice.total, total: gs.voice.total, failed: r.failed });
+  });
+}
+// 盤面整理を開始する。時間が来ても音声が揃っていなければ、最大 VOICE_WAIT_MAX_MS 待ってから試合を始める
+// （間に合わない音声は、クライアント側でブラウザ音声に切り替わる）。
+function armMemorize() {
+  prepareMatchVoice();
+  if (memorizeTimer) clearTimeout(memorizeTimer);
+  memorizeTimer = setTimeout(startPlayingWhenVoiceReady, MEMO_SECONDS * 1000);
+}
+function startPlayingWhenVoiceReady() {
+  memorizeTimer = null;
+  if (gs.phase !== 'memorizing') return;
+  if (!gs.voice || gs.voice.ready) { doStartPlaying(); return; }
+  const t0 = Date.now();
+  io.emit('voice_wait', { done: gs.voice.done, total: gs.voice.total, maxMs: VOICE_WAIT_MAX_MS });
+  const tick = () => {
+    if (gs.phase !== 'memorizing') return;
+    if (!gs.voice || gs.voice.ready || Date.now() - t0 > VOICE_WAIT_MAX_MS) {
+      logEvent('voice_wait_end', { ready: !!(gs.voice && gs.voice.ready), waitedMs: Date.now() - t0 });
+      doStartPlaying(); return;
+    }
+    memorizeTimer = setTimeout(tick, 500);
+  };
+  memorizeTimer = setTimeout(tick, 500);
+}
+
 // 暗記フェーズ終了後に waiting フェーズへ移行
 function doStartPlaying() {
   if (memorizeTimer) { clearTimeout(memorizeTimer); memorizeTimer = null; }
   // CPU は各試合の開始時（暗記フェーズ開始時）に追加済み
   gs.phase       = 'waiting';
   gs.currentCard = pickNext();
+  gs.matchLevel     = matchLevelIndex(gs.cardOrder);
+  gs.finalDecoyLeft = null;
+  gs.grabCandidates = [];
+  logEvent('match_start', { round: gs.round, mode: gs.event.active ? 'event:' + gs.event.stage : (gs.isRevival ? 'revival' : gs.isGroupMatch ? 'group' : 'practice'),
+    level: LEVELS[gs.matchLevel], cards: gs.cardOrder.map(id => ({ id, tori: KMAP[id] && KMAP[id].tori, lv: KMAP[id] && KMAP[id].lv })),
+    players: Object.entries(gs.players).filter(([, p]) => p.isBot || p.joined).map(([id, p]) => ({ id, name: p.name, isBot: !!p.isBot, grade: p.grade || null, course: p.course || null })) });
   io.emit('game_waiting', {
     cardOrder:           gs.cardOrder,
     remaining:           [...gs.remaining],
@@ -1209,6 +1365,52 @@ function doStartPlaying() {
     eventStageLabel:     EVENT_STAGE_LABELS[gs.event.stage] || null,
     eventParticipantIds: [...gs.event.participantIds],
   });
+  beginReadyBarrier();
+}
+
+// ── 試合開始時の待ち合わせ ─────────────────────────────────────
+// 暗記(盤面整理)が終わっても、すぐには読み上げない。札を取る側の人間が全員、仮想マウスカーソル
+// （Pointer Lock。使えない端末は通常カーソル）に移ったことを確認してから最初の読み上げを始める。
+// 誰かが操作しなくても止まらないよう、READY_TIMEOUT_MS で打ち切って開始する。
+const READY_TIMEOUT_MS = +process.env.KARUTA_READY_TIMEOUT_MS || 30 * 1000;   // 環境変数はテスト用
+gs.ready = { active: false, need: new Set(), done: new Set(), timer: null, deadline: 0 };
+
+function handicapSummary() {
+  const mine = {};
+  for (const [id, p] of Object.entries(gs.players)) if (!p.isBot && p.joined) mine[id] = handicapOf(p);
+  return {
+    event: gs.event.active,
+    any: Object.values(mine).some(h => h.gain !== 1 || h.penalty !== 1),   // 今の参加者に1人でもハンデのある人がいるか
+    rules: { grade: HANDICAP_GRADE, programmingCourses: PROGRAMMING_COURSES, programming: HANDICAP_PROGRAMMING },
+    mine,
+  };
+}
+function readyProgress() {
+  return { total: gs.ready.need.size, ready: gs.ready.done.size, deadline: gs.ready.deadline, active: gs.ready.active };
+}
+function beginReadyBarrier() {
+  if (gs.ready.timer) clearTimeout(gs.ready.timer);
+  const need = Object.keys(gs.players).filter(id => !gs.players[id].isBot && gs.players[id].joined && canParticipate(id));
+  gs.ready = { active: true, need: new Set(need), done: new Set(), timer: null, deadline: Date.now() + READY_TIMEOUT_MS };
+  logEvent('ready_wait', { need: need.map(id => ({ id, name: gs.players[id].name })) });
+  if (!need.length) { releaseReadyBarrier('no_players'); return; }
+  gs.ready.timer = setTimeout(() => releaseReadyBarrier('timeout'), READY_TIMEOUT_MS);
+  io.emit('ready_wait', { ...readyProgress(), handicap: handicapSummary() });
+}
+function releaseReadyBarrier(reason) {
+  if (!gs.ready.active) return;
+  if (gs.ready.timer) { clearTimeout(gs.ready.timer); gs.ready.timer = null; }
+  gs.ready.active = false;
+  const notReady = [...gs.ready.need].filter(id => !gs.ready.done.has(id)).map(id => gs.players[id] && gs.players[id].name);
+  logEvent('ready_release', { reason, notReady });
+  io.emit('ready_release', { reason });
+}
+function markReady(id) {
+  if (!gs.ready.active || !gs.ready.need.has(id) || gs.ready.done.has(id)) return;
+  gs.ready.done.add(id);
+  logEvent('ready', { id, name: gs.players[id] && gs.players[id].name, doneCount: gs.ready.done.size, total: gs.ready.need.size });
+  if (gs.ready.done.size >= gs.ready.need.size) releaseReadyBarrier('all_ready');
+  else io.emit('ready_progress', readyProgress());
 }
 
 // 全タイマーをまとめてクリアするユーティリティ
@@ -1219,12 +1421,14 @@ function clearAllTimers() {
   if (decoyTimeoutTimer) { clearTimeout(decoyTimeoutTimer); decoyTimeoutTimer = null; }
   if (readTimeoutTimer)  { clearTimeout(readTimeoutTimer);  readTimeoutTimer  = null; }
   if (gs.grabWindowTimer) { clearTimeout(gs.grabWindowTimer); gs.grabWindowTimer = null; }
+  if (gs.ready.timer) { clearTimeout(gs.ready.timer); gs.ready.timer = null; }
+  gs.ready.active = false;
   gs.grabCandidates = [];
 }
 
 // 受付時間内に集まった正解候補から勝者を決める。
-// まず時刻を GRAB_BUCKET_MS 単位でグルーピングし、最速グループの中で
-// 最も札の中心に近かった人（precision が最小）を勝者とする。
+// 「速度＋精度」のポイント合計が一番高い人が札を取る（同点なら速い方）。
+// 距離(マウスコントロール力)は誰が取るかには使わず、取った人の得点にだけ加算される。
 function resolveGrabWindow(cardId) {
   gs.grabWindowTimer = null;
   const candidates = gs.grabCandidates.filter(c => c.cardId === cardId);
@@ -1232,21 +1436,74 @@ function resolveGrabWindow(cardId) {
   if (!candidates.length) return;
   if (!gs.currentCard || gs.currentCard.id !== cardId || !gs.remaining.has(cardId)) return;
 
-  const minT = Math.min(...candidates.map(c => c.t));
-  const fastest = candidates.filter(c => c.t - minT < GRAB_BUCKET_MS);
-  fastest.sort((a, b) => a.precision - b.precision);
-  const winner = fastest[0];
-  const player = gs.players[winner.id];
-  if (!player) return;
-  processCorrectGrab(winner.id, gs.currentCard);
+  const scored = candidates.map(scoreCandidate);
+  scored.sort((x, y) => (y.key - x.key) || (x.speedMs - y.speedMs));
+  const winner = scored[0];
+  if (!gs.players[winner.id]) return;
+  processCorrectGrab(winner.id, gs.currentCard, winner, scored);
+}
+
+// ── 観戦チャット用ヘルパー ───────────────────────────────────
+// 観戦者 = 大会モードの対局中で、今の試合の参加者でも進行役でもない参加登録済みの人間。
+function isSpectatorSocket(id) {
+  const p = gs.players[id];
+  if (!p || p.isBot || !p.joined || !gs.event.active) return false;
+  if (id === gs.hostId) return false;
+  return !gs.event.participantIds.has(id);
+}
+function emitToSpectators(eventName, payload) {
+  for (const [id, sock] of io.sockets.sockets) {
+    if (isSpectatorSocket(id)) sock.emit(eventName, payload);
+  }
+}
+
+// 誹謗中傷・不適切表現の簡易フィルタ。全角/半角・大小文字・カタカナ/ひらがな・記号や空白の
+// 挟み込み（"し ね"、"死-ね" など）を吸収してから照合する。完全ではないが、展示で出やすい語を弾く。
+const NG_WORDS = [
+  '死ね', 'しね', '死んで', '消えろ', 'きえろ', '殺す', 'ころす', '殺せ', 'ぶっ殺', 'ぶっころ', '自殺', '氏ね', 'タヒ',
+  'きもい', 'キモい', 'きめぇ', 'きしょい', 'うざい', 'うぜぇ', 'うぜえ', 'ださい', 'だせぇ',
+  'ばか', '馬鹿', 'バカ', 'あほ', '阿呆', 'アホ', 'くず', 'クズ', 'ごみ', 'ゴミ', 'かす', 'カス', 'ぼけ', 'ボケ', 'まぬけ', '間抜け',
+  'ぶす', 'ブス', 'でぶ', 'デブ', 'はげ', 'ハゲ', 'ちび', 'チビ', 'ぶた', 'ブタ', 'ババア', 'ばばあ', 'ジジイ', 'じじい',
+  '無能', '役立たず', '使えない', '才能ない', '下手くそ', 'へたくそ', 'ヘタクソ', '雑魚', 'ざこ', 'ザコ', '低能', '池沼', 'ガイジ', 'きちがい', '気違い', '障害者', 'しょうがいしゃ',
+  'ちんこ', 'ちんぽ', 'まんこ', 'おまんこ', 'せっくす', 'セックス', 'えっち', 'エッチ', 'えろ', 'エロ', 'おっぱい', 'ぱいぱい', 'うんこ', 'うんち', 'ちくび', 'レイプ', 'れいぷ',
+];
+// 英語の暴言は単語単位で判定（skill / diet などを誤って弾かないため）
+const NG_LATIN = /\b(fuck|shit|bitch|asshole|dick|pussy|sex|kill|die|stupid|idiot)(s|ing|ed)?\b/i;
+// 日本語の部分一致で誤検出しやすい普通の言い回し（正規化後のひらがな）。判定の前に取り除く。
+const NG_ALLOW = ['ですしね', 'ますしね', 'ばかんす', 'しねま', 'しねっと'];
+function normalizeForNg(text) {
+  let t = String(text).normalize('NFKC').toLowerCase();
+  t = t.replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));   // カタカナ→ひらがな
+  t = t.replace(/\u30fc/g, '');                                                           // 長音「ー」は無視
+  return t.replace(/[^\p{L}\p{N}]/gu, '');                                                 // 空白・記号・絵文字の挟み込みを除去
+}
+const NG_NORMALIZED = NG_WORDS.map(normalizeForNg).filter(Boolean);
+function isInappropriate(text) {
+  if (NG_LATIN.test(String(text).normalize('NFKC'))) return true;
+  let t = normalizeForNg(text);
+  NG_ALLOW.forEach(a => { t = t.split(a).join(''); });
+  return NG_NORMALIZED.some(w => t.includes(w));
+}
+
+// この接続が今の試合で札を取れる参加者か（進行役・観戦者・敗退者は不可）
+function canParticipate(id) {
+  if (!gs.players[id]) return false;
+  // ホストは進行役なので大会モード（本番）では取得不可。練習モードでは
+  // サーバーPC自身のブラウザ＝ホストも通常プレイヤーとして参加できる。
+  if (id === gs.hostId && gs.event.active) return false;
+  if (gs.event.active) return gs.event.participantIds.has(id);               // 大会モード: 現在のステージの参加者のみ
+  if (gs.isGroupMatch) return gs.groupParticipantIds.has(id) && !gs.groupEliminated.has(id);
+  if (gs.isRevival)    return gs.eliminatedPlayers.has(id) && !gs.revivalEliminated.has(id);
+  return !gs.eliminatedPlayers.has(id);                                       // 本戦: 敗退者は取れない
 }
 
 // ── Socket.io ─────────────────────────────────────────────
 io.on('connection', socket => {
   const color = COLORS[colorIdx++ % COLORS.length];
-  gs.players[socket.id] = { name: `プレイヤー${Object.keys(gs.players).filter(id => !gs.players[id].isBot).length + 1}`, color, score: 0, misses: 0, joined: false };
+  gs.players[socket.id] = { name: `プレイヤー${Object.keys(gs.players).filter(id => !gs.players[id].isBot).length + 1}`, color, score: 0, bonus: 0, cards: 0, misses: 0, joined: false };
 
   socket.emit('init', {
+    voice:             voiceSummary(),
     myId:              socket.id,
     phase:             gs.phase,
     difficulty:        gs.difficulty,
@@ -1255,7 +1512,7 @@ io.on('connection', socket => {
     cardOrder:         gs.cardOrder,
     remaining:         [...gs.remaining],
     players:           gs.players,
-    cards:             KARUTA,
+    cards:             [],   // 札データはブラウザ側の karuta-data.js を使う
     endsAt:            gs.memorizeEndsAt,
     hostId:            gs.hostId,
     isServerPc:        isHostEligible(socket),   // サーバーPC自身のブラウザか（大会モードの操作可否）
@@ -1293,6 +1550,35 @@ io.on('connection', socket => {
 
   socket.broadcast.emit('player_joined', { id: socket.id, player: gs.players[socket.id], players: gs.players });
 
+
+  // ── 観戦画面のリアクション／チャット ─────────────────────────
+  // 観戦者（大会モードで今の試合に出ていない人）だけが送れて、観戦者だけに届く。
+  // 対局中の画面には出さない。
+  const REACTIONS = ['👏', '🔥', '😲', '😆', '😭', '🎉', '💪', '❤️'];
+  let lastChatAt = 0;
+  socket.on('spectator_reaction', ({ emoji } = {}) => {
+    if (!isSpectatorSocket(socket.id) || !REACTIONS.includes(emoji)) return;
+    const p = gs.players[socket.id];
+    emitToSpectators('spectator_reaction', { emoji, name: p.name, color: p.color });
+    logEvent('reaction', { id: socket.id, name: p.name, emoji });
+  });
+  socket.on('spectator_chat', ({ text } = {}) => {
+    if (!isSpectatorSocket(socket.id)) return;
+    const raw = String(text == null ? '' : text).replace(/[\r\n]+/g, ' ').trim().slice(0, 60);
+    if (!raw) return;
+    const now = Date.now();
+    if (now - lastChatAt < 1500) { socket.emit('chat_rejected', { reason: 'rate', message: '送信が早すぎます。少し待ってください' }); return; }
+    lastChatAt = now;
+    const p = gs.players[socket.id];
+    if (isInappropriate(raw)) {
+      socket.emit('chat_rejected', { reason: 'ng', message: 'このメッセージは不適切な内容が含まれています' });
+      logEvent('chat_blocked', { id: socket.id, name: p.name, text: raw });
+      return;
+    }
+    emitToSpectators('spectator_chat', { name: p.name, color: p.color, text: raw, id: socket.id });
+    logEvent('chat', { id: socket.id, name: p.name, text: raw });
+  });
+
   // ── Clock sync ───────────────────────────────────────────
   socket.on('time_sync', ({ t1 }) => {
     socket.emit('time_sync', { t1, t2: hiResNow() });
@@ -1306,12 +1592,18 @@ io.on('connection', socket => {
     const rawName = isObj ? payload.name : payload;
     const n = String(rawName).trim().slice(0, 15);
     if (n && gs.players[socket.id]) {
-      gs.players[socket.id].name   = n;
-      gs.players[socket.id].joined = true;
+      const me = gs.players[socket.id];
+      me.joined = true;
       if (isObj) {
-        if (payload.grade)  gs.players[socket.id].grade  = String(payload.grade);
-        if (payload.course) gs.players[socket.id].course = String(payload.course);
+        if (payload.grade)  me.grade  = String(payload.grade);
+        if (payload.course) me.course = String(payload.course);
       }
+      const tag = gradeCourseTag(me.grade, me.course);
+      me.rawName = n;
+      me.tag     = tag;
+      me.name    = tag ? tag + '　' + n : n;   // 画面にはこの名前（学年・コース付き）を出す
+      voiceEngine.request('metan', VD.nameSeg(n).text, 'dj');   // DJ が呼ぶ「○○さん」の音声を先に作っておく
+      logEvent('join', { id: socket.id, name: gs.players[socket.id].name, grade: gs.players[socket.id].grade || null, course: gs.players[socket.id].course || null });
       const becameHost = !gs.hostId && isHostEligible(socket);
       if (becameHost) gs.hostId = socket.id;
       io.emit('players_updated', gs.players);
@@ -1335,9 +1627,8 @@ io.on('connection', socket => {
     if (gs.phase !== 'lobby' || !isJoinedHuman(socket.id)) return;
     // 開始した人が読み上げの進行役（次の札の読み上げ通知を出す端末）になる
     setHost(socket.id);
-    const diff    = opts && opts.difficulty;
     const cpuDiff = opts && opts.cpuDifficulty;
-    gs.difficulty     = ['easy', 'normal', 'hard'].includes(diff)    ? diff    : 'normal';
+    gs.difficulty     = 'normal';   // 難易度ボタンは廃止。札のレベルは試合ごとに A→B→C→D と上がる
     gs.cpuDifficulty  = ['easy', 'normal', 'hard'].includes(cpuDiff) ? cpuDiff : 'normal';
 
     // トーナメント状態をフルリセット
@@ -1354,7 +1645,7 @@ io.on('connection', socket => {
     gs.middleGroupWinners  = null;
     gs.groupMatchScores    = {};
     Object.values(gs.players).forEach(p => {
-      p.score = 0; p.misses = 0; p.isEliminated = false;
+      p.score = 0; p.bonus = 0; p.cards = 0; p.misses = 0; p.isEliminated = false;
     });
 
     addCpuPlayersForPractice(PRACTICE_MOCK_TOTAL_TARGET);
@@ -1379,18 +1670,30 @@ io.on('connection', socket => {
       survivorCount: gs.survivorCount,
       humanCount, cpuCount, totalCount,
     });
-    memorizeTimer = setTimeout(doStartPlaying, MEMO_SECONDS * 1000);
+    armMemorize();
   });
 
   // ── Skip memorization（ホストのみ・デバッグ用）───────────
   socket.on('skip_memorize', () => {
     if (gs.phase !== 'memorizing' || !canUseDebug(socket)) return;
+    // 練習モードは、音声ファイルが用意できてからでないと盤面整理をスキップできない
+    if (!gs.event.active && gs.voice && !gs.voice.ready) { socket.emit('skip_denied', { done: gs.voice.done, total: gs.voice.total }); return; }
     doStartPlaying();
   });
 
   // ── Read next card（ホストのみ）──────────────────────────
   socket.on('read_next', () => {
     if (gs.phase !== 'waiting' || socket.id !== gs.hostId || !gs.currentCard) return;
+    if (gs.ready.active) return;   // 全員の仮想カーソルの準備待ち（ready_release で再開される）
+    // 最後の1枚になったら、本物の札を読む前に最低でもレベルに応じた回数（A=3〜D=6）ダミー読みを連発する
+    if (gs.remaining.size === 1) {
+      if (gs.finalDecoyLeft === null) gs.finalDecoyLeft = FINAL_DECOYS[LEVELS[gs.matchLevel]] || 3;
+      if (gs.finalDecoyLeft > 0) {
+        gs.finalDecoyLeft--;
+        startDecoyRead();
+        return;
+      }
+    }
     const chance = getDecoyChance();
     if (chance > 0 && Math.random() < chance) {
       startDecoyRead();
@@ -1405,6 +1708,7 @@ io.on('connection', socket => {
   socket.on('decoy_finished', () => {
     if (socket.id !== gs.hostId || gs.phase !== 'decoy') return;
     if (decoyTimer) { clearTimeout(decoyTimer); decoyTimer = null; }
+    logEvent('read_end', { kind: 'decoy', readDurationMs: Math.round(hiResNow() - gs.readStartAt) });
     armDecoyTimeout();
   });
 
@@ -1417,73 +1721,92 @@ io.on('connection', socket => {
   });
 
   // ── Grab card ────────────────────────────────────────────
-  // payload は { cardId, t, precision }（t: サーバー時計に補正済みのクリック時刻、
-  // precision: 札の中心からのズレ 0〜1）。旧クライアント互換のため、
-  // 数値（cardId のみ）で届いた場合もフォールバックする。
+  // payload は { cardId, t, offsetMm, distMm }
+  //  t: サーバー時計に補正済みのクリック時刻
+  //  offsetMm: 札の中心からクリック位置までの距離(mm) / distMm: 定位置(円)の中心から札の中心までの距離(mm)
   socket.on('grab_card', payload => {
     const isObj     = payload && typeof payload === 'object';
     const cardId    = isObj ? payload.cardId : payload;
-    const clientT   = (isObj && typeof payload.t === 'number') ? payload.t : null;
-    const precision = (isObj && typeof payload.precision === 'number')
-      ? Math.max(0, Math.min(1, payload.precision)) : 1;
+    const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v)) ? Math.max(lo, Math.min(hi, v)) : d;
+    const offset    = isObj ? num(payload.offsetMm, 0, 200, ACC_FULL_MM) : ACC_FULL_MM;
+    const dist      = isObj ? num(payload.distMm, 0, 600, FAR_MM * 0.5) : FAR_MM * 0.5;
+    // クリック時刻は端末の時計を信用しすぎない（受信時刻より未来にならず、2秒より前にもならない）
+    const arriveNow = hiResNow();
+    const clientT   = (isObj && typeof payload.t === 'number' && isFinite(payload.t))
+      ? Math.max(arriveNow - 2000, Math.min(arriveNow, payload.t)) : null;
 
-    if (!gs.players[socket.id]) return;
-    // ホストは進行役なので大会モード（本番）では取得不可。練習モードでは
-    // サーバーPC自身のブラウザ＝ホストも通常プレイヤーとして参加できる。
-    if (socket.id === gs.hostId && gs.event.active) return;
+    if (!canParticipate(socket.id)) return;
 
-    if (gs.event.active) {
-      // 大会モード: 現在のステージの参加者のみ取れる
-      if (!gs.event.participantIds.has(socket.id)) return;
-    } else if (gs.isGroupMatch) {
-      // グループ戦: そのグループの参加者のみ（中間ラウンドで脱落済みは除く）
-      if (!gs.groupParticipantIds.has(socket.id)) return;
-      if (gs.groupEliminated.has(socket.id)) return;
-    } else if (gs.isRevival) {
-      // 復活戦: 敗退者のみ取れる（復活戦で脱落済みは除く）
-      if (!gs.eliminatedPlayers.has(socket.id)) return;
-      if (gs.revivalEliminated.has(socket.id)) return;
-    } else {
-      // 本戦: 敗退者は取れない
-      if (gs.eliminatedPlayers.has(socket.id)) return;
+    // 「読み上げます」の発声が始まるまでは、札を取れない（クリックしても何も起きず、お手付きにもならない）。
+    // 開始時刻はホスト端末の報告(intro_started)。端末ごとの発声開始のずれ分(INTRO_GRACE_MS)だけ余裕を見る。
+    if ((gs.phase === 'reading' || gs.phase === 'decoy') && arriveNow < gs.readStartAt - INTRO_GRACE_MS) {
+      logEvent('grab_ignored', { player: socket.id, name: gs.players[socket.id].name, reason: 'before_intro', cardId, phase: gs.phase,
+        earlyByMs: Math.round(gs.readStartAt - arriveNow) });
+      socket.emit('grab_too_early');
+      return;
     }
 
     // お手付きをした人は、次の札が読み上げられるまで取れない
     // （手当たり次第にクリックして札を取られるのを防ぐため）。
     if (gs.lockedPlayers.has(socket.id)) {
+      logEvent('grab_ignored', { player: socket.id, name: gs.players[socket.id].name, reason: 'locked', cardId, phase: gs.phase });
       if (gs.phase === 'reading' || gs.phase === 'decoy') socket.emit('grab_locked');
       return;
     }
 
     if (gs.phase === 'decoy') {
-      const player = gs.players[socket.id];
-      player.misses++;
-      player.score -= 1;
+      const penalty = applyMiss(socket.id, cardId, 'decoy');
       gs.lockedPlayers.add(socket.id);
-      socket.emit('wrong_grab', { cardId });
+      socket.emit('wrong_grab', { cardId, penalty });
       io.emit('players_updated', gs.players);
       return;
     }
 
-    if (gs.phase !== 'reading' || !gs.currentCard) return;
+    if (gs.phase !== 'reading' || !gs.currentCard) {
+      logEvent('grab_ignored', { player: socket.id, name: gs.players[socket.id].name, reason: 'not_reading', cardId, phase: gs.phase });
+      return;
+    }
     const player = gs.players[socket.id];
 
     if (cardId === gs.currentCard.id && gs.remaining.has(cardId)) {
       // 即座に正解者を確定させず、短い受付時間の間だけ他の候補も集める。
       // 集まった候補は、まず時刻でグルーピングし、最速グループ内では
       // 札の中心により近かった人（precision）を優先して勝者を決める。
-      const t = clientT !== null ? clientT : hiResNow();
-      gs.grabCandidates.push({ id: socket.id, cardId, t, precision });
-      if (!gs.grabWindowTimer) {
-        gs.grabWindowTimer = setTimeout(() => resolveGrabWindow(cardId), GRAB_WINDOW_MS);
-      }
+      const t = clientT !== null ? clientT : arriveNow;
+      // 同じ人が受付時間内に連打しても、最初の1回だけを採点する
+      if (gs.grabCandidates.some(c => c.id === socket.id)) return;
+      addGrabCandidate({ id: socket.id, cardId, t, offsetMm: offset, distMm: dist }, 'human');
     } else if (gs.remaining.has(cardId)) {
-      player.misses++;
-      player.score -= 1;
+      const penalty = applyMiss(socket.id, cardId, 'wrong_card', { expected: gs.currentCard.id });
       gs.lockedPlayers.add(socket.id);
-      socket.emit('wrong_grab', { cardId });
+      socket.emit('wrong_grab', { cardId, penalty });
       io.emit('players_updated', gs.players);
     }
+  });
+
+  // ── フライング ─────────────────────────────────────────────
+  // 「読み上げます」の発声で全員のカーソルが定位置に戻され、上の句の1文字目が読まれる前に
+  // 定位置の円から出てしまったらフライング。お手付きと同じ扱い（減点＋次の札まで取れない）。
+  // ホスト端末が「読み上げます」の発声を始めた時刻（速度ポイントの基準）
+  socket.on('intro_started', ({ t } = {}) => {
+    if (socket.id !== gs.hostId || (gs.phase !== 'reading' && gs.phase !== 'decoy')) return;
+    if (typeof t !== 'number' || !isFinite(t)) return;
+    const now = hiResNow();
+    gs.readStartAt = Math.max(now - 15000, Math.min(now, t));
+    logEvent('intro_start', { readStartAt: Math.round(gs.readStartAt) });
+  });
+
+  // 仮想カーソルに移った（Pointer Lock 成立、または使えず通常カーソルで遊ぶ）ことの通知
+  socket.on('cursor_ready', () => markReady(socket.id));
+
+  socket.on('flying', () => {
+    if (!canParticipate(socket.id)) return;
+    if (gs.phase !== 'reading' && gs.phase !== 'decoy') return;
+    if (gs.lockedPlayers.has(socket.id)) return;
+    const penalty = applyMiss(socket.id, gs.currentCard ? gs.currentCard.id : null, 'flying');
+    gs.lockedPlayers.add(socket.id);
+    socket.emit('flying_penalty', { penalty });
+    io.emit('players_updated', gs.players);
   });
 
   // ── Debug: 即ゲーム終了（ホストのみ）─────────────────────
@@ -1499,7 +1822,8 @@ io.on('connection', socket => {
     if (!canUseDebug(socket)) return;
     CPU_IDS.forEach(id => {
       if (gs.players[id]) {
-        gs.players[id].score = Math.floor(Math.random() * 7);   // 0〜6枚
+        gs.players[id].score = 100 + Math.floor(Math.random() * 2901);   // 100〜3000点
+        gs.players[id].cards = Math.floor(Math.random() * 7);
       }
     });
     io.emit('players_updated', gs.players);
@@ -1530,7 +1854,7 @@ io.on('connection', socket => {
     gs.currentCard    = null;
     gs.currentDecoy   = null;
 
-    Object.values(gs.players).forEach(p => { p.score = 0; p.misses = 0; });
+    Object.values(gs.players).forEach(p => { p.score = 0; p.bonus = 0; p.cards = 0; p.misses = 0; });
 
     // 敗退なし：1回戦と同じ人数規模（80人）で毎試合行う
     addCpuPlayersForPractice(PRACTICE_MOCK_TOTAL_TARGET);
@@ -1555,7 +1879,7 @@ io.on('connection', socket => {
       isRevival:     false,
       humanCount, cpuCount, totalCount,
     });
-    memorizeTimer = setTimeout(doStartPlaying, MEMO_SECONDS * 1000);
+    armMemorize();
   });
 
   // ── 敗者復活戦を開始（ホストのみ）———任意ユーザー選択対応
@@ -1584,7 +1908,7 @@ io.on('connection', socket => {
 
     removeCpuPlayers();
     participants.forEach(id => {
-      if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].misses = 0; }
+      if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].bonus = 0; gs.players[id].cards = 0; gs.players[id].misses = 0; }
     });
     const { humanCount, cpuCount, totalCount } = computeHeadcount({ participantIds: new Set(participants) });
 
@@ -1614,7 +1938,7 @@ io.on('connection', socket => {
       revivalSurvivorCount: gs.revivalSurvivorCount,
       humanCount, cpuCount, totalCount,
     });
-    memorizeTimer = setTimeout(doStartPlaying, MEMO_SECONDS * 1000);
+    armMemorize();
   });
 
   // ── 次の復活戦ラウンドを開始（ホストのみ）─────────────────
@@ -1630,7 +1954,7 @@ io.on('connection', socket => {
     const activeRevivalIds = Object.entries(gs.players)
       .filter(([id, p]) => gs.eliminatedPlayers.has(id) && !gs.revivalEliminated.has(id) && !p.isBot && p.joined)
       .map(([id]) => id);
-    activeRevivalIds.forEach(id => { gs.players[id].score = 0; gs.players[id].misses = 0; });
+    activeRevivalIds.forEach(id => { gs.players[id].score = 0; gs.players[id].bonus = 0; gs.players[id].cards = 0; gs.players[id].misses = 0; });
     const { humanCount, cpuCount, totalCount } = computeHeadcount({ participantIds: new Set(activeRevivalIds) });
     // 通過人数は自動算出（このラウンドが最終ラウンドなら本戦復帰人数として使う）
     gs.revivalSurvivorCount = Math.max(1, Math.ceil(activeRevivalIds.length * 0.6));
@@ -1661,7 +1985,7 @@ io.on('connection', socket => {
       revivalSurvivorCount: gs.revivalSurvivorCount,
       humanCount, cpuCount, totalCount,
     });
-    memorizeTimer = setTimeout(doStartPlaying, MEMO_SECONDS * 1000);
+    armMemorize();
   });
 
   // ── グループ戦を開始（ホストのみ、最終試合後またはロビーから）──────────────
@@ -1695,7 +2019,7 @@ io.on('connection', socket => {
       humanIds = [...promoted];
     }
     humanIds.forEach(id => {
-      if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].misses = 0; }
+      if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].bonus = 0; gs.players[id].cards = 0; gs.players[id].misses = 0; }
     });
 
     // ティアCPU IDを設定して追加
@@ -1738,7 +2062,7 @@ io.on('connection', socket => {
       cpuCount:            groupCpuCount,
       totalCount:          humanCount + groupCpuCount,
     });
-    memorizeTimer = setTimeout(doStartPlaying, MEMO_SECONDS * 1000);
+    armMemorize();
   });
 
   // ── グループ戦次ラウンド開始（ホストのみ）───────────────────
@@ -1756,7 +2080,7 @@ io.on('connection', socket => {
     const activeHumanIds = [...gs.groupParticipantIds]
       .filter(id => gs.players[id] && !gs.players[id].isBot && !gs.groupEliminated.has(id));
     activeHumanIds.forEach(id => {
-      if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].misses = 0; }
+      if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].bonus = 0; gs.players[id].cards = 0; gs.players[id].misses = 0; }
     });
     gs.groupParticipantIds = new Set([...activeHumanIds, ...tierCpuIds]);
     addGroupCpuPlayers();
@@ -1794,7 +2118,7 @@ io.on('connection', socket => {
       cpuCount:            groupCpuCount,
       totalCount:          activeHumanIds.length + groupCpuCount,
     });
-    memorizeTimer = setTimeout(doStartPlaying, MEMO_SECONDS * 1000);
+    armMemorize();
   });
 
 
@@ -1890,7 +2214,7 @@ io.on('connection', socket => {
     Object.values(gs.players).forEach(p => { p.isEliminated = false; });
 
     gs.phase = 'lobby'; gs.currentCard = null;
-    gs.remaining = new Set(ROUND_CARD_IDS[1]); gs.memorizeEndsAt = 0;
+    gs.remaining = new Set(LEVEL_IDS.A); gs.memorizeEndsAt = 0;
     setHost(findServerPcId());   // ロビーに戻ったら進行役は（いれば）サーバーPCに戻す
     io.emit('back_to_lobby', {
       players:             gs.players,
@@ -1903,6 +2227,11 @@ io.on('connection', socket => {
 
   // ── Disconnect ───────────────────────────────────────────
   socket.on('disconnect', () => {
+    logEvent('leave', { id: socket.id, name: gs.players[socket.id] && gs.players[socket.id].name });
+    if (gs.ready.active) {
+      gs.ready.need.delete(socket.id);
+      if (gs.ready.done.size >= gs.ready.need.size) setTimeout(() => releaseReadyBarrier('all_ready'), 0);
+    }
     const wasHost = socket.id === gs.hostId;
     delete gs.players[socket.id];
     io.emit('player_left', { id: socket.id, players: gs.players });
@@ -1929,7 +2258,7 @@ io.on('connection', socket => {
       clearAllTimers();
       removeCpuPlayers();
       gs.phase = 'lobby'; gs.currentCard = null;
-      gs.remaining = new Set(ROUND_CARD_IDS[1]); gs.memorizeEndsAt = 0; gs.hostId = null;
+      gs.remaining = new Set(LEVEL_IDS.A); gs.memorizeEndsAt = 0; gs.hostId = null;
       gs.round = 1; gs.eliminatedPlayers = new Set(); gs.lastRoundResult = null;
       gs.isGroupMatch = false; gs.groupTier = null; gs.humanGroups = null;
       gs.groupParticipantIds = new Set(); gs.cumulativeScores = {};
@@ -1940,9 +2269,31 @@ io.on('connection', socket => {
 });
 
 // 読み上げ確認ページ（/tts-check.html）用：全札のデータと難易度帯を返す
-app.get('/api/karuta', (req, res) => res.json({ karuta: KARUTA, tiers: ROUND_CARD_IDS }));
+app.get('/api/karuta', (req, res) => res.json({ karuta: KARUTA, levels: LEVEL_IDS }));
 
+app.use(express.json({ limit: '60kb' }));
+// 音声ファイル（VOICEVOX で作って voice-cache に保存したもの）。同じ名前のファイルは中身が変わらないので長期キャッシュさせる。
+app.use('/voice', express.static(VOICE_CACHE_DIR, { maxAge: '365d', immutable: true }));
+// クライアントが必要な音声が未生成のとき（結果発表のDJなど）に、生成を依頼して待つ。
+app.post('/api/voice/ensure', async (req, res) => {
+  const items = Array.isArray(req.body && req.body.items) ? req.body.items.slice(0, 24) : [];
+  const valid = items.filter(it => it && VD.VOICES[it.voice] && typeof it.text === 'string' && it.text.length > 0 && it.text.length <= 160);
+  const r = await Promise.race([
+    voiceEngine.ensure(valid, { prio: 'dj' }),
+    new Promise(resolve => setTimeout(() => resolve({ ok: 0, failed: valid.length, timeout: true }), 10000)),
+  ]);
+  res.json(r);
+});
+app.get('/api/voice/status', (req, res) => res.json({ baseUrl: voiceEngine.baseUrl, queue: voiceEngine.queue.length, stats: voiceEngine.stats, down: Date.now() < voiceEngine.downUntil }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 起動後、裏で部品（固定セリフ・数字・順位）を作っておく。キャッシュ済みなら一瞬で終わる。失敗した分は1分後にもう一度試す。
+setTimeout(async () => {
+  const items = VD.warmupItems();
+  const r = await voiceEngine.ensure(items, { prio: 'bg' });
+  logEvent('voice_warmup', { total: items.length, ...r });
+  if (r.failed) setTimeout(() => voiceEngine.ensure(items, { prio: 'bg' }).then(r2 => logEvent('voice_warmup_retry', r2)), 60000);
+}, 1500);
 
 srv.listen(PORT, '0.0.0.0', () => {
   const ips = localIPs();

@@ -4,7 +4,8 @@
   "description": "Webかるた マルチプレイヤーサーバー",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "voice:pregen": "node tools/voice-pregen.js"
   },
   "dependencies": {
     "express": "^4.18.2",

@@ -52,15 +52,6 @@
     <!-- ホストのみ表示：練習モード一式 -->
     <div id="lobbyPracticeSection" style="display:none">
       <button class="btn-back" onclick="backToLobbyModeSelect()">← モード選択に戻る</button>
-      <!-- 難易度選択：出題される札の帯（かんたん=易しい15枚／ふつう=普通15枚／難しい=難しい15枚）とダミー読みの頻度を兼ねる -->
-      <div id="lobbyDiffPicker" class="diff-picker">
-        <div class="diff-label">難易度（出題される札・ダミー読み）</div>
-        <div class="diff-btns">
-          <button class="diff-btn"        data-diff="easy"   onclick="selectDifficulty('easy')">かんたん</button>
-          <button class="diff-btn active" data-diff="normal" onclick="selectDifficulty('normal')">ふつう</button>
-          <button class="diff-btn"        data-diff="hard"   onclick="selectDifficulty('hard')">難しい</button>
-        </div>
-      </div>
       <!-- CPU の強さ -->
       <div id="lobbyCpuPicker" class="diff-picker">
         <div class="diff-label">CPU の強さ</div>
@@ -70,7 +61,7 @@
           <button class="diff-btn"        data-cpudiff="hard"   onclick="selectCpuDifficulty('hard')">強い</button>
         </div>
       </div>
-      <button id="lobbyStartBtn" class="btn btn-green" onclick="startGame()">ゲームスタート（全3試合）</button>
+      <button id="lobbyStartBtn" class="btn btn-green" onclick="startGame()">ゲームスタート（全4試合：レベルA→B→C→D）</button>
     </div>
 
     <!-- ホストのみ表示：大会モード一式 -->
@@ -164,15 +155,15 @@
 </header>
 
 <div class="game-layout">
-  <!-- ── 左サイド：ランキング・ハウス得点（対局中のみ）───────── -->
+  <!-- ── 左サイド：ランキング（縦いっぱい。全員分をスクロールで見られる）───── -->
   <aside class="side-panel side-left" id="sideLeft">
-    <div class="top3-wrap">
-      <div class="top3-label">🏆 ランキング</div>
-      <div id="top3" class="top3-list"></div>
-    </div>
     <div id="houseScoreWrap" class="house-score-wrap hidden">
       <div class="top3-label">🏠 ハウス得点</div>
       <div id="houseScoreList" class="house-score-list"></div>
+    </div>
+    <div class="top3-wrap">
+      <div class="top3-label">🏆 ランキング <span id="rankCount" class="rank-count"></span></div>
+      <div id="top3" class="top3-list"></div>
     </div>
   </aside>
 
@@ -196,28 +187,60 @@
       </div>
     </div>
 
-    <div class="grid" id="grid"></div>
+    <!-- 盤面は論理サイズ(1280×880)で作り、画面に収まるよう拡大縮小する。
+         盤面整理タイムと対局で同じ大きさなので、札が重なることがない。 -->
+    <div class="board-wrap" id="boardWrap">
+      <div class="grid" id="grid"></div>
+      <div id="lockPrompt" class="lock-prompt hidden">
+        <div class="lock-prompt-box">🖱 ここをクリックして開始<small>マウスを仮想カーソルに切り替えます（ESCキーで解除）</small>
+          <div class="start-extra"></div></div>
+      </div>
+      <!-- 仮想カーソルに移った後、ほかの参加者を待っている間の表示 -->
+      <div id="readyWait" class="lock-prompt ready-wait hidden">
+        <div class="lock-prompt-box">✅ 準備OK！<small>ほかの参加者を待っています</small>
+          <div class="start-extra"></div></div>
+      </div>
+    </div>
 
     <!-- ── 観戦パネル（敗退者は自動でこちらに切り替わる）───────── -->
     <div id="specPanel" class="spec-panel hidden">
       <div class="spec-panel-title">👀 あなたは観戦中です</div>
-      <p class="spec-panel-sub">左のランキングと読み上げ状況で試合の行方を見守りましょう。<br>次の試合に復帰したら自動で盤面に戻ります。</p>
+      <p class="spec-panel-sub">左のランキングと読み上げ状況で試合の行方を見守りましょう。次の試合に復帰したら自動で盤面に戻ります。</p>
       <div id="specHouseScores" class="spec-house-scores"></div>
+      <div class="spec-social">
+        <div class="spec-react-bar" id="specReactBar"></div>
+        <div class="spec-chat-log" id="specChatLog"></div>
+        <form class="spec-chat-form" id="specChatForm" autocomplete="off">
+          <input id="specChatInput" type="text" maxlength="60" placeholder="コメントを入力（60文字まで）">
+          <button type="submit" class="btn-sm">送信</button>
+        </form>
+        <div class="spec-chat-warn" id="specChatWarn"></div>
+      </div>
+      <div id="reactFloat" class="react-float-layer"></div>
     </div>
   </main>
 
-  <!-- ── 右サイド：取得通知 ────────────────────────────── -->
+  <!-- ── 右サイド：取得通知・判定の内訳 ───────────────────── -->
   <aside class="side-panel side-right" id="sideRight">
     <div id="takenNotif" class="taken-notif hidden">
       <span class="tn-dot"></span>
       <span class="tn-name"></span>
       <span class="tn-label">&nbsp;が獲得！</span>
     </div>
+    <div id="scorePanel" class="score-panel hidden"></div>
   </aside>
 </div>
 
+<!-- 仮想カーソル（Pointer Lock 中だけ表示。定位置への自動復帰と🚫表示に使う） -->
+<div id="vCursor" class="v-cursor hidden"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M3 2 L3 19 L8 14.5 L11.5 22 L14.5 20.7 L11 13.3 L18 13.3 Z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg><span class="v-cursor-ban">🚫</span></div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script src="tts.js"></script>
+<script src="karuta-data.js"></script>
+<script src="game-config.js"></script>
+<script src="voice-defs.js"></script>
+<script src="voice.js"></script>
+<script src="cursor.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

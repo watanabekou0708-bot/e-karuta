@@ -59,10 +59,12 @@
 <div class="bar">
   <input id="q" type="text" placeholder="検索（答え・文章）" style="min-width:14em">
   <select id="tier">
-    <option value="">全ての難易度</option>
-    <option value="1">易しい</option>
-    <option value="2">普通</option>
-    <option value="3">難しい</option>
+    <option value="">全てのレベル</option>
+    <option value="A">A（一般常識）</option>
+    <option value="B">B（標準）</option>
+    <option value="C">C（中程度）</option>
+    <option value="D">D（高度）</option>
+    <option value="-">レベル未設定（ダミー読み用）</option>
   </select>
   <label class="chk"><input type="checkbox" id="onlyBad"> 誤読チェック済みのみ</label>
   <button id="makeList">誤読リストを作る</button>
@@ -73,7 +75,7 @@
 
 <table>
   <thead><tr>
-    <th>ID</th><th>帯</th><th>読み札（上の句）</th><th>答え（取り札）</th><th>メモ（正しい読み方など）</th>
+    <th>ID</th><th>レベル</th><th>読み札（上の句）</th><th>答え（取り札）</th><th>メモ（正しい読み方など）</th>
   </tr></thead>
   <tbody id="rows"></tbody>
 </table>
@@ -81,7 +83,7 @@
 <script src="tts.js"></script>
 <script>
 'use strict';
-const TIER_LABEL = { 1: '易', 2: '普', 3: '難' };
+const TIER_LABEL = { A: 'A', B: 'B', C: 'C', D: 'D', '-': '未' };
 const $ = id => document.getElementById(id);
 let voice = null;
 
@@ -120,10 +122,7 @@ let cards = [];
 const bad = {};   // key: `${id}:${part}` → true
 const memo = {};  // id → text
 
-function tierOf(tiers, id) {
-  for (const t of [1, 2, 3]) if (tiers[t].includes(id)) return t;
-  return 0;
-}
+function tierOf(k) { return k.lv || '-'; }
 
 function cell(k, part, text) {
   const key = `${k.id}:${part}`;
@@ -148,7 +147,7 @@ function render() {
   tbody.innerHTML = '';
   let n = 0;
   cards.forEach(k => {
-    if (tier && String(k.tier) !== tier) return;
+    if (tier && k.tier !== tier) return;
     if (q && !(k.yomi + k.tori).toLowerCase().includes(q)) return;
     if (onlyBad && !(bad[`${k.id}:yomi`] || bad[`${k.id}:tori`])) return;
     const tr = document.createElement('tr');
@@ -180,8 +179,8 @@ $('makeList').onclick = () => {
   $('out').value = lines.length ? lines.join('\n\n') : '（誤読のチェックがありません）';
 };
 
-fetch('/api/karuta').then(r => r.json()).then(({ karuta, tiers }) => {
-  cards = karuta.map(k => ({ ...k, tier: tierOf(tiers, k.id) }));
+fetch('/api/karuta').then(r => r.json()).then(({ karuta }) => {
+  cards = karuta.map(k => ({ ...k, tier: tierOf(k) }));
   render();
 });
 </script>

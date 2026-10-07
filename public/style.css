@@ -14,12 +14,15 @@
   --warn:   #ffaa44;
 }
 
+html, body { height: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
   font-family: 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   min-height: 100vh;
+  overflow: hidden;   /* 対局画面は1画面に収める（スクロールさせない） */
 }
+.ghost { visibility: hidden; }   /* 場所は残したまま隠す（盤面整理中と対局中で盤面の大きさを変えないため） */
 
 /* display:none を確実に適用（overlay 外の要素でも機能する） */
 .hidden { display: none !important; }
@@ -119,7 +122,7 @@ body {
   background: rgba(6, 8, 26, .92); backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
-  padding: .45rem 1.2rem; gap: .75rem; flex-wrap: wrap;
+  padding: .45rem 1.2rem; gap: .75rem; flex-wrap: wrap; min-height: 56px;
 }
 .logo { font-size: 1.15rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
 
@@ -231,36 +234,11 @@ body {
 
 .rr-cpu { color: var(--dim); font-size: .7rem; margin-left: .2rem; font-weight: 400; }
 
-/* ── 1位・2位・3位 ハイライト行 ─────────────────────────── */
-.rr-row.rank-1 {
-  padding: .85rem .9rem; margin-bottom: .5rem;
-  background: linear-gradient(135deg, #3a2000 0%, #1e1000 100%);
-  border: 2px solid #c8900a;
-  box-shadow: 0 0 18px rgba(200,144,10,.25);
-}
-.rr-row.rank-1 .rr-rank  { font-size: 1.6rem; }
-.rr-row.rank-1 .rr-name  { font-size: 1.1rem; font-weight: 800; }
-.rr-row.rank-1 .rr-score { font-size: 1rem; color: #ffd060; }
-
-.rr-row.rank-2 {
-  padding: .65rem .75rem; margin-bottom: .4rem;
-  background: linear-gradient(135deg, #202535 0%, #10151f 100%);
-  border: 2px solid #7888aa;
-  box-shadow: 0 0 12px rgba(120,136,170,.18);
-}
-.rr-row.rank-2 .rr-rank  { font-size: 1.3rem; }
-.rr-row.rank-2 .rr-name  { font-size: 1rem; font-weight: 700; }
-.rr-row.rank-2 .rr-score { color: #b8c8e8; }
-
-.rr-row.rank-3 {
-  padding: .55rem .7rem; margin-bottom: .35rem;
-  background: linear-gradient(135deg, #201500 0%, #100a00 100%);
-  border: 2px solid #8a5a00;
-  box-shadow: 0 0 8px rgba(138,90,0,.15);
-}
-.rr-row.rank-3 .rr-rank  { font-size: 1.15rem; }
-.rr-row.rank-3 .rr-name  { font-size: .95rem; font-weight: 700; }
-.rr-row.rank-3 .rr-score { color: #c8a060; }
+/* 1〜3位が複数名いても自分の行が見つけやすいよう、順位ごとの背景色はつけない。
+   順位は名前の先頭のアイコン（🥇🥈🥉／4位以降は数字）だけで示し、色で目立たせるのは「自分」の行だけ。 */
+.rr-rank { font-size: 1.05rem; min-width: 2.4rem; text-align: center; }
+.rr-row.me { background: linear-gradient(135deg, rgba(74, 158, 255, .28), rgba(74, 158, 255, .08)); border-color: var(--accent); }
+.rr-score small { font-size: .7rem; color: var(--dim); font-weight: 400; margin-left: .2rem; }
 
 /* 昇格バッジ */
 .rr-badge.promoted { background: linear-gradient(135deg, #b87000, #7a4800); color: #ffe0a0; font-weight: 700; border: 1px solid #c8900a; }
@@ -400,7 +378,7 @@ body {
 .prog-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); transition: width .5s ease; }
 
 /* ── Reading panel ───────────────────────────────────────── */
-.reading-wrap { max-width: 860px; margin: .75rem auto; padding: 0 1rem; }
+.reading-wrap { margin: 0 0 8px; padding: 0; flex: none; }
 .reading-box {
   background: linear-gradient(135deg, var(--surf2), var(--surf));
   border: 1px solid var(--border); border-left: 4px solid var(--accent);
@@ -414,38 +392,84 @@ body {
 .reading-text  { font-size: 1.05rem; color: #fff; line-height: 1.55; }
 
 /* ── Card scatter board（盤面整理・対局共通）─────────────────
-   固定グリッドではなく、各カードを絶対配置（%指定）することで
-   「間隔・位置・向きがバラバラ」な現実のかるたの見た目を再現する。
-   position は left/top（%）、向きだけを transform: rotate() に持たせる
-   ことで、取得時のアニメーション（transform を上書きする）が起きても
-   カードの位置そのものはズレない。 ─────────────────────────── */
-.grid {
-  position: relative;
-  width: 100%; max-width: 1180px; margin: .6rem auto 1.2rem;
-  height: 74vh; min-height: 560px; max-height: 780px;
+   盤面は論理サイズ 1280×880 の固定の大きさで作り、画面に収まるよう拡大縮小(transform: scale)する。
+   札は論理pxで絶対配置するので、盤面整理タイムと対局で見た目の位置関係がまったく変わらず、
+   画面サイズが違っても札が重なることはない。
+   位置は left/top（札の中心）、中心合わせは translate、向きだけを transform: rotate() に持たせる
+   ことで、取得時のアニメーション（transform を上書きする）が起きても位置そのものはズレない。 */
+.board-wrap {
+  position: relative; flex: 1; min-height: 0; overflow: hidden;
+  border: 1px solid #16223f; border-radius: 12px;
+  background: radial-gradient(ellipse at 50% 100%, rgba(74, 158, 255, .06), rgba(255, 255, 255, .01) 70%);
 }
-@media (max-width: 680px) { .grid { height: 80vh; min-height: 620px; } }
+.grid {
+  position: absolute; left: 50%; top: 50%;
+  width: 1280px; height: 880px; margin: 0;
+  transform-origin: center center;
+}
+.grid::before {   /* 相手側と自分側の境目 */
+  content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  border-top: 1px dashed rgba(100, 130, 190, .22); pointer-events: none;
+}
 
 .card {
-  position: absolute;
-  width: 116px; min-height: 66px;
+  position: absolute; translate: -50% -50%;
+  width: 180px; height: 100px; box-sizing: border-box;
   background: linear-gradient(160deg, #182848, #0d1a30);
-  border: 1px solid var(--border); border-radius: 8px;
+  border: 1px solid var(--border); border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
-  text-align: center; padding: .4rem .35rem;
-  font-size: .82rem; font-weight: 600; color: #b0c8f0;
+  text-align: center; padding: .5rem;
+  font-size: 1.08rem; font-weight: 600; color: #b0c8f0;
+  white-space: nowrap;   /* 用語は折り返さず1行で表示する */
   cursor: pointer; user-select: none;
   transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
-  word-break: break-word; overflow: hidden;
+  overflow: hidden;
 }
+/* 札の文字。枠(180px − 余白)に収まらないときは game.js が transform: scaleX() で横に縮める */
+.card-text { display: inline-block; white-space: nowrap; transform-origin: center center; }
 .card.zone-top    { cursor: default; }
 .card.draggable    { cursor: grab; }
 .card.dragging     { opacity: .4; z-index: 5; }
-.card:hover:not(.removed):not(.correct-mine):not(.correct-other):not(.wrong) {
+.card.drag-bad     { border-color: var(--danger); box-shadow: 0 0 16px rgba(255, 85, 85, .6); }
+.card:hover:not(.removed):not(.correct-mine):not(.correct-other):not(.wrong),
+.card.vhover:not(.removed):not(.correct-mine):not(.correct-other):not(.wrong) {
   background: linear-gradient(160deg, #223d6a, #112030);
   border-color: var(--accent); color: #fff;
   box-shadow: 0 6px 20px rgba(74, 158, 255, .25); z-index: 2;
 }
+
+/* 定位置（現実のかるたで手を置く場所）。ここからスタートして札を取りに行く */
+.home-circle {
+  position: absolute; translate: -50% -50%;
+  width: 76px; height: 76px; border-radius: 50%;
+  border: 3px dashed rgba(0, 229, 160, .85);
+  background: rgba(0, 229, 160, .07);
+  box-shadow: 0 0 18px rgba(0, 229, 160, .35), inset 0 0 14px rgba(0, 229, 160, .18);
+  pointer-events: none; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .72rem; font-weight: 700; color: rgba(0, 229, 160, .95);
+}
+.home-circle::after { content: '定位置'; }
+
+/* 札を取る側の画面で、マウスを定位置に固定してから始めるための案内 */
+.lock-prompt {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 8, 26, .78); backdrop-filter: blur(2px); cursor: pointer;
+}
+.lock-prompt-box {
+  background: var(--surf2); border: 2px solid var(--green); color: #fff;
+  padding: 1.3rem 2.4rem; border-radius: 16px; text-align: center;
+  font-size: 1.7rem; font-weight: 800; box-shadow: 0 8px 40px rgba(0, 229, 160, .25);
+}
+.lock-prompt-box small { display: block; font-size: .85rem; font-weight: 400; color: var(--dim); margin-top: .5rem; }
+
+/* 仮想カーソル（Pointer Lock 中。取れない間は定位置に固定して🚫を出す） */
+.v-cursor { position: fixed; left: 0; top: 0; z-index: 500; pointer-events: none; will-change: transform; }
+.v-cursor svg { display: block; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)); }
+.v-cursor-ban { position: absolute; left: 18px; top: 16px; font-size: 34px; line-height: 1; display: none; text-shadow: 0 0 6px #000; }
+.v-cursor.forbidden .v-cursor-ban { display: block; }
+body.vcursor-on, body.vcursor-on * { cursor: none !important; }
 
 /* Correct — taken by me */
 .card.correct-mine { animation: cMine .55s ease forwards; pointer-events: none; }
@@ -457,7 +481,7 @@ body {
 }
 
 /* Correct — taken by other player */
-.card.correct-other { animation: cOther .65s ease forwards; pointer-events: none; font-size: .7rem; }
+.card.correct-other { animation: cOther .65s ease forwards; pointer-events: none; font-size: 1.05rem; }
 @keyframes cOther {
   0%   { transform: scale(1); opacity: 1; }
   35%  { transform: scale(1.1); opacity: 1; }
@@ -498,7 +522,7 @@ body {
 .card.host-forbidden { animation: cForbidden .42s ease; }
 .card.host-forbidden::after {
   content: '🚫'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 1.6rem; background: rgba(10, 14, 24, .55); animation: cForbiddenMark .42s ease;
+  font-size: 2.4rem; background: rgba(10, 14, 24, .55); animation: cForbiddenMark .42s ease;
 }
 @keyframes cForbidden {
   0%, 100% { transform: translateX(0); }
@@ -514,18 +538,20 @@ body {
 /* 今は1枚も取れない状態（お手付き中／正解発表中・次の札待ち／ホスト・観戦中）のとき、
    クリックしなくてもカーソルを乗せた瞬間に🚫を出す。マウスを乗せている間だけ表示され、
    クリック時の一瞬だけの演出（cForbiddenMark）とは別に、静的に表示し続ける。 */
-.grid.grab-forbidden .card:not(.removed):hover {
+.grid.grab-forbidden .card:not(.removed):hover,
+.grid.grab-forbidden .card.vhover:not(.removed) {
   cursor: not-allowed;
 }
-.grid.grab-forbidden .card:not(.removed):hover::after {
+.grid.grab-forbidden .card:not(.removed):hover::after,
+.grid.grab-forbidden .card.vhover:not(.removed)::after {
   content: '🚫'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 1.6rem; background: rgba(10, 14, 24, .55);
+  font-size: 2.4rem; background: rgba(10, 14, 24, .55);
 }
 /* すでに誰かが取った直後（消える演出中）の札は、盤面全体の状態に関わらず個別に禁止表示する */
 .card.correct-mine:hover, .card.correct-other:hover, .card.wrong:hover { cursor: not-allowed; }
 .card.correct-mine:hover::after, .card.correct-other:hover::after, .card.wrong:hover::after {
   content: '🚫'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 1.6rem; background: rgba(10, 14, 24, .55);
+  font-size: 2.4rem; background: rgba(10, 14, 24, .55);
 }
 
 /* ── Float score ─────────────────────────────────────────── */
@@ -664,17 +690,40 @@ body {
 :root { --subtext: #5a7aaa; }
 
 /* ── ロビー敗者復活戦セクション ───────────────────────── */
-/* ── Spectator panel（敗退者の自動観戦画面）───────────────── */
+/* ── Spectator panel（敗退者の自動観戦画面。リアクション・チャット付き）── */
 .spec-panel {
-  margin: 3rem auto; max-width: 560px; text-align: center;
-  padding: 2rem 1.5rem;
+  flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; overflow: hidden;
+  margin: 0; max-width: none; text-align: center;
+  padding: 1rem 1.2rem;
   background: var(--surf); border: 1px dashed var(--border);
   border-radius: 16px;
 }
 .spec-panel.hidden { display: none; }
-.spec-panel-title { font-size: 1.4rem; font-weight: 800; color: var(--accent); margin-bottom: .6rem; }
-.spec-panel-sub { color: var(--dim); font-size: .88rem; line-height: 1.6; }
-.spec-house-scores { margin-top: 1.2rem; display: flex; flex-direction: column; gap: .4rem; }
+.spec-panel-title { font-size: 1.4rem; font-weight: 800; color: var(--accent); margin-bottom: .4rem; flex: none; }
+.spec-panel-sub { color: var(--dim); font-size: .88rem; line-height: 1.6; flex: none; }
+.spec-house-scores { margin-top: .8rem; display: flex; flex-direction: column; gap: .4rem; flex: none; }
+.spec-social { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .5rem; margin-top: .8rem; text-align: left; }
+.spec-react-bar { display: flex; gap: .4rem; flex-wrap: wrap; justify-content: center; flex: none; }
+.spec-react-btn { font-size: 1.7rem; background: var(--surf2); border: 1px solid var(--border); border-radius: 12px; padding: .15rem .65rem; cursor: pointer; transition: transform .1s, border-color .15s; }
+.spec-react-btn:hover { border-color: var(--accent); transform: translateY(-2px); }
+.spec-react-btn:active { transform: scale(.92); }
+.spec-chat-log { flex: 1; min-height: 70px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: .5rem .7rem; font-size: .92rem; line-height: 1.6; }
+.spec-chat-line b { margin-right: .4rem; }
+.spec-chat-line.me { background: rgba(74, 158, 255, .1); border-radius: 6px; }
+.spec-chat-form { display: flex; gap: .4rem; flex: none; }
+.spec-chat-form input { flex: 1; padding: .5rem .7rem; background: var(--surf2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: .95rem; outline: none; }
+.spec-chat-form input:focus { border-color: var(--accent); }
+.spec-chat-form .btn-sm { padding: .4rem 1rem; font-size: .9rem; }
+.spec-chat-warn { color: var(--danger); font-weight: 700; font-size: .88rem; min-height: 1.3em; flex: none; }
+.react-float-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.react-float { position: absolute; bottom: 0; display: flex; flex-direction: column; align-items: center; animation: reactUp 2.6s ease-out forwards; }
+.react-float span { font-size: 2.6rem; line-height: 1; }
+.react-float small { font-size: .7rem; color: var(--dim); white-space: nowrap; }
+@keyframes reactUp {
+  0%   { transform: translateY(0) scale(.6); opacity: 0; }
+  12%  { opacity: 1; transform: translateY(-30px) scale(1.1); }
+  100% { transform: translateY(-420px) scale(1); opacity: 0; }
+}
 
 /* ── Lobby mode select ────────────────────────────────── */
 .lobby-mode-select { margin: .6rem 0 1rem; }
@@ -749,9 +798,6 @@ body {
 }
 .btn-debug:hover { border-color: var(--warn); color: var(--warn); }
 
-/* ── Card font adjustment（下の句は文字が長いため小さめに）── */
-.card { font-size: .72rem; }
-
 /* ── Read button（ホスト専用の読み上げボタン）───────────── */
 .read-btn {
   background: linear-gradient(135deg, #1a6a1a, #0a3a0a);
@@ -776,33 +822,33 @@ body {
 /* ── Lobby host badge ────────────────────────────────────── */
 .lobby-host { font-size: .7rem; color: var(--warn); margin-left: .2rem; }
 
-/* ── TOP10 ランキング（ゲーム中常時表示）────────────────── */
-/* ── 対局画面のレイアウト（左：ランキング／中央：盤面／右：通知）── */
+/* ── 対局画面のレイアウト（左：ランキング／中央：読み上げ＋盤面／右：判定の内訳）──
+   画面いっぱいに使い、ページ全体はスクロールさせない。ランキングは左の縦のスペースを
+   すべて使い、入りきらない分は内側のスクロールバーで見る。 */
 .game-layout {
-  display: flex; align-items: flex-start; gap: 1rem;
-  max-width: 1360px; margin: 0 auto; padding: 0 1rem;
+  display: grid; grid-template-columns: 270px minmax(0, 1fr) 310px; gap: 12px;
+  height: calc(100vh - var(--hdr, 56px)); padding: 8px 12px; margin: 0; max-width: none;
 }
-.game-main { flex: 1; min-width: 0; }
-.side-panel { width: 220px; flex-shrink: 0; padding-top: .7rem; }
+.game-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.side-panel { width: auto; min-height: 0; padding-top: 0; display: flex; flex-direction: column; }
 .side-panel.hidden { display: none; }
-.side-right { display: flex; flex-direction: column; align-items: stretch; }
-@media (max-width: 980px) {
-  .game-layout { flex-direction: column; align-items: stretch; }
-  .side-panel { width: 100%; }
+@media (max-width: 1100px) {
+  .game-layout { grid-template-columns: 200px minmax(0, 1fr) 230px; }
 }
 
-.top3-wrap { margin: 0 0 .8rem; }
+.top3-wrap { margin: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .top3-label {
-  font-size: .65rem; color: var(--dim);
-  text-transform: uppercase; letter-spacing: .06em;
-  white-space: nowrap; margin-bottom: .35rem; display: block;
+  font-size: .8rem; color: var(--dim); font-weight: 700;
+  letter-spacing: .04em; white-space: nowrap; margin-bottom: .4rem; display: block; flex: none;
 }
+.rank-count { font-weight: 400; font-size: .72rem; margin-left: .3rem; }
 .top3-list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: .25rem;
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 3px; padding-right: 4px;
 }
-.house-score-wrap { margin: 0 0 .8rem; }
+.top3-list::-webkit-scrollbar { width: 8px; }
+.top3-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.house-score-wrap { margin: 0 0 .8rem; flex: none; }
 .house-score-wrap.hidden { display: none; }
 .house-score-list {
   display: grid; grid-template-columns: 1fr; gap: .25rem;
@@ -814,27 +860,26 @@ body {
 }
 .house-score-chip .hs-score { color: var(--green); }
 
+/* ランキングの行は全員同じ見た目。順位は先頭のアイコンだけ（上位でも色は変えない）。自分の行だけ青で強調。 */
 .t3-row {
-  display: flex; align-items: center; gap: .3rem;
+  display: flex; align-items: center; gap: .35rem; flex: none;
   background: var(--surf2); border: 1px solid var(--border);
-  border-radius: 6px; padding: .22rem .45rem;
+  border-radius: 6px; padding: .28rem .5rem;
   min-width: 0;
 }
-.t3-rank  { font-size: .78rem; font-weight: 700; flex-shrink: 0; min-width: 1.4rem; text-align: center; color: var(--dim); }
-.t3-row.top3 .t3-rank { font-size: .85rem; }
-.t3-name  { flex: 1; font-size: .72rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.t3-cpu   { font-size: .58rem; background: var(--surf); border: 1px solid var(--border); border-radius: 3px; padding: 0 .25rem; margin-left: .25rem; color: var(--dim); vertical-align: middle; }
-.t3-you   { font-size: .58rem; background: rgba(74,158,255,.2); border-radius: 3px; padding: 0 .3rem; margin-left: .25rem; color: var(--accent); font-weight: 700; vertical-align: middle; }
-.t3-score { font-size: .78rem; font-weight: 700; color: var(--green); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.t3-score small { font-size: .6rem; font-weight: 400; color: var(--dim); }
+.t3-rank  { font-size: .95rem; font-weight: 700; flex-shrink: 0; min-width: 2.1rem; text-align: center; color: var(--dim); }
+.t3-name  { flex: 1; font-size: .85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t3-cpu   { font-size: .6rem; background: var(--surf); border: 1px solid var(--border); border-radius: 3px; padding: 0 .25rem; margin-left: .25rem; color: var(--dim); vertical-align: middle; }
+.t3-you   { font-size: .6rem; background: rgba(74,158,255,.25); border-radius: 3px; padding: 0 .3rem; margin-left: .25rem; color: #cfe6ff; font-weight: 700; vertical-align: middle; }
+.t3-score { font-size: .85rem; font-weight: 700; color: var(--green); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.t3-score small { font-size: .62rem; font-weight: 400; color: var(--dim); margin-left: .1rem; }
 
-/* 自分の行 — グロー強調 */
 .t3-row.me {
-  border: 1px solid var(--accent);
-  background: linear-gradient(135deg, rgba(74, 158, 255, .18), rgba(74, 158, 255, .05));
+  border: 2px solid var(--accent);
+  background: linear-gradient(135deg, rgba(74, 158, 255, .32), rgba(74, 158, 255, .12));
 }
-.t3-row.me .t3-name  { color: #e8f4ff; font-weight: 700; }
-.t3-row.me .t3-score { color: #7df; }
+.t3-row.me .t3-name  { color: #fff; font-weight: 800; }
+.t3-row.me .t3-score { color: #8ff; }
 
 /* ── 取得通知バナー（右サイドパネルに常設）──────────────────── */
 .taken-notif {
@@ -871,3 +916,173 @@ body {
   font-weight: 700; font-size: .95rem; box-shadow: 0 4px 16px rgba(0, 0, 0, .4); pointer-events: none;
 }
 .lock-banner.hidden { display: none; }
+
+/* ── 判定の内訳（札を取った直後〜次の札が読まれるまでずっと表示）── */
+.score-panel {
+  margin-top: 10px; flex: none;
+  background: rgba(10, 16, 40, .96); border: 1px solid var(--border); border-radius: 12px;
+  padding: .8rem .9rem; font-size: .85rem; animation: tnSlideIn .3s cubic-bezier(.2, .8, .4, 1);
+}
+.score-panel.miss { border-color: var(--danger); }
+.sp-title { font-weight: 800; font-size: .95rem; margin-bottom: .45rem; display: flex; align-items: center; gap: .4rem; }
+.sp-title .tn-dot { width: 11px; height: 11px; }
+.sp-row { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; padding: .28rem 0; border-bottom: 1px solid rgba(42, 63, 112, .5); }
+.sp-label { color: var(--dim); font-size: .78rem; white-space: nowrap; }
+.sp-detail { color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.sp-detail small { display: block; font-size: .7rem; color: var(--dim); font-weight: 400; }
+.sp-pts { color: var(--green); font-weight: 800; font-variant-numeric: tabular-nums; min-width: 4.6rem; text-align: right; }
+.sp-hc { color: var(--warn); }
+.sp-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: .5rem; font-weight: 800; }
+.sp-total .sp-big { font-size: 1.7rem; color: #8ff; font-variant-numeric: tabular-nums; text-shadow: 0 0 14px rgba(0, 229, 160, .45); }
+.sp-miss-big { font-size: 1.7rem; font-weight: 800; color: var(--danger); font-variant-numeric: tabular-nums; }
+.sp-cont { margin-top: .55rem; font-size: .72rem; color: var(--dim); line-height: 1.6; }
+.sp-cont b { color: var(--text); }
+.sp-cont .win { color: var(--green); }
+
+/* 同時に申告した人の一覧（縦に1行ずつ） */
+.sp-list-title { margin-top: .7rem; font-size: .75rem; font-weight: 700; color: var(--dim); }
+.sp-list { margin-top: .25rem; display: flex; flex-direction: column; gap: 2px; }
+.sp-li { display: grid; grid-template-columns: minmax(0, 1fr) 3.6rem 3.9rem 2.6rem; gap: .3rem; align-items: baseline;
+  padding: .2rem .4rem; border-radius: 6px; font-size: .74rem; font-variant-numeric: tabular-nums; }
+.sp-li span { white-space: nowrap; }
+.sp-li .n { overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+.sp-li span:nth-child(n+2) { text-align: right; }
+.sp-li.head { color: var(--dim); font-size: .66rem; padding-top: 0; padding-bottom: 0; }
+.sp-li.win { background: rgba(0, 229, 160, .16); }
+.sp-li.me .n { text-decoration: underline; }
+
+/* ══ 和風（試合中の画面）══════════════════════════════════════
+   試合中(盤面整理タイムを含む)だけ body.in-game を付け、色の変数を和の色に差し替える。
+   盤面は畳、札は和紙の取り札、読み上げ欄・判定パネルは和紙の札風にする。 */
+body.in-game {
+  --bg: #1b130c; --surf: #2b2016; --surf2: #38291b; --border: #73552f;
+  --accent: #e2ae4a; --green: #a8d46f; --text: #f3e8cf; --dim: #bfa883;
+  --danger: #ea5a43; --warn: #f2b955; --me: #69bfe0;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .018) 0 3px, transparent 3px 11px), #1b130c;
+}
+body.in-game .header {
+  background: linear-gradient(#33241a, #251a11); border-bottom: 3px solid #5a4024;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .5);
+}
+body.in-game .logo { font-family: 'Yu Mincho', 'Hiragino Mincho ProN', 'MS PMincho', serif; color: #e8c06a; letter-spacing: .08em; }
+body.in-game .round-badge { background: linear-gradient(135deg, #b8382a, #8a2418); color: #fff3dc; }
+body.in-game .chip { background: #3a2b1c; border-color: var(--border); }
+body.in-game .chip.me { border: 2px solid var(--me); background: linear-gradient(135deg, rgba(105, 191, 224, .25), rgba(105, 191, 224, .08)); }
+body.in-game .chip.me .chip-score { color: #bfeaff; }
+body.in-game .game-timer { color: #e8c06a; }
+
+body.in-game .reading-box {
+  background: linear-gradient(135deg, #f6eed9, #ecdfc0); border: 1px solid #b79f7c; border-left: 8px solid #c4382a;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .45);
+}
+body.in-game .reading-label { color: #a8352a; }
+body.in-game .reading-text { color: #221b13; font-family: 'Yu Mincho', 'Hiragino Mincho ProN', 'MS PMincho', serif; font-weight: 700; }
+body.in-game .host-notice { color: #6a4a1c; }
+
+body.in-game .top3-label { color: #e8c06a; font-family: 'Yu Mincho', 'Hiragino Mincho ProN', 'MS PMincho', serif; font-size: .95rem; }
+body.in-game .t3-row { background: #3a2b1c; border-color: #5d4426; }
+body.in-game .t3-row.me { border: 2px solid var(--me); background: linear-gradient(135deg, rgba(105, 191, 224, .3), rgba(105, 191, 224, .1)); }
+body.in-game .t3-row.me .t3-score { color: #bfeaff; }
+body.in-game .t3-you { background: rgba(105, 191, 224, .3); color: #e6f6ff; }
+body.in-game .top3-list::-webkit-scrollbar-thumb { background: #73552f; }
+
+body.in-game .taken-notif { background: #f6eed9; border-color: #c4382a; color: #221b13; box-shadow: 0 6px 18px rgba(0, 0, 0, .5); }
+body.in-game .tn-name { color: #221b13; }
+body.in-game .tn-label { color: #9b2a1f; }
+
+body.in-game .score-panel { background: #f6eed9; border-color: #b79f7c; color: #221b13; box-shadow: 0 4px 14px rgba(0, 0, 0, .45); }
+body.in-game .score-panel.miss { border-color: #c4382a; }
+body.in-game .sp-title { color: #221b13; }
+body.in-game .sp-row { border-bottom-color: #d4c4a0; }
+body.in-game .sp-label { color: #7a6444; }
+body.in-game .sp-detail { color: #1f1a14; }
+body.in-game .sp-detail small { color: #7a6444; }
+body.in-game .sp-pts { color: #2f6b25; }
+body.in-game .sp-total .sp-big { color: #9b2a1f; text-shadow: none; }
+body.in-game .sp-miss-big { color: #b4301f; }
+body.in-game .sp-cont, body.in-game .sp-list-title, body.in-game .sp-li.head { color: #7a6444; }
+body.in-game .sp-cont b { color: #221b13; }
+body.in-game .sp-li.win { background: rgba(196, 56, 42, .14); }
+
+/* 盤面＝畳（2×2枚）。縁(黒い帯)が上下の長い辺にある */
+body.in-game .board-wrap {
+  background: #24180e; border: 6px solid #3b2615; border-radius: 6px;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, .5), 0 6px 24px rgba(0, 0, 0, .55);
+}
+body.in-game .grid {
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27640%27%20height%3D%27440%27%20viewBox%3D%270%200%20640%20440%27%3E%0A%3Crect%20width%3D%27640%27%20height%3D%27440%27%20fill%3D%27%23a3b172%27%2F%3E%0A%3Crect%20y%3D%2714%27%20width%3D%27640%27%20height%3D%27412%27%20fill%3D%27%23a9b778%27%2F%3E%0A%3Cg%20stroke%3D%27%2393a263%27%20stroke-width%3D%271.2%27%20opacity%3D%27.55%27%3E%3Cline%20x1%3D%278%27%20y1%3D%2714%27%20x2%3D%278%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2716%27%20y1%3D%2714%27%20x2%3D%2716%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2724%27%20y1%3D%2714%27%20x2%3D%2724%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2732%27%20y1%3D%2714%27%20x2%3D%2732%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2740%27%20y1%3D%2714%27%20x2%3D%2740%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2748%27%20y1%3D%2714%27%20x2%3D%2748%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2756%27%20y1%3D%2714%27%20x2%3D%2756%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2764%27%20y1%3D%2714%27%20x2%3D%2764%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2772%27%20y1%3D%2714%27%20x2%3D%2772%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2780%27%20y1%3D%2714%27%20x2%3D%2780%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2788%27%20y1%3D%2714%27%20x2%3D%2788%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2796%27%20y1%3D%2714%27%20x2%3D%2796%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27104%27%20y1%3D%2714%27%20x2%3D%27104%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27112%27%20y1%3D%2714%27%20x2%3D%27112%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27120%27%20y1%3D%2714%27%20x2%3D%27120%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27128%27%20y1%3D%2714%27%20x2%3D%27128%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27136%27%20y1%3D%2714%27%20x2%3D%27136%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27144%27%20y1%3D%2714%27%20x2%3D%27144%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27152%27%20y1%3D%2714%27%20x2%3D%27152%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27160%27%20y1%3D%2714%27%20x2%3D%27160%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27168%27%20y1%3D%2714%27%20x2%3D%27168%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27176%27%20y1%3D%2714%27%20x2%3D%27176%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27184%27%20y1%3D%2714%27%20x2%3D%27184%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27192%27%20y1%3D%2714%27%20x2%3D%27192%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27200%27%20y1%3D%2714%27%20x2%3D%27200%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27208%27%20y1%3D%2714%27%20x2%3D%27208%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27216%27%20y1%3D%2714%27%20x2%3D%27216%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27224%27%20y1%3D%2714%27%20x2%3D%27224%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27232%27%20y1%3D%2714%27%20x2%3D%27232%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27240%27%20y1%3D%2714%27%20x2%3D%27240%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27248%27%20y1%3D%2714%27%20x2%3D%27248%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27256%27%20y1%3D%2714%27%20x2%3D%27256%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27264%27%20y1%3D%2714%27%20x2%3D%27264%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27272%27%20y1%3D%2714%27%20x2%3D%27272%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27280%27%20y1%3D%2714%27%20x2%3D%27280%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27288%27%20y1%3D%2714%27%20x2%3D%27288%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27296%27%20y1%3D%2714%27%20x2%3D%27296%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27304%27%20y1%3D%2714%27%20x2%3D%27304%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27312%27%20y1%3D%2714%27%20x2%3D%27312%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27320%27%20y1%3D%2714%27%20x2%3D%27320%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27328%27%20y1%3D%2714%27%20x2%3D%27328%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27336%27%20y1%3D%2714%27%20x2%3D%27336%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27344%27%20y1%3D%2714%27%20x2%3D%27344%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27352%27%20y1%3D%2714%27%20x2%3D%27352%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27360%27%20y1%3D%2714%27%20x2%3D%27360%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27368%27%20y1%3D%2714%27%20x2%3D%27368%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27376%27%20y1%3D%2714%27%20x2%3D%27376%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27384%27%20y1%3D%2714%27%20x2%3D%27384%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27392%27%20y1%3D%2714%27%20x2%3D%27392%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27400%27%20y1%3D%2714%27%20x2%3D%27400%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27408%27%20y1%3D%2714%27%20x2%3D%27408%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27416%27%20y1%3D%2714%27%20x2%3D%27416%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27424%27%20y1%3D%2714%27%20x2%3D%27424%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27432%27%20y1%3D%2714%27%20x2%3D%27432%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27440%27%20y1%3D%2714%27%20x2%3D%27440%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27448%27%20y1%3D%2714%27%20x2%3D%27448%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27456%27%20y1%3D%2714%27%20x2%3D%27456%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27464%27%20y1%3D%2714%27%20x2%3D%27464%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27472%27%20y1%3D%2714%27%20x2%3D%27472%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27480%27%20y1%3D%2714%27%20x2%3D%27480%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27488%27%20y1%3D%2714%27%20x2%3D%27488%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27496%27%20y1%3D%2714%27%20x2%3D%27496%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27504%27%20y1%3D%2714%27%20x2%3D%27504%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27512%27%20y1%3D%2714%27%20x2%3D%27512%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27520%27%20y1%3D%2714%27%20x2%3D%27520%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27528%27%20y1%3D%2714%27%20x2%3D%27528%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27536%27%20y1%3D%2714%27%20x2%3D%27536%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27544%27%20y1%3D%2714%27%20x2%3D%27544%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27552%27%20y1%3D%2714%27%20x2%3D%27552%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27560%27%20y1%3D%2714%27%20x2%3D%27560%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27568%27%20y1%3D%2714%27%20x2%3D%27568%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27576%27%20y1%3D%2714%27%20x2%3D%27576%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27584%27%20y1%3D%2714%27%20x2%3D%27584%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27592%27%20y1%3D%2714%27%20x2%3D%27592%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27600%27%20y1%3D%2714%27%20x2%3D%27600%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27608%27%20y1%3D%2714%27%20x2%3D%27608%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27616%27%20y1%3D%2714%27%20x2%3D%27616%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27624%27%20y1%3D%2714%27%20x2%3D%27624%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27632%27%20y1%3D%2714%27%20x2%3D%27632%27%20y2%3D%27426%27%2F%3E%3C%2Fg%3E%0A%3Cg%20stroke%3D%27%23bcc88b%27%20stroke-width%3D%271%27%20opacity%3D%27.45%27%3E%3Cline%20x1%3D%2712%27%20y1%3D%2714%27%20x2%3D%2712%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2720%27%20y1%3D%2714%27%20x2%3D%2720%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2728%27%20y1%3D%2714%27%20x2%3D%2728%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2736%27%20y1%3D%2714%27%20x2%3D%2736%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2744%27%20y1%3D%2714%27%20x2%3D%2744%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2752%27%20y1%3D%2714%27%20x2%3D%2752%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2760%27%20y1%3D%2714%27%20x2%3D%2760%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2768%27%20y1%3D%2714%27%20x2%3D%2768%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2776%27%20y1%3D%2714%27%20x2%3D%2776%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2784%27%20y1%3D%2714%27%20x2%3D%2784%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%2792%27%20y1%3D%2714%27%20x2%3D%2792%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27100%27%20y1%3D%2714%27%20x2%3D%27100%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27108%27%20y1%3D%2714%27%20x2%3D%27108%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27116%27%20y1%3D%2714%27%20x2%3D%27116%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27124%27%20y1%3D%2714%27%20x2%3D%27124%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27132%27%20y1%3D%2714%27%20x2%3D%27132%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27140%27%20y1%3D%2714%27%20x2%3D%27140%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27148%27%20y1%3D%2714%27%20x2%3D%27148%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27156%27%20y1%3D%2714%27%20x2%3D%27156%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27164%27%20y1%3D%2714%27%20x2%3D%27164%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27172%27%20y1%3D%2714%27%20x2%3D%27172%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27180%27%20y1%3D%2714%27%20x2%3D%27180%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27188%27%20y1%3D%2714%27%20x2%3D%27188%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27196%27%20y1%3D%2714%27%20x2%3D%27196%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27204%27%20y1%3D%2714%27%20x2%3D%27204%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27212%27%20y1%3D%2714%27%20x2%3D%27212%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27220%27%20y1%3D%2714%27%20x2%3D%27220%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27228%27%20y1%3D%2714%27%20x2%3D%27228%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27236%27%20y1%3D%2714%27%20x2%3D%27236%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27244%27%20y1%3D%2714%27%20x2%3D%27244%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27252%27%20y1%3D%2714%27%20x2%3D%27252%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27260%27%20y1%3D%2714%27%20x2%3D%27260%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27268%27%20y1%3D%2714%27%20x2%3D%27268%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27276%27%20y1%3D%2714%27%20x2%3D%27276%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27284%27%20y1%3D%2714%27%20x2%3D%27284%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27292%27%20y1%3D%2714%27%20x2%3D%27292%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27300%27%20y1%3D%2714%27%20x2%3D%27300%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27308%27%20y1%3D%2714%27%20x2%3D%27308%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27316%27%20y1%3D%2714%27%20x2%3D%27316%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27324%27%20y1%3D%2714%27%20x2%3D%27324%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27332%27%20y1%3D%2714%27%20x2%3D%27332%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27340%27%20y1%3D%2714%27%20x2%3D%27340%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27348%27%20y1%3D%2714%27%20x2%3D%27348%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27356%27%20y1%3D%2714%27%20x2%3D%27356%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27364%27%20y1%3D%2714%27%20x2%3D%27364%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27372%27%20y1%3D%2714%27%20x2%3D%27372%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27380%27%20y1%3D%2714%27%20x2%3D%27380%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27388%27%20y1%3D%2714%27%20x2%3D%27388%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27396%27%20y1%3D%2714%27%20x2%3D%27396%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27404%27%20y1%3D%2714%27%20x2%3D%27404%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27412%27%20y1%3D%2714%27%20x2%3D%27412%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27420%27%20y1%3D%2714%27%20x2%3D%27420%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27428%27%20y1%3D%2714%27%20x2%3D%27428%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27436%27%20y1%3D%2714%27%20x2%3D%27436%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27444%27%20y1%3D%2714%27%20x2%3D%27444%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27452%27%20y1%3D%2714%27%20x2%3D%27452%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27460%27%20y1%3D%2714%27%20x2%3D%27460%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27468%27%20y1%3D%2714%27%20x2%3D%27468%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27476%27%20y1%3D%2714%27%20x2%3D%27476%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27484%27%20y1%3D%2714%27%20x2%3D%27484%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27492%27%20y1%3D%2714%27%20x2%3D%27492%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27500%27%20y1%3D%2714%27%20x2%3D%27500%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27508%27%20y1%3D%2714%27%20x2%3D%27508%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27516%27%20y1%3D%2714%27%20x2%3D%27516%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27524%27%20y1%3D%2714%27%20x2%3D%27524%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27532%27%20y1%3D%2714%27%20x2%3D%27532%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27540%27%20y1%3D%2714%27%20x2%3D%27540%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27548%27%20y1%3D%2714%27%20x2%3D%27548%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27556%27%20y1%3D%2714%27%20x2%3D%27556%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27564%27%20y1%3D%2714%27%20x2%3D%27564%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27572%27%20y1%3D%2714%27%20x2%3D%27572%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27580%27%20y1%3D%2714%27%20x2%3D%27580%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27588%27%20y1%3D%2714%27%20x2%3D%27588%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27596%27%20y1%3D%2714%27%20x2%3D%27596%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27604%27%20y1%3D%2714%27%20x2%3D%27604%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27612%27%20y1%3D%2714%27%20x2%3D%27612%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27620%27%20y1%3D%2714%27%20x2%3D%27620%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27628%27%20y1%3D%2714%27%20x2%3D%27628%27%20y2%3D%27426%27%2F%3E%3Cline%20x1%3D%27636%27%20y1%3D%2714%27%20x2%3D%27636%27%20y2%3D%27426%27%2F%3E%3C%2Fg%3E%0A%3Crect%20width%3D%27640%27%20height%3D%2714%27%20fill%3D%27%231f2a1d%27%2F%3E%3Crect%20y%3D%27426%27%20width%3D%27640%27%20height%3D%2714%27%20fill%3D%27%231f2a1d%27%2F%3E%0A%3Crect%20y%3D%2713%27%20width%3D%27640%27%20height%3D%271.5%27%20fill%3D%27%23506046%27%2F%3E%3Crect%20y%3D%27426%27%20width%3D%27640%27%20height%3D%271.5%27%20fill%3D%27%23506046%27%2F%3E%0A%3Crect%20width%3D%274%27%20height%3D%27440%27%20fill%3D%27%23243020%27%20opacity%3D%27.7%27%2F%3E%3Crect%20x%3D%27636%27%20width%3D%274%27%20height%3D%27440%27%20fill%3D%27%23243020%27%20opacity%3D%27.7%27%2F%3E%0A%3C%2Fsvg%3E");
+  background-size: 640px 440px;
+  box-shadow: 0 0 30px rgba(0, 0, 0, .45);
+}
+body.in-game .grid::before { display: none; }
+
+/* 定位置の円は朱色 */
+body.in-game .home-circle {
+  border-color: #c4382a; background: rgba(246, 238, 217, .4); color: #8f2519;
+  box-shadow: 0 0 0 3px rgba(246, 238, 217, .55), 0 0 16px rgba(196, 56, 42, .4);
+}
+
+/* 札＝和紙の取り札（墨の文字・朱の内枠） */
+body.in-game .card {
+  background: linear-gradient(160deg, #fbf5e6, #efe3c6);
+  border: 2px solid #3a2c1e; border-radius: 4px;
+  color: #1c1712; font-family: 'Yu Mincho', 'Hiragino Mincho ProN', 'MS PMincho', serif; font-weight: 700;
+  box-shadow: 0 3px 0 #b7a577, 0 6px 10px rgba(0, 0, 0, .4);
+}
+body.in-game .card::before {
+  content: ''; position: absolute; inset: 4px; border: 1px solid rgba(176, 48, 36, .55); border-radius: 2px; pointer-events: none;
+}
+body.in-game .card:hover:not(.removed):not(.correct-mine):not(.correct-other):not(.wrong),
+body.in-game .card.vhover:not(.removed):not(.correct-mine):not(.correct-other):not(.wrong) {
+  background: linear-gradient(160deg, #fffaf0, #f6ebcf); border-color: #c4382a; color: #000;
+  box-shadow: 0 6px 0 #b7a577, 0 12px 18px rgba(0, 0, 0, .5);
+}
+body.in-game .card.drag-bad { border-color: #e03a28; box-shadow: 0 0 0 3px rgba(224, 58, 40, .6); }
+body.in-game .card.host-forbidden::after,
+body.in-game .grid.grab-forbidden .card:not(.removed):hover::after,
+body.in-game .grid.grab-forbidden .card.vhover:not(.removed)::after,
+body.in-game .card.correct-mine:hover::after, body.in-game .card.correct-other:hover::after, body.in-game .card.wrong:hover::after {
+  background: rgba(27, 19, 12, .6);
+}
+body.in-game .grid.grab-locked .card { filter: grayscale(.5) brightness(.8); }
+body.in-game .lock-prompt { background: rgba(27, 19, 12, .82); }
+body.in-game .lock-prompt-box { background: #f6eed9; color: #221b13; border-color: #c4382a; }
+body.in-game .lock-prompt-box small { color: #7a6444; }
+
+/* 試合開始の待ち合わせ画面（ハンデの説明つき） */
+.lock-prompt.ready-wait { pointer-events: none; cursor: default; }
+.lock-prompt-box { max-width: 560px; }
+.start-extra { margin-top: .9rem; font-size: .95rem; font-weight: 400; text-align: left; }
+.hc-box { background: rgba(255, 255, 255, .06); border: 1px solid var(--border); border-radius: 10px; padding: .6rem .8rem; line-height: 1.7; }
+.hc-box b { font-weight: 800; }
+.hc-box table { width: 100%; border-collapse: collapse; margin: .3rem 0; font-size: .85rem; }
+.hc-box th, .hc-box td { padding: .15rem .4rem; border-bottom: 1px solid rgba(128, 128, 128, .3); text-align: left; font-weight: 400; }
+.hc-box th { font-weight: 700; }
+.hc-mine { margin-top: .4rem; font-size: 1.05rem; font-weight: 800; }
+.hc-mine.none { color: var(--green); }
+.hc-mine.has { color: var(--warn); }
+.start-status { margin-top: .6rem; font-weight: 700; text-align: center; font-size: 1rem; }
+.start-note { margin-top: .4rem; font-size: .72rem; color: var(--dim); text-align: center; }
+body.in-game .hc-box { background: rgba(176, 48, 36, .06); border-color: #c9b58a; }
+body.in-game .hc-mine.has { color: #a8352a; }
+body.in-game .hc-mine.none { color: #2f6b25; }
+body.in-game .start-note { color: #7a6444; }
+.hc-box th:nth-child(n+2), .hc-box td:nth-child(n+2) { white-space: nowrap; }
+
+/* マウスが定位置に戻った（読み上げ開始の案内〜上の句の1文字目まで）ときの強調 */
+.home-circle.alert {
+  border-style: solid; border-width: 4px; border-color: #ffd23a; background: rgba(255, 210, 58, .38);
+  color: #fff; z-index: 3; animation: homePulse .7s ease-in-out infinite;
+}
+@keyframes homePulse {
+  0%, 100% { scale: 1;    box-shadow: 0 0 0 4px rgba(255, 210, 58, .55), 0 0 22px rgba(255, 210, 58, .85); }
+  50%      { scale: 1.22; box-shadow: 0 0 0 16px rgba(255, 210, 58, .16), 0 0 46px rgba(255, 210, 58, 1); }
+}
+body.in-game .home-circle.alert {
+  border-color: #e8301c; background: rgba(255, 255, 255, .7); color: #b01c0c;
+  animation-name: homePulseWafu;
+}
+@keyframes homePulseWafu {
+  0%, 100% { scale: 1;    box-shadow: 0 0 0 4px rgba(232, 48, 28, .5), 0 0 22px rgba(232, 48, 28, .8); }
+  50%      { scale: 1.22; box-shadow: 0 0 0 16px rgba(232, 48, 28, .15), 0 0 46px rgba(232, 48, 28, 1); }
+}

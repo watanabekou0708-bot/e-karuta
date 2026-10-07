@@ -113,3 +113,6 @@ function speechText(text) {
 function newUtterance(text) {
   return new SpeechSynthesisUtterance(speechText(text));
 }
+
+// サーバー(voice-engine.js)からも、VOICEVOX に渡す前の読み補正として同じ辞書を使う
+if (typeof module !== 'undefined' && module.exports) module.exports = { speechText, TTS_READINGS };
