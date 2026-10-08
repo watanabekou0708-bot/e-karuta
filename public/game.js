@@ -1218,6 +1218,7 @@ function ensureCardLayout(cardOrder) {
 
 function openArrangeScreen(cardOrder, cards, endsAt, players, round, layout) {
   setGrabLocked(false);
+  myClickedThisRead = false;
   if (round) currentRound = round;
   gameStarted  = true;
   isArranging  = true;
@@ -1668,6 +1669,12 @@ function grabGeometry(id, ev) {
 // お手付きをすると、次の札が読み上げられるまで取れない（手当たり次第のクリック対策）。
 // 実際の判定はサーバー側で行う。ここでは表示と無駄な送信を止めるための状態。
 let myGrabLocked = false;
+// この札の読み上げ中、すでに1回クリックしたか（正解・不正解を問わない）。
+// 連打すると数値表示がクリックごとに変わってしまうため、1回クリックしたら
+// 判定が出るまで（次の札の読み上げが始まるまで）それ以上はクリックできないようにする。
+// お手付きかどうかの合否はまだ出さない（「そこまで！」のタイミングで分かる）ため、
+// ここでは専用のバナー等は出さず、通常の禁止マーク（ホバーで🚫・クリックで一瞬揺れる）だけにする。
+let myClickedThisRead = false;
 
 function setGrabLocked(locked, msg) {
   myGrabLocked = locked;
@@ -1692,7 +1699,7 @@ function setGrabLocked(locked, msg) {
 function cannotTakeAnyCard() {
   if (isArranging) return false;
   if (!canEverTake()) return true;
-  if (myGrabLocked) return true;
+  if (myGrabLocked || myClickedThisRead) return true;
   if ((currentPhase === 'reading' || currentPhase === 'decoy') && !introStarted) return true;   // 「読み上げます」の前は取れない
   return currentPhase !== 'reading' && currentPhase !== 'decoy';
 }
@@ -1743,6 +1750,11 @@ function onCardClick(id, el, ev) {
     if (!el.classList.contains('removed')) flashForbidden(el);
     return;
   }
+  if (myClickedThisRead) {
+    // すでに1回クリック済み（正解か不正解かはまだ分からない）。連打による数値の変化を防ぐ。
+    if (!el.classList.contains('removed')) flashForbidden(el);
+    return;
+  }
   if (el.classList.contains('removed')) return;   // 消えた札はクリック自体が届かない（保険で無視）
   if (el.classList.contains('correct-mine') ||
       el.classList.contains('correct-other') ||
@@ -1767,6 +1779,8 @@ function onCardClick(id, el, ev) {
   const t = hiResNow() + serverOffset;
   disarmFlying();
   socket.emit('grab_card', { cardId: id, t, offsetMm: g.offsetMm, distMm: g.distMm });
+  myClickedThisRead = true;   // 正解・不正解を問わず、この札の読み上げ中はもう1回クリックできない
+  syncGrabAvailability();
   if (currentPhase === 'reading') showPendingPanel(t - currentReadPlayAt, g);   // 判定を待つ0.5秒の間も、自分の数値を即座に出す
 }
 
@@ -2255,6 +2269,7 @@ socket.on('read_card', ({ card, remaining, playAt }) => {
   introStarted = false;   // 「読み上げます」が始まるまでは取れない
   hideScorePanel();       // 前の札の判定内訳は、次の札が読まれ始めたら消す
   setGrabLocked(false);   // 次の札が読み上げられ始めたので、お手付きのロックを解除
+  myClickedThisRead = false;
   setCurrentPhase('reading');
   hideReadBtn();
   $('leftCount').textContent = remaining.length;
@@ -2289,6 +2304,7 @@ socket.on('decoy_read', ({ id, yomi, playAt }) => {
   introStarted = false;
   hideScorePanel();
   setGrabLocked(false);
+  myClickedThisRead = false;
   setCurrentPhase('decoy');
   hideReadBtn();
   $('readingText').textContent = '📢 読み上げ中...';

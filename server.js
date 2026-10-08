@@ -314,6 +314,7 @@ const gs = {
   yomiFinishedAt: 0,
   yomiFinishedForCurrent: false,   // 今の札の上の句が最後まで読み終わったか（読み上げ中に勝者が決まっても、これが true になるまで確定を待つ）
   pendingWinner:  null,    // 読み上げ中に決まった勝者（{ grabberId, card, scored, contenders }）。読み終わるまで未確定のまま保持する
+  pendingMisses:  [],      // 本人への「✕お手付き」表示をまだ届けていない誤クリック（{ activeCardId, clickedCardId, socketId, penalty }）
   matchLevel:     0,      // 今の試合のレベル（0=A〜3=D）
   finalDecoyLeft: null,   // 最後の1枚の前に連発するダミー読みの残り回数（null=未設定）
   openGrabWindowCardIds: new Set(),   // 現在受付窓(0.5秒)が開いている札のID。札ごとに別々に管理する
@@ -870,10 +871,20 @@ function armReadTimeout(card) {
   }, READ_TIMEOUT_MS);
 }
 
+// この札の読み上げ中・猶予中に届いた誤クリックを、本人にまとめて知らせる（減点自体はクリック時に
+// 即座に済んでいる。「✕お手付き」の表示だけを、今読まれていた札の「そこまで！」に合わせる）。
+function flushPendingMisses(cardId) {
+  const due = gs.pendingMisses.filter(m => m.activeCardId === cardId);
+  if (!due.length) return;
+  gs.pendingMisses = gs.pendingMisses.filter(m => m.activeCardId !== cardId);
+  due.forEach(m => io.to(m.socketId).emit('wrong_grab', { cardId: m.clickedCardId, penalty: m.penalty }));
+}
+
 // 読み上げ終了から READ_TIMEOUT_MS 経過したときに呼ばれる。その間に正解の申告があれば
 // （読み上げ中・読み上げ後のどちらで決まっていても）ここで初めて確定・加点して発表し、
 // なければ「誰も取れなかった」発表（triggerTimeUp）を行う。
 function revealResult(card) {
+  flushPendingMisses(card.id);
   if (gs.pendingWinner && gs.pendingWinner.card.id === card.id) {
     const pw = gs.pendingWinner;
     gs.pendingWinner = null;
@@ -1522,6 +1533,7 @@ function clearAllTimers() {
   gs.ready.active = false;
   gs.grabCandidates = [];
   gs.pendingWinner = null;
+  gs.pendingMisses = [];
 }
 
 // 受付時間内に集まった正解候補から勝者を決める。この0.5秒の受付時間・決め方自体は変わらない：
@@ -1916,9 +1928,11 @@ io.on('connection', socket => {
       if (gs.grabCandidates.some(c => c.id === socket.id)) return;
       addGrabCandidate({ id: socket.id, cardId, t, offsetMm: offset, distMm: dist }, 'human');
     } else if (gs.remaining.has(cardId)) {
+      // 減点はすぐに行うが、本人への「✕お手付き」表示は今読まれている札の「そこまで！」と
+      // 同時になるまで遅らせる（結果が分かるタイミングを他の人と揃えるため）。
       const penalty = applyMiss(socket.id, cardId, 'wrong_card', { expected: gs.currentCard.id });
       gs.lockedPlayers.add(socket.id);
-      socket.emit('wrong_grab', { cardId, penalty });
+      gs.pendingMisses.push({ activeCardId: gs.currentCard.id, clickedCardId: cardId, socketId: socket.id, penalty });
       io.emit('players_updated', gs.players);
     }
   });
