@@ -1,6 +1,6 @@
 'use strict';
 // 全部の音声を事前に VOICEVOX で生成して voice-cache に保存するスクリプト。
-//   npm run voice:pregen              … 出題対象587札（上の句＝四国めたん／答え＝ずんだもん）＋ダミー203札＋固定セリフ・数字・順位の部品
+//   npm run voice:pregen              … 出題対象587札（上の句＝四国めたん／答え合わせの上の句・下の句＝青山龍星）＋ダミー203札＋固定セリフ・数字・順位・DJの部品（ずんだもん）
 //   npm run voice:pregen -- --limit 20 … 動作確認用に、先頭20札だけ
 //   npm run voice:pregen -- --only warmup … 固定セリフ・数字・順位の部品だけ
 // 生成済みのファイルは飛ばすので、途中で止めても、あとで続きから再開できる。
@@ -27,8 +27,8 @@ const engine = new VoiceEngine({
   const cards = (limit ? leveled.slice(0, limit) : leveled);
   const decoys = (limit ? unleveled.slice(0, Math.ceil(limit / 3)) : unleveled);
   if (only !== 'warmup') {
-    cards.forEach(k => items.push(VD.seg(k.yomi, 'metan'), VD.seg(k.tori, 'zunda')));
-    decoys.forEach(k => items.push(VD.seg(k.yomi, 'metan'), VD.seg(k.tori, 'zunda')));
+    cards.forEach(k => items.push(VD.seg(k.yomi, 'metan'), ...VD.answerSegments(k.yomi, k.tori)));
+    decoys.forEach(k => items.push(VD.seg(k.yomi, 'metan'), ...VD.answerSegments(k.yomi, k.tori)));
   }
   if (only !== 'cards') items.push(...VD.warmupItems());
   const seen = new Set();

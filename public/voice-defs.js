@@ -8,12 +8,14 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.VOICE_DEFS = api;
 })(typeof self !== 'undefined' ? self : this, function () {
-  // 声の設定。metan＝四国めたん(ノーマル)、zunda＝ずんだもん(ノーマル)。
-  //  ・正解の「下の句」（答えの用語）を読むときだけ zunda
-  //  ・それ以外（読み上げます・上の句・そこまで・DJなど）はすべて metan
+  // 声の設定。
+  //  metan ＝四国めたん(ノーマル)：かるたの読み上げ（警告・読み上げます・上の句）と「そこまで」
+  //  aoyama＝青山龍星(ノーマル)：答え合わせの読み上げ（上の句の再読み上げ・下の句）
+  //  zunda ＝ずんだもん(ノーマル)：DJの実況（札を取ったときのコメント・試合結果）
   const VOICES = {
-    metan: { speaker: 2, speedScale: 0.9, pitchScale: 0.03, volumeScale: 1.0, intonationScale: 1.0 },
-    zunda: { speaker: 3, speedScale: 1.0, pitchScale: 0.0,  volumeScale: 1.0, intonationScale: 1.0 },
+    metan:  { speaker: 2,  speedScale: 0.9, pitchScale: 0.03, volumeScale: 1.0, intonationScale: 1.0 },
+    aoyama: { speaker: 13, speedScale: 0.9, pitchScale: 0.1,  volumeScale: 1.0, intonationScale: 1.0 },
+    zunda:  { speaker: 3,  speedScale: 1.0, pitchScale: 0.05, volumeScale: 1.0, intonationScale: 1.0 },
   };
   // 読みの辞書や話者設定を大きく変えたときに上げる（古いキャッシュを使わないようにする）
   const CACHE_VERSION = 'v1';
@@ -40,6 +42,7 @@
   const voiceUrl = (voice, text) => `/voice/${voiceDir(voice)}/${voiceKey(voice, text)}.wav`;
 
   const seg = (text, voice = 'metan') => ({ voice, text });
+  const djSeg = text => seg(text, 'zunda');   // DJ の実況・試合結果はすべてずんだもん
 
   // ── 固定のセリフ ──
   const FIXED = {
@@ -49,54 +52,64 @@
     notice: 'これは盤面にない札でした',
   };
 
-  // ── 点数の読み上げを部品に分ける（1万2345点 → [1万][2千][3百][45点]）──
+  // ── 点数の読み上げを部品に分ける（1万2345点 → [1万][2千][3百][45点]）。DJ専用なのでずんだもん固定。──
   //  部品は 万(1〜9)・千(1〜9)・百(1〜9)・下2桁＋点(0〜99) だけなので、事前に全部作っておける。
   function pointsSegments(n) {
     n = Math.round(n);
-    if (n < 0) return [seg('マイナス'), ...pointsSegments(-n)];
+    if (n < 0) return [djSeg('マイナス'), ...pointsSegments(-n)];
     const man = Math.floor(n / 10000), sen = Math.floor(n / 1000) % 10, hyaku = Math.floor(n / 100) % 10, rest = n % 100;
     const out = [];
-    if (man) out.push(seg(`${man}万`));
-    if (sen) out.push(seg(`${sen}千`));
-    if (hyaku) out.push(seg(`${hyaku}百`));
-    if (rest || !out.length) out.push(seg(`${rest}点`)); else out.push(seg('点'));
+    if (man) out.push(djSeg(`${man}万`));
+    if (sen) out.push(djSeg(`${sen}千`));
+    if (hyaku) out.push(djSeg(`${hyaku}百`));
+    if (rest || !out.length) out.push(djSeg(`${rest}点`)); else out.push(djSeg('点'));
     return out;
   }
-  const rankSegment = r => seg(`${r}位`);
-  const roundEndSegments = n => [seg(`${n}回戦終了です。お疲れ様でした。`)];
+  const rankSegment = r => djSeg(`${r}位`);
+  const roundEndSegments = n => [djSeg(`${n}回戦終了です。お疲れ様でした。`)];
 
   // ── 試合結果画面のDJ（各自の端末で組み立てる）──
   function resultCongratsSegments(score, rank) {
-    return [seg('おめでとうございます。あなたは'), ...pointsSegments(score), seg('で'), rankSegment(rank), seg('です。')];
+    return [djSeg('おめでとうございます。あなたは'), ...pointsSegments(score), djSeg('で'), rankSegment(rank), djSeg('です。')];
   }
   function resultCloseSegments(diff, rank) {
-    return [seg('惜しい。あと'), ...pointsSegments(diff), seg('で'), rankSegment(rank), seg('でした。')];
+    return [djSeg('惜しい。あと'), ...pointsSegments(diff), djSeg('で'), rankSegment(rank), djSeg('でした。')];
+  }
+  // 2位・3位の人へ：1位との点差を伝える（常に読む。しきい値なし）
+  function resultNearWinSegments(name, diff) {
+    return [djSeg('惜しい。'), nameSeg(name), djSeg('あと'), ...pointsSegments(diff), djSeg('で優勝でした。')];
   }
 
-  // ── 札を取ったときのDJ（サーバーで組み立てる）。名前の部品は「名前＋さん」1つだけ ──
-  const nameSeg = name => seg(`${name}さん`);
+  // ── 札を取ったときのDJ（サーバーで組み立てる）。名前の部品は「名前＋さん」1つだけ。すべてずんだもん ──
+  const nameSeg = name => djSeg(`${name}さん`);
   const DJ_TAKE = [
-    name => [nameSeg(name), seg('が札をとりました！')],
-    (name, score) => [nameSeg(name), seg('ナイスキャッチ！'), seg('現在'), ...pointsSegments(score), seg('です。')],
-    name => [seg('お見事、'), nameSeg(name)],
-    name => [nameSeg(name), seg('が1枚ゲットです！')],
+    name => [nameSeg(name), djSeg('が札をとりました！')],
+    (name, score) => [nameSeg(name), djSeg('ナイスキャッチ！'), djSeg('現在'), ...pointsSegments(score), djSeg('です。')],
+    name => [djSeg('お見事、'), nameSeg(name)],
+    name => [nameSeg(name), djSeg('が1枚ゲットです！')],
   ];
-  const djBonusSegments = name => [seg('流石です！'), nameSeg(name), seg('いい精度。')];
-  const djMouseSegments = name => [seg('素晴らしい！'), nameSeg(name), seg('ナイスマウスさばき')];
-  const djNearSegments = name => [nameSeg(name), seg('あと少しで1位です！')];
+  const djBonusSegments = name => [djSeg('流石です！'), nameSeg(name), djSeg('いい精度。')];
+  const djMouseSegments = name => [djSeg('素晴らしい！'), nameSeg(name), djSeg('ナイスマウスさばき')];
+  const djNearSegments = name => [nameSeg(name), djSeg('あと少しで1位です！')];
+
+  // ── 答え合わせの読み上げ（上の句の再読み上げ＋下の句）。青山龍星。「そこまで」は含まない ──
+  // 上の句を読み終えてから1.5秒おいて下の句を読み上げる。
+  function answerSegments(yomi, tori) {
+    return [{ ...seg(yomi, 'aoyama'), gapAfter: 1500 }, seg(tori, 'aoyama')];
+  }
 
   // ── 事前に作っておく部品（サーバー起動時のウォームアップ・事前生成スクリプトで使う）──
   function warmupItems() {
     const items = [];
-    Object.values(FIXED).forEach(t => items.push(seg(t)));
-    ['が札をとりました！', 'ナイスキャッチ！', '現在', 'です。', 'お見事、', 'が1枚ゲットです！', '流石です！', 'いい精度。', '素晴らしい！',
-      'ナイスマウスさばき', 'あと少しで1位です！', 'おめでとうございます。あなたは', 'で', 'です。', '惜しい。あと', 'でした。', 'マイナス', '点']
-      .forEach(t => items.push(seg(t)));
-    for (let i = 1; i <= 9; i++) { items.push(seg(`${i}万`)); items.push(seg(`${i}千`)); items.push(seg(`${i}百`)); }
-    for (let i = 0; i <= 99; i++) items.push(seg(`${i}点`));
+    Object.values(FIXED).forEach(t => items.push(seg(t)));   // 警告・読み上げます・そこまで・これは盤面にない札でした（めたん）
+    [
+      'が札をとりました！', 'ナイスキャッチ！', '現在', 'です。', 'お見事、', 'が1枚ゲットです！', '流石です！', 'いい精度。', '素晴らしい！',
+      'ナイスマウスさばき', 'あと少しで1位です！', 'おめでとうございます。あなたは', 'で', 'です。', '惜しい。あと', 'でした。', 'マイナス', '点',
+      '惜しい。', 'あと', 'で優勝でした。',
+    ].forEach(t => items.push(djSeg(t)));
+    for (let i = 1; i <= 9; i++) { items.push(djSeg(`${i}万`)); items.push(djSeg(`${i}千`)); items.push(djSeg(`${i}百`)); }
+    for (let i = 0; i <= 99; i++) items.push(djSeg(`${i}点`));
     for (let r = 1; r <= 99; r++) items.push(rankSegment(r));
-    // CPU の名前（強CPU01〜弱CPU30）もDJが呼ぶので、「名前＋さん」を事前に作る
-    ['強', '中', '弱'].forEach(t => { for (let i = 1; i <= 30; i++) items.push(nameSeg(`${t}CPU${String(i).padStart(2, '0')}`)); });
     // CPU の名前（強CPU01〜弱CPU30）もDJが呼ぶので、「名前＋さん」を事前に作る
     ['強', '中', '弱'].forEach(t => { for (let i = 1; i <= 30; i++) items.push(nameSeg(`${t}CPU${String(i).padStart(2, '0')}`)); });
     for (let n = 1; n <= 9; n++) items.push(...roundEndSegments(n));
@@ -105,8 +118,8 @@
   }
 
   return {
-    VOICES, CACHE_VERSION, FIXED, hash, voiceDir, voiceKey, voiceUrl, seg,
-    pointsSegments, rankSegment, roundEndSegments, resultCongratsSegments, resultCloseSegments,
-    nameSeg, DJ_TAKE, djBonusSegments, djMouseSegments, djNearSegments, warmupItems,
+    VOICES, CACHE_VERSION, FIXED, hash, voiceDir, voiceKey, voiceUrl, seg, djSeg,
+    pointsSegments, rankSegment, roundEndSegments, resultCongratsSegments, resultCloseSegments, resultNearWinSegments,
+    nameSeg, DJ_TAKE, djBonusSegments, djMouseSegments, djNearSegments, answerSegments, warmupItems,
   };
 });

@@ -84,15 +84,6 @@ function queueDj(text, segments) {
   }).catch(() => {});
 }
 
-// DJ実況が話し終わっていれば即実行、話している途中なら話し終わるまで待って実行する。
-function runAfterDjClear(fn) {
-  if (djSpeaking || djQueue.length) {
-    pendingAfterDj = fn;
-  } else {
-    fn();
-  }
-}
-
 let djGeneration = 0;   // stopDjSpeech() 以前の古い発話の完了通知を無効化する
 
 function stopDjSpeech() {
@@ -152,7 +143,7 @@ function tryPlayDjQueue() {
         const fn = pendingAfterDj;
         pendingAfterDj = null;
         const myGen = djGeneration;
-        setTimeout(() => { if (myGen === djGeneration) fn(); }, VOICE_PAUSE_MS);   // DJ の後、間をおいて正解発表へ
+        setTimeout(() => { if (myGen === djGeneration) fn(); }, ANNOUNCE_PAUSE_MS);   // DJ の後、間をおいて正解発表へ
       } else {
         flushIdleWaiters();
         maybeAutoReadNext();
@@ -198,11 +189,16 @@ async function preloadAudio() {
 
 // ── VOICEVOX 音声の再生 ───────────────────────────────────────
 // サーバーPCが作って配る音声ファイル(voice.js)で、読み上げ・正解発表・DJを再生する。
-// 声の割り当て：正解の「下の句」(答え)だけ ずんだもん、それ以外はすべて 四国めたん（voice-defs.js）。
-// 必要な音声が1つでも手元に無いときは何もせず false を返し、従来のブラウザ音声(TTS)に切り替わる。
+// 声の割り当て（voice-defs.js）：最初の読み上げ（警告・読み上げます・上の句）とそこまでは四国めたん、
+// 答え合わせ（上の句の再読み上げ・下の句）は青山龍星、DJの実況・試合結果はずんだもん。
 const VD = window.VOICE_DEFS;
-// 音声と音声の間（警告→「読み上げます」→上の句、DJ→正解発表、そこまで→上の句→下の句、正解発表→次の札の警告）。
+// 音声と音声の間の、通常の短い間（「読み上げます」→上の句、上の句→下の句など）。
 const VOICE_PAUSE_MS = 800;
+// 「フライングに注意してください」が終わってから、「読み上げます」が始まるまでの間（少し長めに取る）。
+const WARN_PAUSE_MS = 1500;
+// 結果発表の中の大きな区切り（DJの実況→答え合わせ、そこまで→答え合わせ(DJ無し)、
+// 答え合わせ→次の札の「マウスを定位置に戻します」）。そこまで→DJの実況は間を空けない（ポイント表示とほぼ同時にするため）。
+const ANNOUNCE_PAUSE_MS = 1500;
 let voiceEndedAt = 0;   // 直前の音声（DJ・正解発表）が終わった時刻（サーバー時計）。次の読み上げはここから VOICE_PAUSE_MS あける
 function markVoiceEnd() { voiceEndedAt = hiResNow() + serverOffset; }
 Voice.init({ getCtx: () => getAudioCtx(), nowServer: () => hiResNow() + serverOffset });
@@ -217,7 +213,7 @@ function playVoiceItems(items, playAt, gen, onDone, onItemStart) {
 }
 // 読み上げ：警告の案内 → 「読み上げます」→ 上の句
 function playVoiceRead(yomi, playAt, gen, onDone) {
-  const items = [{ ...VD.seg(VD.FIXED.warn), gapAfter: VOICE_PAUSE_MS }, { ...VD.seg(VD.FIXED.intro), gapAfter: VOICE_PAUSE_MS }, VD.seg(yomi)];
+  const items = [{ ...VD.seg(VD.FIXED.warn), gapAfter: WARN_PAUSE_MS }, { ...VD.seg(VD.FIXED.intro), gapAfter: VOICE_PAUSE_MS }, VD.seg(yomi)];
   const ok = playVoiceItems(items, playAt, gen, onDone, i => {
     if (i === 1) armFlying();          // 「読み上げます」の発声開始：カーソルを定位置へ・フライング監視開始
     else if (i === 2) disarmFlying();  // 上の句の1文字目：監視終了
@@ -225,17 +221,18 @@ function playVoiceRead(yomi, playAt, gen, onDone) {
   if (ok) setTimeout(() => { if (gen === audioGeneration && !introStarted) { introStarted = true; syncGrabAvailability(); } }, 9000);
   return ok;
 }
-// 正解発表：そこまで → 上の句 → 下の句(ずんだもん)。ダミー読みのときは最後に「これは盤面にない札でした」
+// 時間切れ（誰も取れなかった）のときの正解発表：そこまで → 上の句 → 下の句（答え合わせ＝青山龍星）。
+// ダミー読みのときは最後に「これは盤面にない札でした」。誰かが取ったときの実況は card_taken 側で別に組み立てる。
 function voiceAnnounceItems(yomi, tori, withNotice) {
-  const items = [{ ...VD.seg(VD.FIXED.timeup), gapAfter: VOICE_PAUSE_MS }, { ...VD.seg(yomi), gapAfter: VOICE_PAUSE_MS }, VD.seg(tori, 'zunda')];
-  if (withNotice) { items[2].gapAfter = VOICE_PAUSE_MS; items.push(VD.seg(VD.FIXED.notice)); }
+  const items = [{ ...VD.seg(VD.FIXED.timeup), gapAfter: ANNOUNCE_PAUSE_MS }, ...VD.answerSegments(yomi, tori)];
+  if (withNotice) { items[2].gapAfter = VOICE_PAUSE_MS; items.push(VD.seg(VD.FIXED.notice, 'aoyama')); }
   return items;
 }
 
 // 読み上げ（警告 → 「読み上げます」→ 上の句）を、事前に用意した音声ファイルで再生する。
 // 上の句が終わったら onDone() を呼ぶ（ホスト端末はこれで yomi_finished を送り、制限時間を始める）。
 function scheduleReadCard(cardId, playAt, onDone) {
-  playAt = Math.max(playAt, voiceEndedAt + VOICE_PAUSE_MS);
+  playAt = Math.max(playAt, voiceEndedAt + ANNOUNCE_PAUSE_MS);
   audioGeneration++;
   const gen = audioGeneration;
   const card = KMAP[cardId];
@@ -245,7 +242,7 @@ function scheduleReadCard(cardId, playAt, onDone) {
 
 // ダミー読み（盤面に対応する札が無い読み上げ）。音声ファイルで再生し、終わったら onDone()。
 function scheduleDecoyRead(decoyId, playAt, fallbackText, onDone) {
-  playAt = Math.max(playAt, voiceEndedAt + VOICE_PAUSE_MS);
+  playAt = Math.max(playAt, voiceEndedAt + ANNOUNCE_PAUSE_MS);
   audioGeneration++;
   const gen = audioGeneration;
   if (!fallbackText) return;
@@ -963,7 +960,7 @@ function applyInit(d) {
   if (d.phase === 'lobby') {
     openLobby(d.players);
   } else if (d.phase === 'memorizing') {
-    openArrangeScreen(d.cardOrder, d.cards, d.endsAt, d.players, d.round);
+    openArrangeScreen(d.cardOrder, d.cards, d.endsAt, d.players, d.round, d.layout);
   } else if (['waiting', 'reading', 'decoy', 'announcing'].includes(d.phase)) {
     gameStarted = true;
     isArranging = false;
@@ -1186,87 +1183,30 @@ function overlapsOthers(id, x, y, rot, margin) {
   });
 }
 
-// 上半分・下半分それぞれの帯の中に、間隔・位置・向きがバラバラになるよう札を置く。
-// 回転した札どうしの多角形で重なりを判定しながら 1 枚ずつ置くので、どの札も重ならない。
-// 長い用語の札が多くて乱雑に置ききれないときは、段（棚）に並べる配置に切り替えて、
-// 必ず重ならないようにする（画面サイズが変わっても盤面の論理サイズは一定なので重なりは生じない）。
+// 盤面の配置。サーバーが試合ごとに1つ作って全員に配るので、通常はここでは作らない（保険）。
 function generateCardLayout(cardOrder) {
-  cardLayout = {};
   cardSizes  = measureCardSizes(cardOrder);
-  const half = Math.ceil(cardOrder.length / 2);
-  const EDGE = 14, MARGIN = 10;
-  const zones = [
-    { name: 'top',    ids: cardOrder.slice(0, half), y0: EDGE,              y1: BOARD_H / 2 - 8 },
-    { name: 'bottom', ids: cardOrder.slice(half),    y0: BOARD_H / 2 + 8,   y1: BOARD_H - EDGE },
-  ];
-  const rotFor = (z, spread) => z.name === 'top'
-    ? 180 + (Math.random() * 24 - 12) * spread      // 相手側は自分から見て逆さま
-    : (Math.random() * 360 - 180) * spread;         // 自分側は本物のかるたのように全方向バラバラ
+  cardLayout = KLayout.generateLayout(cardOrder);
+}
 
-  // 乱雑配置：成功したら { id: {x,y,rot,poly} }、置ききれなければ null
-  const scatter = (z, obstacles) => {
-    const out = {};
-    const polys = [...obstacles];
-    const ids = [...z.ids].sort((a, b) => cardSizes[b].w - cardSizes[a].w);   // 大きい札から先に置く
-    for (const id of ids) {
-      const { w, h } = cardSizes[id];
-      let spot = null;
-      for (let attempt = 0; attempt < 900 && !spot; attempt++) {
-        const spread = attempt < 350 ? 1 : attempt < 650 ? 0.4 : 0.08;   // 置きにくいときは向きのばらつきを小さくする
-        const rot = rotFor(z, spread);
-        const a = rot * Math.PI / 180;
-        const bw = Math.abs(w * Math.cos(a)) + Math.abs(h * Math.sin(a));
-        const bh = Math.abs(w * Math.sin(a)) + Math.abs(h * Math.cos(a));
-        const xMin = bw / 2 + EDGE, xMax = BOARD_W - bw / 2 - EDGE;
-        const yMin = z.y0 + bh / 2, yMax = z.y1 - bh / 2;
-        if (xMax <= xMin || yMax <= yMin) continue;
-        const x = xMin + Math.random() * (xMax - xMin);
-        const y = yMin + Math.random() * (yMax - yMin);
-        const poly = cardPolygon(x, y, w + MARGIN * 2, h + MARGIN * 2, rot);
-        if (polysOverlap(poly, HOME_KEEPOUT) || polys.some(p => polysOverlap(poly, p))) continue;
-        spot = { x, y, rot, poly };
-      }
-      if (!spot) return null;
-      out[id] = spot;
-      polys.push(spot.poly);
-    }
-    return out;
-  };
+// サーバーから届いた配置を画面に反映する（全員同じ配置）
+function setServerLayout(layout, cardOrder) {
+  const clean = {};
+  cardOrder.forEach(id => { if (layout && layout[id]) clean[id] = { ...layout[id] }; });
+  if (Object.keys(clean).length !== cardOrder.length) return false;
+  cardSizes  = measureCardSizes(cardOrder);
+  cardLayout = clean;
+  return true;
+}
 
-  // 棚詰め配置：左から右へ詰めて、入りきらなければ次の段へ。定位置の円の周りは避けて通る。
-  const shelf = (z) => {
-    const gap = MARGIN * 2 + 4;
-    const out = {};
-    const pitch = 99 + gap;
-    const kx0 = HOME.x - HOME.r - 34, kx1 = HOME.x + HOME.r + 34, ky0 = HOME.y - HOME.r - 34;
-    let row = 0, x = EDGE;
-    z.ids.forEach(id => {
-      const { w, h } = cardSizes[id];
-      for (let guard = 0; guard < 50; guard++) {
-        const cy = z.y0 + pitch / 2 + row * pitch;
-        const hitsKeepout = cy + h / 2 + MARGIN > ky0 && x + w + MARGIN > kx0 && x - MARGIN < kx1;
-        if (hitsKeepout) { x = kx1 + MARGIN + gap / 2; continue; }
-        if (x + w > BOARD_W - EDGE) { row++; x = EDGE; continue; }
-        const rot = z.name === 'top' ? 180 : 0;
-        out[id] = { x: x + w / 2, y: cy, rot, poly: cardPolygon(x + w / 2, cy, w, h, rot) };
-        x += w + gap;
-        break;
-      }
-    });
-    return out;
-  };
-
-  const obstacles = [HOME_KEEPOUT];
-  zones.forEach(z => {
-    let placed = null;
-    for (let tries = 0; tries < 10 && !placed; tries++) placed = scatter(z, obstacles);
-    window.__layoutStats = window.__layoutStats || { zones: 0, shelf: 0 };
-    window.__layoutStats.zones++;
-    if (!placed) { window.__layoutStats.shelf++; placed = shelf(z); }
-    Object.entries(placed).forEach(([id, p]) => {
-      cardLayout[id] = { x: p.x, y: p.y, rot: Math.round(p.rot), zone: z.name };
-      obstacles.push(p.poly);
-    });
+// 配置を、今画面にある札の位置に反映する（教卓PCが並べ替えたとき、他のPCの表示を合わせる）
+function applyLayoutToDom() {
+  document.querySelectorAll('#grid .card').forEach(el => {
+    const id = +el.dataset.id, lay = cardLayout[id];
+    if (!lay) return;
+    el.style.left = lay.x + 'px';
+    el.style.top = lay.y + 'px';
+    el.style.transform = `rotate(${lay.rot}deg)`;
   });
 }
 
@@ -1276,7 +1216,7 @@ function ensureCardLayout(cardOrder) {
   if (!ok) generateCardLayout(cardOrder);
 }
 
-function openArrangeScreen(cardOrder, cards, endsAt, players, round) {
+function openArrangeScreen(cardOrder, cards, endsAt, players, round, layout) {
   setGrabLocked(false);
   if (round) currentRound = round;
   gameStarted  = true;
@@ -1284,7 +1224,7 @@ function openArrangeScreen(cardOrder, cards, endsAt, players, round) {
   hide('oLobby'); hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
   updateChips(players);
   const ids = cardOrder && cardOrder.length ? cardOrder : cards.map(k => k.id);
-  generateCardLayout(ids);
+  if (!(layout && setServerLayout(layout, ids))) generateCardLayout(ids);
   renderGrid(ids, null, 'arrange');
   startArrangeCountdown(endsAt);
   updateHostNotice();
@@ -1352,6 +1292,8 @@ function attachFreeDrag(el, id) {
         el.style.left = start.x + 'px';
         el.style.top  = start.y + 'px';
         el.style.transform = `rotate(${start.rot}deg)`;
+      } else if (moved) {
+        socket.emit('set_layout', { layout: cardLayout });   // 全員の配置を合わせる
       }
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
@@ -1691,8 +1633,8 @@ function renderGrid(cardOrder, remainingSet, mode) {
     el.style.top       = layout.y + 'px';
     el.style.transform = `rotate(${layout.rot}deg)`;
     if (mode === 'arrange') {
-      el.classList.add(layout.zone === 'top' ? 'zone-top' : 'draggable');
-      if (layout.zone === 'bottom') attachFreeDrag(el, id);
+      el.classList.add(layout.zone === 'top' || !myIsHost ? 'zone-top' : 'draggable');
+      if (layout.zone === 'bottom' && myIsHost) attachFreeDrag(el, id);
     } else {
       el.addEventListener('click', ev => onCardClick(id, el, ev));
     }
@@ -2045,11 +1987,12 @@ function showScorePanel(by, r, contenders) {
     ? `<div class="sp-row"><span class="sp-label sp-hc">ハンデ</span><span class="sp-detail sp-hc">×${r.handicap}</span><span class="sp-pts sp-hc">${fmtPts(r.wanted - r.base)}</span></div>`
     : '';
   const capNote = r.capped ? '<div class="sp-cont">※ 1試合の上限（2万点）に達しました。</div>' : '';
+  // クリックした人は（0.5秒以内に限らず）全員、精度の高い順に並べて表示する。自分の行は目立たせる。
   const list = (contenders || []).length > 1
-    ? `<div class="sp-list-title">同時にクリックした人（0.5秒以内）</div>
-      <div class="sp-list">
+    ? `<div class="sp-list-title">クリックした人（${contenders.length}人）</div>
+      <div class="sp-list" id="spList">
         <div class="sp-li head"><span>名前</span><span>速さ</span><span>中心から</span><span>精度点</span></div>
-        ${contenders.map(c => `<div class="sp-li${c.win ? ' win' : ''}${c.id === myId ? ' me' : ''}">
+        ${contenders.map(c => `<div class="sp-li${c.win ? ' win' : ''}${c.id === myId ? ' me' : ''}" id="${c.id === myId ? 'spListMe' : ''}">
           <span class="n">${c.win ? '◎ ' : ''}${escHtml(c.name)}</span><span>${(c.speedMs / 1000).toFixed(2)}秒</span><span>${mmStr(c.offsetMm)}</span><span>${fmtPts(c.key)}</span></div>`).join('')}
       </div>`
     : '';
@@ -2061,6 +2004,9 @@ function showScorePanel(by, r, contenders) {
     ${r.bonus ? `<div class="sp-row"><span class="sp-label">🎁 精度ボーナス</span><span class="sp-detail">精度${ACC_BONUS_THRESHOLD}点以上${r.handicap !== 1 ? `（${fmtPts(r.bonusBase)}×${r.handicap}）` : '（別枠）'}</span><span class="sp-pts">+${fmtPts(r.bonus)}</span></div>` : ''}
     <div class="sp-total"><span>獲得ポイント</span><span class="sp-big">+${fmtPts(r.awarded + (r.bonus || 0))}</span></div>
     ${capNote}${list}`;
+  // 一覧の中で自分の行が隠れていたら、見える位置までスクロールする（一目でわかるように）
+  const me = $('spListMe');
+  if (me) me.scrollIntoView({ block: 'nearest' });
 }
 // お手付き・フライング（自分）
 function showMissPanel(penalty, title, detail) {
@@ -2211,7 +2157,7 @@ socket.on('host_changed', ({ hostId }) => {
   updateHostNotice();
 });
 
-socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRounds: mr, survivorCount: sc, isRevival: ir, revivalCount: rc, revivalRound: rRound, revivalMaxRounds: rMax, revivalSurvivorCount: rSurv, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, humanGroups: hg, groupRound: gRound, groupMaxRounds: gMax, groupSurvivorCount: gSurv, groupHumanCount: ghc, humanCount: hc, cpuCount: cc, totalCount: tc }) => {
+socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRounds: mr, survivorCount: sc, isRevival: ir, revivalCount: rc, revivalRound: rRound, revivalMaxRounds: rMax, revivalSurvivorCount: rSurv, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, humanGroups: hg, groupRound: gRound, groupMaxRounds: gMax, groupSurvivorCount: gSurv, groupHumanCount: ghc, humanCount: hc, cpuCount: cc, totalCount: tc, layout: lay }) => {
   matchHeadcount = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   if (round)            currentRound  = round;
   if (mr)               maxRounds     = mr;
@@ -2251,11 +2197,11 @@ socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRoun
     const b = $(id); if (b) b.style.filter = '';
   });
   updateChips(players);
-  openArrangeScreen(cardOrder, cards, endsAt, players, round);
+  openArrangeScreen(cardOrder, cards, endsAt, players, round, lay);
 });
 
 // ── 大会モード：試合開始（暗記フェーズ）───────────────────
-socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, stageLabel, participantIds, gamesPlayed, humanCount: hc, cpuCount: cc, totalCount: tc }) => {
+socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, stageLabel, participantIds, gamesPlayed, humanCount: hc, cpuCount: cc, totalCount: tc, layout: lay }) => {
   matchHeadcount      = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   isEventMode         = true;
   eventStage          = stage;
@@ -2264,7 +2210,7 @@ socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, s
   eventGamesPlayed    = gamesPlayed || {};
   myIsEventSpectator  = !myIsHost && !eventParticipantIds.has(myId);
   updateChips(players);
-  openArrangeScreen(cardOrder, cards, endsAt, players, currentRound);
+  openArrangeScreen(cardOrder, cards, endsAt, players, currentRound, lay);
 });
 
 socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, totalCards, isRevival: ir, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, groupRound: gRound, groupMaxRounds: gMax, isEvent: iev, eventStage: es, eventStageLabel: esl, eventParticipantIds: epi }) => {
@@ -2332,6 +2278,12 @@ socket.on('read_card', ({ card, remaining, playAt }) => {
 // ダミー読み（盤面に対応する札が無い読み上げ）。取ろうとすると全員お手付き扱い。
 // 再生（「これは盤面にない札でした」の案内まで含む）が完全に終わるまで待ち、
 // ホスト端末がその完了を decoy_finished でサーバーに通知する。
+// 教卓PC（進行役）が並べ替えた配置を、全員の画面に反映する
+socket.on('layout', ({ layout, by }) => {
+  if (by === myId || !isArranging) return;
+  if (setServerLayout(layout, Object.keys(layout))) applyLayoutToDom();
+});
+
 socket.on('decoy_read', ({ id, yomi, playAt }) => {
   currentReadPlayAt = playAt;
   introStarted = false;
@@ -2349,43 +2301,8 @@ socket.on('decoy_read', ({ id, yomi, playAt }) => {
   }, 'read', 25000);
 });
 
-// 取得者名を画面表示、上の句・下の句を TTS で答え合わせ
-// stopAllAudio() が cancel() を呼んだあと、音声デバイスが完全に解放されるまで
-// 200ms 待ってから TTS を開始（ホストでの二重 cancel による遅延を防ぐ）
-// 読み上げ中は isAnnouncing=true にして次の札の読み上げボタンを禁止する。
-// onend が確実に発火しない既知の Chrome の不具合に備え、文字数から推定した
-// 時間でのフォールバックタイマーも併用する。
-// 正解発表。事前生成 MP3 を Web Audio で再生するのが基本パス（ホスト機での
-// 音声デバイスのハンドオフ遅延を回避できる）。MP3 が無い場合のみ speechSynthesis
-// にフォールバックする。
-// DJ実況が再生中の場合は、それを最後まで聞かせてから正解発表を始める
-// （途中で打ち切らない。DJ実況が無ければ即座に開始する）。
-socket.on('announce_taken', payload => djLoadChain.then(() => runAfterDjClear(() => startAnnounceTaken(payload))));
-
-function startAnnounceTaken({ name, color, card, playAt }) {
-  stopAllAudio();   // ここで世代カウンタをインクリメントする
-  const gen = audioGeneration;
-  setCurrentPhase('announcing');
-  // 「○○が獲得！」（card_taken到着時に表示済み）から「そこまで」に切り替える。
-  showTimeUpNotif();
-  isAnnouncing = true;
-  updateReadBtnAvailability();
-
-  let finished = false;
-  const finishAnnouncing = () => {
-    if (finished) return;
-    finished = true;
-    markVoiceEnd();
-    isAnnouncing = false;
-    updateReadBtnAvailability();
-    tryPlayDjQueue();
-  };
-
-  if (!card) { finishAnnouncing(); return; }
-  if (!playVoiceItems(voiceAnnounceItems(card.yomi, card.tori, false), playAt, gen, finishAnnouncing)) finishAnnouncing();
-}
-
-// 制限時間（10秒）超過。「そこまで」と案内した後、上の句・下の句で正解を発表する
+// 制限時間（10秒）超過。「そこまで」と案内した後、上の句・下の句で正解を発表する。
+// 音声はクライアントにまだ無ければ再生前に取得してから鳴らす（途中で無音にならないため）。
 socket.on('time_up', ({ card, decoy, playAt }) => {
   dropIdleWaiters('read');   // まだ始められていない詠み上げは取り消す
   stopAllAudio();   // ここで世代カウンタをインクリメントする
@@ -2396,6 +2313,7 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
   isAnnouncing = true;
   updateReadBtnAvailability();
 
+  const tStart = hiResNow();
   let finished = false;
   const finishTimeUp = () => {
     if (finished) return;
@@ -2404,6 +2322,7 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
     isAnnouncing = false;
     updateReadBtnAvailability();
     tryPlayDjQueue();
+    if (myIsHost) socket.emit('announce_finished', { durations: { totalMs: Math.round(hiResNow() - tStart) } });
   };
 
   let items = null;
@@ -2413,48 +2332,100 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
   } else {
     items = voiceAnnounceItems(card.yomi, card.tori, false);
   }
-  if (!items || !playVoiceItems(items, playAt, gen, finishTimeUp)) finishTimeUp();
+  if (!items) { finishTimeUp(); return; }
+  Voice.preload(items, { ensure: true }).then(() => {
+    if (gen !== audioGeneration) return;
+    if (!playVoiceItems(items, playAt, gen, finishTimeUp)) finishTimeUp();
+  });
 });
 
 // DJ 実況コメント。詠み上げ・正解発表の音声とは重ならないよう
 // tryPlayDjQueue() 側で待機させる（キューに積むだけならいつ届いても良い）。
 socket.on('dj_comment', ({ text, segments }) => queueDj(text, segments));
 
-socket.on('card_taken', ({ cardId, by, players, result, contenders }) => {
-  // 誰かが札を取った瞬間に詠み上げ（読み上げます／上の句）を中断する。
-  // このあと announce_taken で「そこまで」→正解の読み上げ→DJの順に流れる。
+// 誰かが札を取ったときの一連の流れ。かるた自体は最後まで読み上げてから確定するため、
+// この時点でもう読み上げ（警告・読み上げます・上の句）は終わっている。続けて
+// 「そこまで」→（間を空けずDJの実況があれば）→（1.5秒）→ 答え合わせ（上の句の再読み上げ・下の句）の順に流す。
+// 獲得ポイント・取った人の表示は「そこまで」が鳴り終わったタイミング（DJの実況とほぼ同時）まで隠す。
+// DJ・答え合わせの音声は、クライアントにまだ無ければ再生前に取得してから鳴らす
+// （無いまま鳴らすと、その部分だけ無音になり「途中で切れた」ように聞こえるため）。
+socket.on('card_taken', ({ cardId, by, players, result, contenders, djText, djSegs, playAt }) => {
   dropIdleWaiters('read');   // まだ始められていない詠み上げは取り消す
-  stopAllAudio();
-  // isAnnouncing はDJ実況待ちで startAnnounceTaken() まで立てないが、
-  // currentPhase（＝札を取れるかの判定）はここで即座に切り替える。
-  // 遅らせると、取られた直後〜正解発表が実際に始まるまでの間（DJ実況待ちで
-  // 数秒空くことがある）、まだ「読み上げ中」のまま扱われて禁止マークが出ない。
+  stopAllAudio();   // ここで世代カウンタをインクリメントする
+  const gen = audioGeneration;
   setCurrentPhase('announcing');
-  // 「○○が獲得！」は札を取った瞬間に表示する（音声の順番待ちに合わせて遅らせない）
-  showTakenNotif(by.name, by.color || '#4a9eff');
-  showScorePanel(by, result, contenders);   // 速度・精度・距離の内訳を即座に表示（次の札が読まれるまで残す）
-  const el = $(`card-${cardId}`);
-  if (!el) return;
-  updateChips(players);
   hideReadBtn();
-  // DJ実況を最後まで聞かせてから正解発表（そこまで／上の句／下の句）に進むため、
-  // ここではまだ isAnnouncing にしない（announce_taken 到着時に runAfterDjClear
-  // 経由で開始される。DJ実況が無ければ即座に、あれば話し終わってから開始する）。
-  if (by.id === myId) {
-    showFloat(el, '+' + fmtPts(result ? result.awarded : 0), '#00e5a0');
-    el.classList.add('correct-mine');
-  } else {
-    el.style.borderColor = by.color;
-    el.style.color       = by.color;
-    el.style.background  = `linear-gradient(160deg,${by.color}28,${by.color}0a)`;
-    setCardText(el, `${by.name} が取得！`);
-    el.classList.add('correct-other');
-  }
-  setTimeout(() => {
-    el.style.cssText = '';
-    el.classList.remove('correct-mine', 'correct-other');
-    el.classList.add('removed');
-  }, 680);
+
+  isAnnouncing = true;
+  updateReadBtnAvailability();
+
+  const tStart = hiResNow();
+  const dur = { sokomadeMs: null, djGapMs: null, djMs: null, answerGapMs: null, answerMs: null };
+  const finishAll = () => {
+    if (gen !== audioGeneration) return;
+    markVoiceEnd();
+    isAnnouncing = false;
+    updateReadBtnAvailability();
+    tryPlayDjQueue();
+    if (myIsHost) socket.emit('announce_finished', { durations: dur });
+  };
+  const card = KMAP[cardId];
+  const playAnswer = () => {
+    const tAnswerStart = hiResNow();
+    if (!card) { finishAll(); return; }
+    const segs = VD.answerSegments(card.yomi, card.tori);
+    Voice.preload(segs, { ensure: true }).then(() => {
+      if (gen !== audioGeneration) return;
+      const onDone = () => { dur.answerMs = Math.round(hiResNow() - tAnswerStart); finishAll(); };
+      if (!playVoiceItems(segs, null, gen, onDone)) onDone();
+    });
+  };
+  const scheduleAnswer = (tFromMs) => {
+    setTimeout(() => {
+      if (gen !== audioGeneration) return;
+      dur.answerGapMs = Math.round(hiResNow() - tFromMs);
+      playAnswer();
+    }, ANNOUNCE_PAUSE_MS);
+  };
+  const playDj = () => {
+    const tDjGapFrom = hiResNow();
+    if (!djSegs || !djSegs.length) { dur.djGapMs = 0; scheduleAnswer(tDjGapFrom); return; }
+    Voice.preload(djSegs, { ensure: true }).then(() => {
+      if (gen !== audioGeneration) return;
+      const tDjStart = hiResNow();
+      dur.djGapMs = Math.round(tDjStart - tDjGapFrom);
+      const onDjDone = () => { dur.djMs = Math.round(hiResNow() - tDjStart); scheduleAnswer(hiResNow()); };
+      if (!playVoiceItems(djSegs, null, gen, onDjDone)) onDjDone();
+    });
+  };
+  const reveal = () => {
+    if (gen !== audioGeneration) return;
+    dur.sokomadeMs = Math.round(hiResNow() - tStart);
+    // ここで初めて「○○が獲得！」・獲得ポイント・札の演出を表示する（DJの実況とほぼ同時にするため）
+    showTakenNotif(by.name, by.color || '#4a9eff');
+    showScorePanel(by, result, contenders);
+    updateChips(players);
+    const el = $(`card-${cardId}`);
+    if (el) {
+      if (by.id === myId) {
+        showFloat(el, '+' + fmtPts(result ? result.awarded : 0), '#00e5a0');
+        el.classList.add('correct-mine');
+      } else {
+        el.style.borderColor = by.color;
+        el.style.color       = by.color;
+        el.style.background  = `linear-gradient(160deg,${by.color}28,${by.color}0a)`;
+        setCardText(el, `${by.name} が取得！`);
+        el.classList.add('correct-other');
+      }
+      setTimeout(() => {
+        el.style.cssText = '';
+        el.classList.remove('correct-mine', 'correct-other');
+        el.classList.add('removed');
+      }, 680);
+    }
+    playDj();
+  };
+  if (!playVoiceItems([VD.seg(VD.FIXED.timeup)], playAt, gen, reveal)) reveal();
 });
 
 // フライング（上の句の1文字目が読まれる前に定位置の円から出た）
@@ -2632,6 +2603,9 @@ function onRoundFinished({ round, players, survivorIds, eliminatedIds, survivorC
 // 「惜しい」を流す条件：順位に関係なく、3位との点差がこの点数以内（約1枚分。server.js の NEAR_POINTS と同じ）
 const DJ_CLOSE_MAX_DIFF  = 500;
 
+// DJが名前を呼ぶときは学年・コースのタグなしの名前を使う（サーバー側 djName と同じ）
+const rawName = p => (p && (p.rawName || p.name)) || '';
+
 // 試合結果画面のDJ音声（各端末で、その端末のユーザー自身の順位に合わせて読み上げる）。
 // 順位は結果画面のランキングと同じく、CPUを含む全参加者の中での順位。
 function speakRoundResultDj(round, players, participantIds) {
@@ -2651,9 +2625,15 @@ function speakRoundResultDj(round, players, participantIds) {
   if (myIdx !== -1) {
     const rank  = ranks[myIdx];
     const score = sorted[myIdx][1].score;
-    if (rank <= 3) {
+    if (rank === 1) {
       line = `おめでとうございます。あなたは${spokenPoints(score)}で${rank}位です。`;
       lineSegs = VD.resultCongratsSegments(score, rank);
+    } else if (rank === 2 || rank === 3) {
+      // 1位との点差を常に伝える（しきい値なし）
+      const diff = sorted[0][1].score - score;
+      const name = rawName(sorted[myIdx][1]);
+      line = `惜しい。${name}さん。あと${spokenPoints(diff)}で優勝でした。`;
+      lineSegs = VD.resultNearWinSegments(name, diff);
     } else {
       // 入賞圏内（3位以内）で一番下の人との差。順位の上限は設けない。
       let podiumIdx = -1;
