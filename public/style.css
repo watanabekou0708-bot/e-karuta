@@ -1094,3 +1094,49 @@ body.in-game .home-circle.alert {
   0%, 100% { scale: 1;    box-shadow: 0 0 0 4px rgba(232, 48, 28, .5), 0 0 22px rgba(232, 48, 28, .8); }
   50%      { scale: 1.22; box-shadow: 0 0 0 16px rgba(232, 48, 28, .15), 0 0 46px rgba(232, 48, 28, 1); }
 }
+
+/* ── 投影専用画面 ──────────────────────────────────────────── */
+body.pj-body { overflow: hidden; }
+.pj-main { display: flex; height: 100vh; }
+.pj-left {
+  flex: 1.3; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 3vw; border-right: 1px solid var(--border); text-align: center;
+}
+.pj-status { font-size: 2.6vw; font-weight: 700; color: var(--accent); margin-bottom: 1.2vw; }
+.pj-yomi   { font-size: 4.2vw; font-weight: 800; line-height: 1.3; }
+.pj-right  { flex: 1; display: flex; flex-direction: column; padding: 2vw; min-width: 0; }
+.pj-ranking-title { font-size: 1.8vw; font-weight: 700; color: var(--dim); margin-bottom: .8vw; }
+.pj-ranking { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: .4vw; }
+.pj-rank-row {
+  display: grid; grid-template-columns: 2.6vw 1fr auto; gap: .8vw; align-items: center;
+  font-size: 1.6vw; padding: .3vw .5vw; border-radius: .4vw; background: var(--surf);
+}
+.pj-rank-no    { font-size: 1.8vw; text-align: center; }
+.pj-rank-name  { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.pj-rank-cpu   { margin-left: .5vw; font-size: .9vw; color: var(--dim); }
+.pj-rank-score { font-weight: 800; color: var(--green); white-space: nowrap; }
+.pj-result {
+  position: fixed; inset: 0; z-index: 300; background: rgba(4, 6, 20, .97);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3vw;
+}
+.pj-result.hidden { display: none; }
+.pj-result-title { font-size: 3.2vw; font-weight: 800; color: var(--accent); margin-bottom: 2vw; }
+.pj-result-table { width: min(60vw, 900px); max-height: 70vh; overflow-y: auto; display: flex; flex-direction: column; gap: .5vw; }
+
+/* ── 管理画面 ──────────────────────────────────────────────── */
+body.admin-body { overflow-y: auto; padding: 1.5rem; }
+.admin-wrap { max-width: 760px; margin: 0 auto; }
+.admin-title { font-size: 1.6rem; margin-bottom: 1rem; }
+.admin-card { background: var(--surf2); border: 1px solid var(--border); border-radius: .8rem; padding: 1.2rem; margin-bottom: 1.2rem; }
+.admin-h2 { font-size: 1.1rem; margin-bottom: .4rem; }
+.admin-row { display: flex; flex-direction: column; gap: .2rem; margin: .7rem 0; }
+.admin-row label { display: flex; align-items: center; gap: .5rem; font-weight: 700; }
+.admin-row input[type="number"] { width: 5rem; background: var(--surf); border: 1px solid var(--border); color: var(--text); border-radius: .4rem; padding: .3rem .5rem; }
+.admin-hint { font-size: .78rem; color: var(--dim); }
+.admin-saved { margin-left: .8rem; color: var(--green); font-weight: 700; }
+.admin-schedule { display: flex; flex-direction: column; gap: .5rem; margin: .8rem 0; }
+.admin-sched-row { display: grid; grid-template-columns: 1fr 6.5rem auto auto auto; gap: .5rem; align-items: center; }
+.admin-sched-label, .admin-sched-time { background: var(--surf); border: 1px solid var(--border); color: var(--text); border-radius: .4rem; padding: .3rem .5rem; }
+.admin-sched-actual { font-size: .82rem; color: var(--green); white-space: nowrap; }
+.btn-sched-start, .btn-sched-del { border: 1px solid var(--border); background: var(--surf); color: var(--text); border-radius: .4rem; padding: .3rem .6rem; cursor: pointer; }
+.btn-sched-del { color: var(--danger); }

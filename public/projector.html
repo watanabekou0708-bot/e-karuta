@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webかるた — 投影</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="pj-body">
+
+<div class="pj-main">
+  <div class="pj-left">
+    <div class="pj-status" id="pjStatus">ホストが大会モードを開始するまでお待ちください</div>
+    <div class="pj-yomi" id="pjYomi"></div>
+  </div>
+  <div class="pj-right">
+    <div class="pj-ranking-title">ランキング<span id="pjRankCount"></span></div>
+    <div class="pj-ranking" id="pjRanking"></div>
+  </div>
+</div>
+
+<div class="pj-result hidden" id="pjResult">
+  <div class="pj-result-title" id="pjResultTitle"></div>
+  <div class="pj-result-table" id="pjResultTable"></div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="projector.js"></script>
+</body>
+</html>

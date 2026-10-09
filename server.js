@@ -320,6 +320,16 @@ const gs = {
   openGrabWindowCardIds: new Set(),   // 現在受付窓(0.5秒)が開いている札のID。札ごとに別々に管理する
   lockedPlayers:  new Set(),   // お手付きをして「次の札が読まれるまで」取れないプレイヤー
 
+  // ── 管理画面で調整する設定（ロビー中のみ変更可。イベントをまたいで保持する）───
+  eventConfig: {
+    mainCutRatio:     1 / 3,   // 本戦：毎回の通過比率（高いほど勝ち上がりやすく、試合数は減る）
+    revivalMaxRounds: 3,       // 敗者復活戦：ラウンド数
+    revivalCutRatio:  0.6,     // 敗者復活戦：中間ラウンドの通過比率
+  },
+  schedule:    [],   // 当日の進行予定（{ id, label, plannedAt }）。管理画面で記録・表示するだけ
+  scheduleLog: {},   // 実際に開始した時刻（{ [id]: startedAt }）
+  projectorIds: new Set(),   // 投影専用画面として接続しているソケットID（参加者数には含めない）
+
   // ── トーナメント管理 ────────────────────────────────────
   round:               1,
   maxRounds:           4,
@@ -1194,9 +1204,9 @@ const EVENT_STAGE_LABELS = {
   final5: '決勝ラウンド', thirdplace: '3位決定戦', championship: '決勝戦',
 };
 
-// 通過人数・敗退人数を約1/3ずつに分ける（最低1人は通過・最低0人は敗退）
-function eventCutCounts(poolSize) {
-  const pass = Math.max(1, Math.min(poolSize, Math.round(poolSize / 3)));
+// 通過人数・敗退人数を比率で分ける（既定は約1/3ずつ。最低1人は通過・最低0人は敗退）
+function eventCutCounts(poolSize, ratio = 1 / 3) {
+  const pass = Math.max(1, Math.min(poolSize, Math.round(poolSize * ratio)));
   return { pass, lose: poolSize - pass };
 }
 
@@ -1353,7 +1363,7 @@ function endEventRound() {
     return;
   }
 
-  const { pass } = eventCutCounts(ids.length);
+  const { pass } = eventCutCounts(ids.length, gs.eventConfig.mainCutRatio);
   const passers = ids.slice(0, pass);
   const losers   = ids.slice(pass);
   gs.event.mainPool  = new Set(passers);
@@ -2061,11 +2071,12 @@ io.on('connection', socket => {
     if (participants.length === 0) return;
 
     // 復活戦トーナメント初期化
-    // 通過人数は自動算出（中間ラウンドは6割・最終ラウンドの本戦復帰は約1/3）。
+    // 通過人数は自動算出（中間ラウンドの通過比率・ラウンド数は管理画面の設定に従う。
+    // 最終ラウンドの本戦復帰は約1/3のまま）。
     gs.isRevival            = true;
     gs.revivalRound         = 1;
-    gs.revivalMaxRounds     = 3;
-    gs.revivalSurvivorCount = Math.max(1, Math.ceil(participants.length * 0.6));
+    gs.revivalMaxRounds     = gs.eventConfig.revivalMaxRounds;
+    gs.revivalSurvivorCount = Math.max(1, Math.ceil(participants.length * gs.eventConfig.revivalCutRatio));
     gs.revivalCount         = eventCutCounts(participants.length).pass;
     gs.revivalEliminated    = new Set();
     gs.lastRoundResult      = null;
@@ -2123,7 +2134,7 @@ io.on('connection', socket => {
     activeRevivalIds.forEach(id => { gs.players[id].score = 0; gs.players[id].bonus = 0; gs.players[id].cards = 0; gs.players[id].misses = 0; });
     const { humanCount, cpuCount, totalCount } = computeHeadcount({ participantIds: new Set(activeRevivalIds) });
     // 通過人数は自動算出（このラウンドが最終ラウンドなら本戦復帰人数として使う）
-    gs.revivalSurvivorCount = Math.max(1, Math.ceil(activeRevivalIds.length * 0.6));
+    gs.revivalSurvivorCount = Math.max(1, Math.ceil(activeRevivalIds.length * gs.eventConfig.revivalCutRatio));
     gs.revivalCount         = eventCutCounts(activeRevivalIds.length).pass;
 
     const cardIds = buildDifficultyOrderedCardIds();
@@ -2295,6 +2306,60 @@ io.on('connection', socket => {
 
 
 
+  // ── 管理画面：接続時に、教卓PCかどうか・現在の設定値をまとめて返す ──
+  socket.on('join_admin', () => {
+    socket.emit('admin_init', {
+      isHost:      isHostEligible(socket),
+      phase:       gs.phase,
+      eventActive: gs.event.active,
+      eventConfig: gs.eventConfig,
+      schedule:    gs.schedule,
+      scheduleLog: gs.scheduleLog,
+    });
+  });
+
+  // ── 管理画面：大会モードの通過比率・復活戦ラウンド数の設定（教卓PCのみ・ロビー中のみ）──
+  socket.on('set_event_config', (cfg) => {
+    if (!isHostEligible(socket) || gs.phase !== 'lobby' || gs.event.active) return;
+    if (!cfg || typeof cfg !== 'object') return;
+    const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v)) ? Math.max(lo, Math.min(hi, v)) : d;
+    gs.eventConfig = {
+      mainCutRatio:     num(cfg.mainCutRatio, 0.1, 0.9, gs.eventConfig.mainCutRatio),
+      revivalMaxRounds: Math.round(num(cfg.revivalMaxRounds, 1, 10, gs.eventConfig.revivalMaxRounds)),
+      revivalCutRatio:  num(cfg.revivalCutRatio, 0.1, 0.9, gs.eventConfig.revivalCutRatio),
+    };
+    io.emit('event_config', gs.eventConfig);
+  });
+
+  // ── 管理画面：当日の進行スケジュール（予定・実際の開始記録）。教卓PCのみ ──
+  socket.on('set_schedule', (schedule) => {
+    if (!isHostEligible(socket)) return;
+    if (!Array.isArray(schedule)) return;
+    gs.schedule = schedule.slice(0, 60).map(row => ({
+      id:        String(row && row.id || '').slice(0, 40) || Math.random().toString(36).slice(2),
+      label:     String(row && row.label || '').slice(0, 60),
+      plannedAt: String(row && row.plannedAt || '').slice(0, 10),
+    }));
+    io.emit('schedule_updated', { schedule: gs.schedule, scheduleLog: gs.scheduleLog });
+  });
+  socket.on('mark_schedule_started', ({ id } = {}) => {
+    if (!isHostEligible(socket) || !id) return;
+    if (!gs.schedule.some(row => row.id === id)) return;
+    gs.scheduleLog[id] = Date.now();
+    io.emit('schedule_updated', { schedule: gs.schedule, scheduleLog: gs.scheduleLog });
+  });
+
+  // ── 投影専用画面として接続（参加者登録は行わない。見るだけ）──
+  socket.on('join_projector', () => {
+    gs.projectorIds.add(socket.id);
+    socket.emit('projector_init', {
+      phase: gs.phase, currentCard: gs.currentCard, players: gs.players,
+      round: gs.round, isEvent: gs.event.active, eventStage: gs.event.stage,
+      lastResult: gs.event.lastResult,
+      schedule: gs.schedule, scheduleLog: gs.scheduleLog,
+    });
+  });
+
   // ── 大会モードを開始（ホストのみ）─────────────────────────
   // その時点で参加登録済み（joined）の人間プレイヤー全員を対象に第1試合を開始する。
   socket.on('start_event', () => {
@@ -2399,6 +2464,7 @@ io.on('connection', socket => {
 
   // ── Disconnect ───────────────────────────────────────────
   socket.on('disconnect', () => {
+    gs.projectorIds.delete(socket.id);
     logEvent('leave', { id: socket.id, name: gs.players[socket.id] && gs.players[socket.id].name });
     if (gs.ready.active) {
       gs.ready.need.delete(socket.id);
