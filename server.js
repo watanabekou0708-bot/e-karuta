@@ -206,10 +206,19 @@ let armedAt = 0;
 const VOICE_WAIT_MAX_MS = +process.env.KARUTA_VOICE_WAIT_MS || 60 * 1000;   // 盤面整理が終わっても音声が揃わないとき、最大これだけ待ってから始める
 
 const MEMO_SECONDS    = +process.env.KARUTA_MEMO_SECONDS || 2 * 60;   // 環境変数はテスト用   // 盤面整理タイム（暗記ではなく、取りやすい配置に並べ替える時間）
-// 上の句 / ダミー読み完了後、「そこまで」と発して結果を発表するまでの待ち時間。
-// 誰かが早く正解していても、発表はこの時間が経つまで常に遅らせる（取れた・取れなかったで
-// タイミングが変わらないようにするため）。環境変数はテスト用。
-const READ_TIMEOUT_MS = +process.env.KARUTA_READ_TIMEOUT_MS || 10 * 1000;
+// 「読み上げ開始（上の句 / ダミーの読み始め）→そこまで」の合計時間を、文章の長さに関わらず
+// 全ての札で統一する（進行予定が計算しやすくなるため）。読み上げ自体が長い札ほど、その分
+// 読み終わった後の受付時間が短くなる（最長の札でも受付時間が0未満にならないよう
+// MIN_POST_READ_WAIT_MS で下限を設ける）。
+const TOTAL_READ_CYCLE_MS   = +process.env.KARUTA_TOTAL_READ_MS || 15 * 1000;
+const MIN_POST_READ_WAIT_MS = 500;
+// テスト用：指定すると「合計◯秒に統一」ではなく、読み上げ終了後に常にこの固定時間だけ待つ
+// （文章の長さを気にせず進行を速くできる、これまでの挙動）。
+const FIXED_POST_READ_WAIT_MS = process.env.KARUTA_READ_TIMEOUT_MS ? +process.env.KARUTA_READ_TIMEOUT_MS : null;
+function postReadWaitMs(elapsedSinceReadStartMs) {
+  if (FIXED_POST_READ_WAIT_MS !== null) return FIXED_POST_READ_WAIT_MS;
+  return Math.max(MIN_POST_READ_WAIT_MS, TOTAL_READ_CYCLE_MS - elapsedSinceReadStartMs);
+}
 // 結果発表（そこまで→DJ→答え合わせ、または そこまで→答え合わせ）の音声がホスト端末で
 // 終わったという報告(announce_finished)を待ってから次の札へ進む。報告が来ない場合の保険。
 const ANNOUNCE_FALLBACK_MS = +process.env.KARUTA_ANNOUNCE_FALLBACK_MS || 20 * 1000;
@@ -840,8 +849,9 @@ function startRealRead() {
 }
 
 // 上の句の読み上げが最後まで終わったときに呼ばれる（ホストの yomi_finished 報告、またはその保険タイマー）。
-// 誰かが早く正解していても、ここではまだ発表しない。読み上げ終了から常に READ_TIMEOUT_MS（10秒）
-// 経ってから revealResult() で初めて確定・発表する（取れた・取れなかったで発表のタイミングが
+// 誰かが早く正解していても、ここではまだ発表しない。「読み上げ開始→そこまで」が常に
+// TOTAL_READ_CYCLE_MS になるよう、読み終わりまでの時間に応じた残り時間が経ってから
+// revealResult() で初めて確定・発表する（取れた・取れなかったで発表のタイミングが
 // 変わらないようにするため）。この猶予中は CPU の反応も引き続き起こる。
 function finishReadPhase(card) {
   gs.yomiFinishedAt = hiResNow();
@@ -850,11 +860,13 @@ function finishReadPhase(card) {
   armReadTimeout(card);
 }
 
-// 上の句の読み上げ完了後に呼ばれる。CPU タイマーを起動し、READ_TIMEOUT_MS 後に revealResult() を呼ぶ
-// タイマーを仕掛ける（すでに勝者が決まっていても、この待ち時間は変わらない）。
+// 上の句の読み上げ完了後に呼ばれる。CPU タイマーを起動し、「読み上げ開始→そこまで」が
+// TOTAL_READ_CYCLE_MS になるよう残り時間を計算して revealResult() を呼ぶタイマーを仕掛ける
+// （すでに勝者が決まっていても、この待ち時間は変わらない）。
 function armReadTimeout(card) {
   if (readTimeoutTimer) clearTimeout(readTimeoutTimer);
   scheduleCpuGrabs(card);
+  const wait = postReadWaitMs(hiResNow() - gs.readStartAt);
   readTimeoutTimer = setTimeout(() => {
     if (gs.phase !== 'reading' || gs.currentCard !== card) return;
     // ちょうどこの瞬間に申告の受付窓(0.5秒)がまだ閉じていない場合、勝者が決まる前に
@@ -864,7 +876,7 @@ function armReadTimeout(card) {
       return;
     }
     revealResult(card);
-  }, READ_TIMEOUT_MS);
+  }, wait);
 }
 
 // この札の読み上げ中・猶予中に届いた誤クリックを、本人にまとめて知らせる（減点自体はクリック時に
@@ -878,7 +890,7 @@ function flushPendingMisses(cardId) {
   io.emit('players_updated', gs.players);
 }
 
-// 読み上げ終了から READ_TIMEOUT_MS 経過したときに呼ばれる。その間に正解の申告があれば
+// 「読み上げ開始→そこまで」が TOTAL_READ_CYCLE_MS 経過したときに呼ばれる。その間に正解の申告があれば
 // （読み上げ中・読み上げ後のどちらで決まっていても）ここで初めて確定・加点して発表し、
 // なければ「誰も取れなかった」発表（triggerTimeUp）を行う。
 function revealResult(card) {
@@ -923,9 +935,11 @@ function triggerTimeUp(card) {
   });
 }
 
-// ダミー読み完了後、READ_TIMEOUT_MS 待ってから「そこまで」を発し次の本物の札へ移る。
+// ダミー読み完了後、「読み上げ開始→そこまで」が TOTAL_READ_CYCLE_MS になるよう残り時間を
+// 待ってから「そこまで」を発し次の本物の札へ移る。
 function armDecoyTimeout() {
   if (decoyTimeoutTimer) clearTimeout(decoyTimeoutTimer);
+  const wait = postReadWaitMs(hiResNow() - gs.readStartAt);
   decoyTimeoutTimer = setTimeout(() => {
     if (gs.phase !== 'decoy') return;
     gs.phase = 'announcing';
@@ -957,11 +971,12 @@ function armDecoyTimeout() {
       }
     });
     decoyTimeoutTimer = null;
-  }, READ_TIMEOUT_MS);
+  }, wait);
 }
 
 // 盤面のどの札にも対応しないダミーの読みを再生する。
-// ホスト端末から再生完了の通知（decoy_finished）を受け取ってから READ_TIMEOUT_MS 待つ。
+// ホスト端末から再生完了の通知（decoy_finished）を受け取ってから、本物の札と同じ
+// TOTAL_READ_CYCLE_MS のルールに従って残り時間だけ待つ。
 function startDecoyRead() {
   gs.lockedPlayers.clear();   // 次の読み上げが始まったので、お手付きのロックを解除
   gs.phase = 'decoy';
@@ -1548,8 +1563,9 @@ function clearAllTimers() {
 //
 // 変わったのは「決まった後」。かるたは誰かが取っても最後まで読み上げるため、読み上げの途中で
 // 決まった場合はまだ確定させない（お手付きは即座に成立するが、取得はここでは成立しない）。
-// 読み上げ後の10秒の猶予中に決まった場合も同様にまだ確定させない。どちらの場合も
-// revealResult()（読み上げ終了から常に READ_TIMEOUT_MS 経過した時点）で初めて確定・加点・発表する。
+// 読み上げ後の猶予中に決まった場合も同様にまだ確定させない。どちらの場合も
+// revealResult()（「読み上げ開始→そこまで」が常に TOTAL_READ_CYCLE_MS 経過した時点）で
+// 初めて確定・加点・発表する。
 function resolveGrabWindow(cardId) {
   gs.openGrabWindowCardIds.delete(cardId);
   const candidates = gs.grabCandidates.filter(c => c.cardId === cardId);
@@ -1834,8 +1850,10 @@ io.on('connection', socket => {
   });
 
   // ── Decoy finished（ホスト端末からのダミー読み再生完了通知）─
-  // 「これは盤面にない札でした」まで再生し終えたタイミングで受信する。
-  // ここから READ_TIMEOUT_MS 待ってから「そこまで」を発し次の札へ。
+  // ダミーの読み（yomi）を再生し終えたタイミングで受信する（「これは盤面にない札でした」は
+  // この後の「そこまで」からの発表シーケンスで読まれる、ここにはまだ含まれない）。
+  // ここから、本物の札と同じ TOTAL_READ_CYCLE_MS のルールで残り時間だけ待ってから
+  // 「そこまで」を発し次の札へ。
   socket.on('decoy_finished', () => {
     if (socket.id !== gs.hostId || gs.phase !== 'decoy') return;
     if (decoyTimer) { clearTimeout(decoyTimer); decoyTimer = null; }
