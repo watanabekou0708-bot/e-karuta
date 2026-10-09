@@ -2355,10 +2355,6 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
   });
 });
 
-// DJ 実況コメント。詠み上げ・正解発表の音声とは重ならないよう
-// tryPlayDjQueue() 側で待機させる（キューに積むだけならいつ届いても良い）。
-socket.on('dj_comment', ({ text, segments }) => queueDj(text, segments));
-
 // 誰かが札を取ったときの一連の流れ。かるた自体は最後まで読み上げてから確定するため、
 // この時点でもう読み上げ（警告・読み上げます・上の句）は終わっている。続けて
 // 「そこまで」→（間を空けずDJの実況があれば）→（1.5秒）→ 答え合わせ（上の句の再読み上げ・下の句）の順に流す。
@@ -2576,7 +2572,14 @@ socket.on('event_stage_ready', ({ stage, mainReady, revivalReady, mainPoolSize, 
 });
 
 // 最後の札の正解発表・DJ実況が終わってから結果画面を出す。
-socket.on('round_finished', data => whenAudioIdle(() => onRoundFinished(data), 'result', 40000));
+// デバッグの「即終了」は読み上げの途中で割り込むため currentPhase が 'reading'/'decoy' の
+// まま残ることがあり、それを理由に結果画面のDJ音声が読み上げ中と誤認されて省略されてしまう
+// （queueDj 側の「新しい読み上げが始まっていたら重ならないよう捨てる」判定）。round_finished が
+// 届いた時点でもう読み上げ中ではないので、ここで明示的にリセットしておく。
+socket.on('round_finished', data => {
+  setCurrentPhase('waiting');
+  whenAudioIdle(() => onRoundFinished(data), 'result', 40000);
+});
 
 function onRoundFinished({ round, players, survivorIds, eliminatedIds, survivorCount: sc, isFinal, isRevival, isRevivalIntermediate, revivalRound: rRound, revivalMaxRounds: rMax, eliminatedRevivalIds, isGroupMatch: ig, isGroupMatchIntermediate, groupTier: gt, groupRound: gRound, groupMaxRounds: gMax, humanGroups: hg, cumulativeScores: cs, bottomGroupWinners: bw, middleGroupWinners: mw }) {
   if (!isGroupMatchIntermediate) eliminatedIds.forEach(id => liveEliminatedIds.add(id));

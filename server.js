@@ -205,24 +205,6 @@ const ARRANGE_HOLD_MS = +process.env.KARUTA_ARRANGE_HOLD_MS || 0;   // 盤面整
 let armedAt = 0;
 const VOICE_WAIT_MAX_MS = +process.env.KARUTA_VOICE_WAIT_MS || 60 * 1000;   // 盤面整理が終わっても音声が揃わないとき、最大これだけ待ってから始める
 
-// DJ の実況：文章を部品に分けて音声を作り（キャッシュ済みなら即）、できてから全員に送る。
-// 順番が入れ替わらないよう1本ずつ処理する。6秒で作れなければ、文字だけ送ってブラウザ音声で代用させる。
-let djChain = Promise.resolve();
-function emitDj(text, segments) {
-  djChain = djChain.then(async () => {
-    let segs = null;
-    if (segments && segments.length) {
-      const r = await Promise.race([
-        voiceEngine.ensure(segments, { prio: 'dj' }),
-        new Promise(res => setTimeout(() => res({ failed: segments.length }), 6000)),
-      ]);
-      if (!r.failed) segs = segments;
-    }
-    io.emit('dj_comment', { text, segments: segs });
-  }).catch(() => {});
-  return djChain;
-}
-
 const MEMO_SECONDS    = +process.env.KARUTA_MEMO_SECONDS || 2 * 60;   // 環境変数はテスト用   // 盤面整理タイム（暗記ではなく、取りやすい配置に並べ替える時間）
 // 上の句 / ダミー読み完了後、「そこまで」と発して結果を発表するまでの待ち時間。
 // 誰かが早く正解していても、発表はこの時間が経つまで常に遅らせる（取れた・取れなかったで
@@ -256,6 +238,7 @@ const ACC_BONUS_PTS = 1000;        // 精度ボーナス。札1枚の上限・1�
 const DJ_MOUSE_DIST_PTS = 100;     // 距離の点数がこれ以上＋精度ボーナス → DJ「ナイスマウスさばき」
 const MISS_PENALTY  = 100;     // お手付き・フライング1回の減点（ハンデで増える）
 const NEAR_POINTS   = 300;     // 「あと少しで1位」「惜しい」の判定に使う点差（約1枚分）
+const DJ_COMBO_GAP_MS = 800;    // 1つのDJコメントの中で複数の実況をつなぐときの間（public/game.js の VOICE_PAUSE_MS と同じ）
 const SCORE_CAP     = +process.env.KARUTA_SCORE_CAP || 20000;   // 1試合で積める点数の上限（環境変数はテスト用）
 
 // 盤面(論理サイズ)と定位置。クライアント(game.js)の BOARD_W/BOARD_H と一致させること。
@@ -315,6 +298,7 @@ const gs = {
   yomiFinishedForCurrent: false,   // 今の札の上の句が最後まで読み終わったか（読み上げ中に勝者が決まっても、これが true になるまで確定を待つ）
   pendingWinner:  null,    // 読み上げ中に決まった勝者（{ grabberId, card, scored, contenders }）。読み終わるまで未確定のまま保持する
   pendingMisses:  [],      // 本人への「✕お手付き」表示をまだ届けていない誤クリック（{ activeCardId, clickedCardId, socketId, penalty }）
+  pendingDecoyMisses: [],  // ダミー読み中の誤クリック。今読んでいるダミーの「そこまで」まで表示を遅らせる（{ socketId, penalty }）
   matchLevel:     0,      // 今の試合のレベル（0=A〜3=D）
   finalDecoyLeft: null,   // 最後の1枚の前に連発するダミー読みの残り回数（null=未設定）
   openGrabWindowCardIds: new Set(),   // 現在受付窓(0.5秒)が開いている札のID。札ごとに別々に管理する
@@ -631,18 +615,6 @@ function rankedNonHost() {
     .sort(([, a], [, b]) => b.score - a.score);
 }
 
-// 2位が1位に約1枚分(NEAR_POINTS)以内まで詰め寄った「その瞬間」だけ実況する。
-// beforeGap（今回の得点加算前の1位・2位差）と比べて、しきい値を新たに
-// 下回った時だけ発火するため、同じ状況が続いても連呼しない。
-function checkNearFirstPlace(beforeGap) {
-  const sorted = rankedNonHost();
-  if (sorted.length < 2) return;
-  const afterGap = sorted[0][1].score - sorted[1][1].score;
-  if (afterGap <= NEAR_POINTS && (beforeGap === null || beforeGap > NEAR_POINTS)) {
-    emitDj(`${djName(sorted[1][1])}さん、あと少しで1位です！`, VD.djNearSegments(djName(sorted[1][1])));
-  }
-}
-
 // 1回の申告(candidate)を採点する。
 //  cand: { id, t(クリック時刻・サーバー時計), offsetMm(札の中心からの距離mm), distMm(定位置から札の中心までmm) }
 function scoreCandidate(cand) {
@@ -723,6 +695,21 @@ async function processCorrectGrab(grabberId, card, scored, contenders) {
     djText = DJ_TAKE_TEMPLATES[i](dj, player.score);
     djSegsRaw = VD.DJ_TAKE[i](dj, player.score);
   }
+
+  // 2位が1位に約1枚分(NEAR_POINTS)以内まで詰め寄った「その瞬間」の実況は、答え合わせより前
+  // （この札のDJコメントと同じ「そこまで→DJ→答え合わせ」の流れの中）で読む。
+  // beforeGap（今回の得点加算前の1位・2位差）と比べて、しきい値を新たに下回った時だけ発火する。
+  const nearSorted = rankedNonHost();
+  if (nearSorted.length >= 2) {
+    const afterGap = nearSorted[0][1].score - nearSorted[1][1].score;
+    if (afterGap <= NEAR_POINTS && (beforeGap === null || beforeGap > NEAR_POINTS)) {
+      const nearName = djName(nearSorted[1][1]);
+      const nearSegs = VD.djNearSegments(nearName);
+      djText = `${djText} ${nearName}さん、あと少しで1位です！`;
+      djSegsRaw = [...djSegsRaw.slice(0, -1), { ...djSegsRaw[djSegsRaw.length - 1], gapAfter: DJ_COMBO_GAP_MS }, ...nearSegs];
+    }
+  }
+
   const djResult = await Promise.race([
     voiceEngine.ensure(djSegsRaw, { prio: 'dj' }),
     new Promise(res => setTimeout(() => res({ failed: djSegsRaw.length }), 6000)),
@@ -738,7 +725,6 @@ async function processCorrectGrab(grabberId, card, scored, contenders) {
     djText, djSegs,
     playAt: hiResNow() + 250,
   });
-  checkNearFirstPlace(beforeGap);
 
   const nextCard  = gs.currentCard;
   const remaining = [...gs.remaining];
@@ -882,12 +868,14 @@ function armReadTimeout(card) {
 }
 
 // この札の読み上げ中・猶予中に届いた誤クリックを、本人にまとめて知らせる（減点自体はクリック時に
-// 即座に済んでいる。「✕お手付き」の表示だけを、今読まれていた札の「そこまで！」に合わせる）。
+// 即座に済んでいる。「✕お手付き」の表示と、ランキング上の点数変化を、今読まれていた札の
+// 「そこまで！」に合わせる）。
 function flushPendingMisses(cardId) {
   const due = gs.pendingMisses.filter(m => m.activeCardId === cardId);
   if (!due.length) return;
   gs.pendingMisses = gs.pendingMisses.filter(m => m.activeCardId !== cardId);
   due.forEach(m => io.to(m.socketId).emit('wrong_grab', { cardId: m.clickedCardId, penalty: m.penalty }));
+  io.emit('players_updated', gs.players);
 }
 
 // 読み上げ終了から READ_TIMEOUT_MS 経過したときに呼ばれる。その間に正解の申告があれば
@@ -946,6 +934,13 @@ function armDecoyTimeout() {
     gs.currentDecoy = null;
     // そこまで → 上の句（デコイ yomi）→ これは盤面にない札でした の順で再生させる
     io.emit('time_up', { card: null, decoy, playAt: hiResNow() + 250 });
+
+    if (gs.pendingDecoyMisses.length) {
+      const due = gs.pendingDecoyMisses;
+      gs.pendingDecoyMisses = [];
+      due.forEach(m => io.to(m.socketId).emit('wrong_grab', { cardId: m.clickedCardId, penalty: m.penalty }));
+      io.emit('players_updated', gs.players);
+    }
 
     const nextCard  = gs.currentCard;   // ダミー中も currentCard は次の本物の札を指す
     const remaining = [...gs.remaining];
@@ -1544,6 +1539,7 @@ function clearAllTimers() {
   gs.grabCandidates = [];
   gs.pendingWinner = null;
   gs.pendingMisses = [];
+  gs.pendingDecoyMisses = [];
 }
 
 // 受付時間内に集まった正解候補から勝者を決める。この0.5秒の受付時間・決め方自体は変わらない：
@@ -1906,10 +1902,11 @@ io.on('connection', socket => {
     }
 
     if (gs.phase === 'decoy') {
+      // 減点はすぐに行うが、本人への「✕お手付き」表示とランキング上の点数変化は、今読んでいる
+      // ダミーの「そこまで」と同時になるまで遅らせる（armDecoyTimeout 側でまとめて配信する）。
       const penalty = applyMiss(socket.id, cardId, 'decoy');
       gs.lockedPlayers.add(socket.id);
-      socket.emit('wrong_grab', { cardId, penalty });
-      io.emit('players_updated', gs.players);
+      gs.pendingDecoyMisses.push({ socketId: socket.id, clickedCardId: cardId, penalty });
       return;
     }
 
@@ -1938,12 +1935,12 @@ io.on('connection', socket => {
       if (gs.grabCandidates.some(c => c.id === socket.id)) return;
       addGrabCandidate({ id: socket.id, cardId, t, offsetMm: offset, distMm: dist }, 'human');
     } else if (gs.remaining.has(cardId)) {
-      // 減点はすぐに行うが、本人への「✕お手付き」表示は今読まれている札の「そこまで！」と
-      // 同時になるまで遅らせる（結果が分かるタイミングを他の人と揃えるため）。
+      // 減点はすぐに行うが、本人への「✕お手付き」表示とランキング上の点数変化は、今読まれている
+      // 札の「そこまで！」と同時になるまで遅らせる（結果が分かるタイミングを他の人と揃えるため。
+      // players_updated は flushPendingMisses 側でまとめて配信する）。
       const penalty = applyMiss(socket.id, cardId, 'wrong_card', { expected: gs.currentCard.id });
       gs.lockedPlayers.add(socket.id);
       gs.pendingMisses.push({ activeCardId: gs.currentCard.id, clickedCardId: cardId, socketId: socket.id, penalty });
-      io.emit('players_updated', gs.players);
     }
   });
 
