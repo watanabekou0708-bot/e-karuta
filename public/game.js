@@ -891,6 +891,53 @@ const PRACTICE_LINK = new URLSearchParams(location.search).has('practice');
   if (row) row.style.display = 'none';
 })();
 
+// ── 負荷テスト専用画面（アドレスの最後に ?mode=test を付けたもの）──────
+// このページ自身は参加者として参加せず、サーバー自身が仮想参加者(ボット)を
+// 生成して負荷をかける様子を見る・操作するだけの画面に切り替える。
+const LOADTEST_LINK = new URLSearchParams(location.search).get('mode') === 'test';
+let ltRunning = false;
+let ltIsHost  = false;   // join_load_test_monitorの応答で一度だけ届く（以降の定期配信には含まれない）
+(function applyLoadTestLink() {
+  if (!LOADTEST_LINK) return;
+  hide('oName');
+  show('oLoadTest');
+  socket.on('connect', () => socket.emit('join_load_test_monitor'));
+  socket.on('load_test_status', renderLoadTestStatus);
+})();
+
+function fmtElapsed(ms) {
+  const s = Math.floor((ms || 0) / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+function renderLoadTestStatus(st) {
+  if (typeof st.isHost === 'boolean') ltIsHost = st.isHost;
+  ltRunning = !!st.running;
+  $('ltNotHost').classList.toggle('hidden', ltIsHost);
+  $('ltControls').classList.toggle('hidden', !ltIsHost);
+  $('ltBusy').classList.toggle('hidden', !st.lobbyBusy || ltRunning);
+  $('ltStartBtn').classList.toggle('hidden', ltRunning);
+  $('ltStartBtn').disabled = !!st.lobbyBusy;
+  $('ltStopBtn').classList.toggle('hidden', !ltRunning);
+  show('ltStatus');   // 状態欄（実行中/停止中）は常に見せておく
+  $('ltRunning').textContent = ltRunning ? '実行中' : '停止中';
+  if (!ltRunning) return;
+  $('ltConnected').textContent = `${st.connected} / ${st.botCount}`;
+  $('ltElapsed').textContent = fmtElapsed(st.elapsedMs);
+  $('ltPing').textContent = (st.avgPingMs == null) ? '計測中…' : `${st.avgPingMs}ms / ${st.maxPingMs}ms`;
+  $('ltCpu').textContent = (st.cpuPercent == null) ? '—' : `${st.cpuPercent}%`;
+  $('ltMem').textContent = (st.rssMb == null) ? '—' : `${st.rssMb}MB`;
+  $('ltClients').textContent = (st.clientsCount == null) ? '—' : st.clientsCount;
+  $('ltErrors').textContent = st.errors ?? 0;
+}
+function startLoadTestUI() {
+  const botCount = Math.max(1, Math.min(300, +$('ltBotCount').value || 100));
+  const durationMinutes = Math.max(1, Math.min(60, +$('ltDuration').value || 5));
+  socket.emit('start_load_test', { botCount, durationMinutes });
+}
+function stopLoadTestUI() {
+  socket.emit('stop_load_test');
+}
+
 function doJoin() {
   const name = $('nameInput').value.trim();
   if (!name) { $('nameInput').focus(); return; }

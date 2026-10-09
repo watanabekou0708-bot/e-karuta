@@ -43,6 +43,20 @@
     <div id="scheduleRows" class="admin-schedule"></div>
     <button class="btn btn-blue" onclick="addScheduleRow()">＋ 行を追加</button>
   </div>
+
+  <div class="admin-card">
+    <h2 class="admin-h2">🧪 負荷テスト</h2>
+    <p class="ov-sub">参加用リンクの末尾に <code>?mode=test</code> を付けて開くと開始できます（このページからも操作できます）。</p>
+    <div id="ltAdminStatus" class="loadtest-status">
+      <div class="lt-row"><span>状態</span><b id="ltaRunning">停止中</b></div>
+      <div class="lt-row"><span>接続中のボット</span><b id="ltaConnected">—</b></div>
+      <div class="lt-row"><span>応答速度（平均/最大）</span><b id="ltaPing">—</b></div>
+      <div class="lt-row"><span>サーバーCPU使用率</span><b id="ltaCpu">—</b></div>
+    </div>
+    <h2 class="admin-h2" style="margin-top:1rem">ログの回収</h2>
+    <p class="ov-sub">負荷テストのログは自動保存されます。一覧から選んでダウンロードしてください。</p>
+    <div id="ltLogList" class="admin-schedule"></div>
+  </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>

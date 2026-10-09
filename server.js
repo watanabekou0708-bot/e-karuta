@@ -193,7 +193,58 @@ function logEvent(type, data = {}) {
 
 const VD = require('./public/voice-defs.js');
 const { VoiceEngine } = require('./voice-engine.js');
+const { LoadTestRunner } = require('./loadtest.js');
 const LAYOUT = require('./public/layout.js');
+
+// ── 負荷テスト ────────────────────────────────────────────
+// サーバー自身がボット（仮想参加者）を生成して負荷をかける（loadtest.js）。
+// 専用のログファイル(logs/loadtest-<開始時刻>.jsonl)に、ボットの状況とサーバー自身の
+// CPU・メモリ・応答速度を記録する。教卓PC（管理画面）がこのログを回収して分析する。
+let loadtestLogStream = null;
+function loadtestLog(type, data = {}) {
+  if (!loadtestLogStream) return;
+  loadtestLogStream.write(JSON.stringify({ at: new Date().toISOString(), t: Math.round(hiResNow()), type, ...data }) + '\n');
+}
+let loadtestMetricsTimer = null;
+function startLoadTestMetrics() {
+  let prevCpu  = process.cpuUsage();
+  let prevTime = Date.now();
+  loadtestMetricsTimer = setInterval(() => {
+    const now  = Date.now();
+    const diff = process.cpuUsage(prevCpu);
+    const elapsedMs = now - prevTime;
+    prevCpu  = process.cpuUsage();
+    prevTime = now;
+    const cpuPercent = elapsedMs > 0 ? Math.round((diff.user + diff.system) / 1000 / elapsedMs * 1000) / 10 : null;
+    const mem = process.memoryUsage();
+    const lagStart = Date.now();
+    setImmediate(() => {
+      const snapshot = {
+        cpuPercent,
+        rssMb:        Math.round(mem.rss / 1024 / 1024 * 10) / 10,
+        heapUsedMb:   Math.round(mem.heapUsed / 1024 / 1024 * 10) / 10,
+        clientsCount: io.engine.clientsCount,
+        eventLoopLagMs: Date.now() - lagStart,
+        ...loadTestRunner.status(),
+        lobbyBusy: gs.phase !== 'lobby',
+      };
+      loadtestLog('loadtest_metrics', snapshot);
+      io.emit('load_test_status', snapshot);
+    });
+  }, 1000);
+}
+function stopLoadTestMetrics() {
+  if (loadtestMetricsTimer) { clearInterval(loadtestMetricsTimer); loadtestMetricsTimer = null; }
+}
+const loadTestRunner = new LoadTestRunner({
+  port: PORT,
+  log: loadtestLog,
+  onStop: () => {
+    stopLoadTestMetrics();
+    io.emit('load_test_status', { ...loadTestRunner.status(), lobbyBusy: gs.phase !== 'lobby' });
+    if (loadtestLogStream) { loadtestLogStream.end(); loadtestLogStream = null; }
+  },
+});
 // VOICEVOX エンジン（CT107）。環境変数 VOICEVOX_URL で変更できる。音声の保存先は VOICE_CACHE_DIR（既定 ./voice-cache）。
 const VOICE_CACHE_DIR = process.env.VOICE_CACHE_DIR || path.join(__dirname, 'voice-cache');
 const voiceEngine = new VoiceEngine({
@@ -399,14 +450,23 @@ function localIPs() {
 // ホストになれるのは、このサーバーを起動しているPC自身から接続してきた
 // ブラウザだけ（127.0.0.1/::1 経由、またはこのPCのLAN IP宛のアクセス）。
 // 他PCの接続元アドレスはこのPC自身のIPとは一致しないため、ホストにはなれない。
+// nginx などのリバースプロキシ経由だと、接続元がすべて 127.0.0.1（プロキシ自身）に見えて
+// 全員が「サーバーPC」扱いになってしまう。X-Forwarded-For があれば、本当の接続元で判定する。
+function isHostIP(addr) {
+  const a = String(addr || '').replace(/^::ffff:/, '');
+  if (a === '127.0.0.1' || a === '::1') return true;
+  return localIPs().includes(a);
+}
 function isHostEligible(socket) {
-  // nginx などのリバースプロキシ経由だと、接続元がすべて 127.0.0.1（プロキシ自身）に見えて
-  // 全員が「サーバーPC」扱いになってしまう。X-Forwarded-For があれば、本当の接続元で判定する。
   const fwd  = socket.handshake.headers && socket.handshake.headers['x-forwarded-for'];
   const real = fwd ? String(fwd).split(',')[0].trim() : (socket.handshake.address || '');
-  const addr = String(real).replace(/^::ffff:/, '');
-  if (addr === '127.0.0.1' || addr === '::1') return true;
-  return localIPs().includes(addr);
+  return isHostIP(real);
+}
+// 管理画面のダウンロードAPIなど、Socket.IOを介さない通常のHTTPリクエスト向けの同じ判定。
+function isHostRequest(req) {
+  const fwd  = req.headers && req.headers['x-forwarded-for'];
+  const real = fwd ? String(fwd).split(',')[0].trim() : (req.socket && req.socket.remoteAddress) || '';
+  return isHostIP(real);
 }
 
 // 名前の先頭に付ける「学年＋コース略称」。選んだ学年・コースを他の人にも見えるようにして、偽った入力を防ぐ。
@@ -2375,6 +2435,37 @@ io.on('connection', socket => {
     });
   });
 
+  // ── 負荷テスト（ホストのみ）──────────────────────────────
+  // サーバー自身がボットを生成して負荷をかける。ロビーが空いているときだけ開始でき、
+  // 実際の対局中に割り込んで参加者を混乱させないようにする。
+  socket.on('join_load_test_monitor', () => {
+    socket.emit('load_test_status', {
+      ...loadTestRunner.status(),
+      isHost: isHostEligible(socket),
+      lobbyBusy: gs.phase !== 'lobby',
+    });
+  });
+  socket.on('start_load_test', (opts) => {
+    if (!isHostEligible(socket) || gs.phase !== 'lobby' || loadTestRunner.running) return;
+    const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v)) ? Math.round(Math.max(lo, Math.min(hi, v))) : d;
+    const botCount   = num(opts && opts.botCount, 1, 300, 100);
+    const durationMs = num(opts && opts.durationMinutes, 1, 60, 5) * 60 * 1000;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    try {
+      fs.mkdirSync(LOG_DIR, { recursive: true });
+      loadtestLogStream = fs.createWriteStream(path.join(LOG_DIR, `loadtest-${stamp}-p${PORT}.jsonl`), { flags: 'a' });
+    } catch (e) { console.warn('負荷テストのログファイルを作成できません:', e.message); }
+    startLoadTestMetrics();
+    loadTestRunner.start({ botCount, durationMs });
+    io.emit('load_test_status', { ...loadTestRunner.status(), lobbyBusy: gs.phase !== 'lobby' });
+  });
+  socket.on('stop_load_test', () => {
+    if (!isHostEligible(socket)) return;
+    loadTestRunner.stop('manual');
+  });
+  // 負荷テストのボットからの往復確認。即座にackを返すだけ（応答速度の計測用）。
+  socket.on('loadtest_ping', (_data, ack) => { if (typeof ack === 'function') ack(); });
+
   // ── 大会モードを開始（ホストのみ）─────────────────────────
   // その時点で参加登録済み（joined）の人間プレイヤー全員を対象に第1試合を開始する。
   socket.on('start_event', () => {
@@ -2538,6 +2629,29 @@ app.post('/api/voice/ensure', async (req, res) => {
   res.json(r);
 });
 app.get('/api/voice/status', (req, res) => res.json({ baseUrl: voiceEngine.baseUrl, queue: voiceEngine.queue.length, stats: voiceEngine.stats, down: Date.now() < voiceEngine.downUntil }));
+
+// ── 負荷テストのログ回収（教卓PCのみ）─────────────────────
+// 一覧は logs/ の loadtest-*.jsonl のみを対象にする（他のファイルへは一切アクセスできない）。
+app.get('/api/loadtest/logs', (req, res) => {
+  if (!isHostRequest(req)) return res.status(403).json({ error: 'forbidden' });
+  let files = [];
+  try {
+    files = fs.readdirSync(LOG_DIR)
+      .filter(f => /^loadtest-.*\.jsonl$/.test(f))
+      .map(f => ({ name: f, ...fs.statSync(path.join(LOG_DIR, f)) }))
+      .map(f => ({ name: f.name, sizeBytes: f.size, mtime: f.mtime }))
+      .sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+  } catch (e) { /* logsフォルダが無ければ空一覧を返す */ }
+  res.json({ files });
+});
+app.get('/api/loadtest/logs/:file', (req, res) => {
+  if (!isHostRequest(req)) return res.status(403).json({ error: 'forbidden' });
+  // ファイル名はこの形式のみ許可（パス区切りを含められないようにし、他ファイルの読み出しを防ぐ）
+  if (!/^loadtest-[\w.-]+\.jsonl$/.test(req.params.file)) return res.status(400).json({ error: 'invalid filename' });
+  const file = path.join(LOG_DIR, req.params.file);
+  res.download(file, err => { if (err && !res.headersSent) res.status(404).json({ error: 'not found' }); });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 起動後、裏で部品（固定セリフ・数字・順位）を作っておく。キャッシュ済みなら一瞬で終わる。失敗した分は1分後にもう一度試す。

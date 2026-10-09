@@ -80,7 +80,37 @@ function markStarted(id) {
   socket.emit('mark_schedule_started', { id });
 }
 
-socket.on('connect', () => socket.emit('join_admin'));
+// ── 負荷テスト ──────────────────────────────────────────
+function fmtBytes(n) {
+  if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + 'MB';
+  if (n >= 1024) return (n / 1024).toFixed(1) + 'KB';
+  return n + 'B';
+}
+function renderLtAdminStatus(st) {
+  $('ltaRunning').textContent = st.running ? '実行中' : '停止中';
+  $('ltaConnected').textContent = st.running ? `${st.connected} / ${st.botCount}` : '—';
+  $('ltaPing').textContent = st.running && st.avgPingMs != null ? `${st.avgPingMs}ms / ${st.maxPingMs}ms` : '—';
+  $('ltaCpu').textContent = st.running && st.cpuPercent != null ? `${st.cpuPercent}%` : '—';
+  if (!st.running) fetchLoadtestLogs();   // 終わったばかりなら、ログ一覧を更新しておく
+}
+async function fetchLoadtestLogs() {
+  try {
+    const r = await fetch('/api/loadtest/logs');
+    const d = await r.json();
+    renderLogList(d.files || []);
+  } catch (e) { /* 取得できなければ一覧は変えない */ }
+}
+function renderLogList(files) {
+  $('ltLogList').innerHTML = files.map(f => `
+    <div class="admin-sched-row" style="grid-template-columns:1fr auto auto">
+      <span>${escHtml(f.name)}</span>
+      <span class="admin-hint">${fmtBytes(f.sizeBytes)}</span>
+      <a class="btn-sched-start" href="/api/loadtest/logs/${encodeURIComponent(f.name)}" download>⬇ ダウンロード</a>
+    </div>`).join('') || '<p class="ov-sub">まだ負荷テストのログがありません。</p>';
+}
+
+socket.on('connect', () => { socket.emit('join_admin'); socket.emit('join_load_test_monitor'); fetchLoadtestLogs(); });
+socket.on('load_test_status', renderLtAdminStatus);
 socket.on('admin_init', (d) => {
   isHost = !!d.isHost;
   eventLocked = !!d.eventActive;

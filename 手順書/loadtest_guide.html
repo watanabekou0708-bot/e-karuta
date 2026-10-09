@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Webかるた 負荷テスト手順書</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .cover { background: linear-gradient(160deg, #0a1f1c 0%, #0f6e5c 100%); color: #fff; padding: 0; }
+  .cover .inner { padding: 30mm 20mm 0; }
+  .cover .club { font-size: 14pt; letter-spacing: .15em; color: #bdf5e8; }
+  .cover h1 { font-size: 38pt; line-height: 1.25; margin: 10mm 0 4mm; }
+  .cover .sub { font-size: 15pt; color: #d8fff3; }
+  .cover .card { background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.35); border-radius: 4mm; padding: 6mm 8mm; margin-top: 12mm; }
+  .cover .card h2 { margin: 0 0 3mm; font-size: 16pt; color: #ffd66b; }
+  .cover .card li { font-size: 13pt; margin: 1.5mm 0; }
+  .cover .footer { color: #bdf5e8; border-top-color: rgba(255,255,255,.3); }
+  h2.step { background: linear-gradient(90deg, #0f6e5c, #1aa98a); }
+  h2.step .tag { color: #0f6e5c; }
+  h3 { color: #0b5346; border-left-color: #1aa98a; }
+  th { background: #e9fbf5; }
+  .url-box { background: #0b1d2a; color: #9bffea; font-family: Consolas, monospace; font-size: 12pt; padding: 3mm 5mm; border-radius: 2mm; margin: 2mm 0; word-break: break-all; }
+  .flowv { display: flex; flex-direction: column; gap: 2mm; margin: 3mm 0; }
+  .flowv .st { border: 2px solid #1aa98a; border-radius: 3mm; padding: 2.2mm 5mm; background: #f2fffb; font-size: 12pt; }
+  .flowv .st b { color: #0b5346; }
+  .flowv .ar { text-align: center; color: #0f6e5c; font-size: 14pt; line-height: 1; }
+</style>
+</head>
+<body>
+
+<!-- ===== 表紙 ===== -->
+<section class="page cover">
+  <div class="inner">
+    <div class="club">Webデザインサークル</div>
+    <h1>Webかるた<br>負荷テスト手順書</h1>
+    <div class="sub">本番前に、サーバーPCが当日の人数に耐えられるかを確認する</div>
+
+    <div class="card">
+      <h2>このガイドでわかること</h2>
+      <ul>
+        <li>負荷テストの始め方・止め方（P.2〜3）</li>
+        <li>実行中に見える数字の意味（P.3）</li>
+        <li>ログの回収方法・読み方（P.4）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>この負荷テストでできること・できないこと</h2>
+      <ul>
+        <li><b>できる</b>：サーバーPC自身が、大勢が同時に接続・読み上げ・クリックしたときにどこまで耐えられるかを確認する。</li>
+        <li><b>できない</b>：当日使う実機（タブレット・ノートPCなど）や会場のWi-Fiの通信状況そのものは再現しない（別途、実機での確認が必要）。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 負荷テスト手順書</span></div>
+</section>
+
+<!-- ===== 始め方 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 1</span>負荷テストを始める</h2>
+  <p>負荷テストは、サーバーPC自身が「仮想の参加者（ボット）」を内部で作り出し、ロビー参加・読み上げ・クリック・採点というゲームの一連の流れを実際に繰り返して負荷をかけます。本物の参加者やタブレットを何十台も用意する必要はありません。</p>
+
+  <h3>始め方① 参加用リンクに <code>?mode=test</code> を付けて開く</h3>
+  <p>いつも参加者に共有している参加用リンクの末尾に、そのまま <code>?mode=test</code> を付けて開くだけです。</p>
+  <div class="url-box">（例）いつものリンク：http://192.168.x.x:3000/<br>　　　負荷テスト用　：http://192.168.x.x:3000/<b>?mode=test</b></div>
+  <div class="box info"><b class="t">ワンポイント</b>このページ自体は「見るだけ・操作するだけ」の画面で、参加者としては参加しません。ページを閉じてもテストは止まりません（サーバー側で進行しているため）。</div>
+
+  <h3>始め方② 管理画面（admin.html）から始める</h3>
+  <p>ロビー画面の「⚙️ 大会設定を開く」から管理画面を開くと、下部に「🧪 負荷テスト」の項目があります。こちらからも同じように開始・状況確認ができます。</p>
+
+  <h3>設定できる項目</h3>
+  <table>
+    <tr><th style="width:30%">項目</th><th>説明</th></tr>
+    <tr><td><b>ボット数</b>（既定 100）</td><td>仮想参加者の人数。当日の最大想定人数より少し多めにしておくと安心です。</td></tr>
+    <tr><td><b>実施時間</b>（既定 5分）</td><td>どれくらいの時間、負荷をかけ続けるか。札1枚の読み上げに15秒かかるため、短い設定だと1試合の途中で終わります（それでも負荷の確認には十分です）。</td></tr>
+  </table>
+  <div class="box warn"><b class="t">注意</b>負荷テストは、ロビーが空いている（誰も対局していない）ときだけ開始できます。本番の対局中に割り込んで参加者を混乱させることはありません。</div>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 負荷テスト手順書　P.2</span></div>
+</section>
+
+<!-- ===== 実行中の見方・止め方 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 2</span>実行中の見方・止め方</h2>
+
+  <h3>画面に表示される数字</h3>
+  <table>
+    <tr><th style="width:34%">項目</th><th>見方</th></tr>
+    <tr><td><b>接続中のボット</b></td><td>実際に接続できている仮想参加者の数。設定した人数より大きく少ない場合、何かが詰まっている可能性があります。</td></tr>
+    <tr><td><b>応答速度（平均/最大）</b></td><td>サーバーが混雑していないかの目安。本来は数ミリ秒〜十数ミリ秒程度。数百ミリ秒以上に伸び続けるようなら、サーバーが詰まり始めている可能性があります。</td></tr>
+    <tr><td><b>サーバーCPU使用率</b></td><td>サーバーPCがどれくらい忙しいか。100%に張り付いたまま下がらない場合は、台数を減らすかPCの性能を見直す目安になります。</td></tr>
+    <tr><td><b>サーバーメモリ</b></td><td>使用中のメモリ量。時間が経つにつれてどんどん増え続けるようであれば注意（通常は一定の範囲で落ち着きます）。</td></tr>
+    <tr><td><b>総接続数</b></td><td>ボット以外の本物の接続も含めた、今サーバーにつながっている全員の数。</td></tr>
+  </table>
+  <div class="box ok"><b class="t">目安</b>応答速度が数十ミリ秒以内・CPU使用率が張り付かず上下している・エラーが増え続けない、という3点が保てていれば、まずは安心して良い状態です。数値は環境（PCの性能・台数）によって変わるため、「いつもと比べて極端に悪化していないか」で判断してください。</div>
+
+  <h3>止め方</h3>
+  <p>画面の「⏹ 停止」ボタンを押すと、その場で全ての仮想参加者が切断されます。何も押さなくても、設定した実施時間が終わると自動的に止まります。</p>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 負荷テスト手順書　P.3</span></div>
+</section>
+
+<!-- ===== ログの回収・読み方・実施タイミング ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 3</span>ログの回収・読み方</h2>
+
+  <h3>ログはどこにあるか</h3>
+  <div class="flowv">
+    <div class="st"><b>① 負荷テスト中・終了後</b>　サーバーPCの <code>logs</code> フォルダに <code>loadtest-日時.jsonl</code> として自動保存される</div>
+    <div class="ar">↓</div>
+    <div class="st"><b>② 管理画面（admin.html）</b>　「🧪 負荷テスト」内の一覧から「⬇ ダウンロード」でそのPCに保存できる</div>
+  </div>
+  <p>管理画面からのダウンロードは、教卓PC（サーバーを起動しているパソコン）からのみ行えます。</p>
+
+  <h3>ログの読み方（かんたんに）</h3>
+  <p>ログは1行に1つの記録が書かれたテキストファイルです（<code>type</code> の値で種類が分かります）。細かく読み解く必要はありませんが、主な種類は次のとおりです。</p>
+  <table class="sm">
+    <tr><th style="width:30%">type</th><th>内容</th></tr>
+    <tr><td><code>loadtest_start</code></td><td>開始時の設定（ボット数・実施時間）</td></tr>
+    <tr><td><code>loadtest_metrics</code></td><td>1秒おきの記録（CPU・メモリ・応答速度・接続数など）。一番よく見る行。</td></tr>
+    <tr><td><code>loadtest_ping_batch</code></td><td>2秒おきの応答速度の計測結果</td></tr>
+    <tr><td><code>loadtest_bot_error</code></td><td>ボットの接続エラー。多数出ていれば要注意。</td></tr>
+    <tr><td><code>loadtest_stop</code></td><td>終了時の最終結果</td></tr>
+  </table>
+  <div class="box info"><b class="t">ワンポイント</b>詳しく分析したい場合は、Excelなどで開く前にテキストエディタで中身を確認するか、詳しい方に <code>loadtest_metrics</code> の行だけを抜き出してグラフ化してもらうと分かりやすくなります。</div>
+
+  <h3>実施タイミングのおすすめ</h3>
+  <ul>
+    <li>本番の<b>前日〜数日前</b>、他の準備作業でサーバーPCを使っていない時間に行う。</li>
+    <li>可能であれば、当日と<b>同じ会場・同じサーバーPC</b>で行う（別の性能のPCで試しても参考程度にしかならない）。</li>
+    <li>結果が気になるときは、ボット数を当日の想定人数ちょうどにした回と、少し多め（1.2〜1.5倍程度）にした回の両方を試しておくと、当日の余裕度が分かりやすい。</li>
+  </ul>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた 負荷テスト手順書　P.4</span></div>
+</section>
+
+</body>
+</html>

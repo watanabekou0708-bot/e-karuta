@@ -27,6 +27,33 @@
   </div>
 </div>
 
+<!-- ── 負荷テスト専用画面（?mode=test）─────────────────── -->
+<div id="oLoadTest" class="overlay hidden">
+  <div class="ov-card loadtest-card">
+    <div class="ov-title">🧪 負荷テスト</div>
+    <p class="ov-sub">サーバー自身が仮想参加者（ボット）を作って負荷をかけます。このページは状況を見るための画面で、参加者としては参加しません。</p>
+    <div id="ltNotHost" class="lt-warn hidden">教卓PC（サーバーを起動しているパソコン）から開いてください。この画面では操作できません。</div>
+    <div id="ltBusy" class="lt-warn hidden">ロビーが対局中のため開始できません。いったん試合が終わるかロビーに戻ってから始めてください。</div>
+    <div id="ltControls" class="loadtest-controls">
+      <label>ボット数（人）<input id="ltBotCount" type="number" min="1" max="300" value="100"></label>
+      <label>実施時間（分）<input id="ltDuration" type="number" min="1" max="60" value="5"></label>
+      <button id="ltStartBtn" class="btn btn-green" onclick="startLoadTestUI()">▶ 開始</button>
+      <button id="ltStopBtn" class="btn btn-danger hidden" onclick="stopLoadTestUI()">⏹ 停止</button>
+    </div>
+    <div id="ltStatus" class="loadtest-status hidden">
+      <div class="lt-row"><span>状態</span><b id="ltRunning">停止中</b></div>
+      <div class="lt-row"><span>接続中のボット</span><b id="ltConnected">0</b></div>
+      <div class="lt-row"><span>経過時間</span><b id="ltElapsed">0:00</b></div>
+      <div class="lt-row"><span>応答速度（平均/最大）</span><b id="ltPing">—</b></div>
+      <div class="lt-row"><span>サーバーCPU使用率</span><b id="ltCpu">—</b></div>
+      <div class="lt-row"><span>サーバーメモリ（RSS）</span><b id="ltMem">—</b></div>
+      <div class="lt-row"><span>総接続数</span><b id="ltClients">—</b></div>
+      <div class="lt-row"><span>接続エラー</span><b id="ltErrors">0</b></div>
+    </div>
+    <p class="ov-sub loadtest-note">ログは自動で保存され、管理画面（admin.html）からダウンロードできます。詳しい使い方は手順書をご覧ください。</p>
+  </div>
+</div>
+
 <!-- ── Lobby ─────────────────────────────────────────── -->
 <div id="oLobby" class="overlay hidden">
   <div class="ov-card">
