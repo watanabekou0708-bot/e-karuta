@@ -2,3 +2,4 @@ node_modules/
 *.log
 logs/
 voice-cache/
+misread-reports/
