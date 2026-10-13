@@ -132,7 +132,7 @@ function cell(k, part, text) {
     <label class="chk"><input type="checkbox" class="badchk"> 誤読</label>`;
   td.querySelector('.t').textContent = text;
   td.querySelector('.kana').textContent = '→ ' + speechText(text);
-  td.querySelector('.play').onclick = () => speak(part === 'yomi' ? '読み上げます。' + text : text, false);
+  td.querySelector('.play').onclick = () => speak(text, false);
   const chk = td.querySelector('.badchk');
   chk.checked = !!bad[key];
   chk.onchange = () => { bad[key] = chk.checked; chk.closest('tr').classList.toggle('bad', !!(bad[`${k.id}:yomi`] || bad[`${k.id}:tori`])); };
