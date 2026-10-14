@@ -908,14 +908,27 @@ let ltIsHost  = false;   // join_load_test_monitorの応答で一度だけ届く
 // ── 実機ボット自動プレイ（アドレスの最後に ?bot=番号 を付けたもの）────────
 // 実機（本番で使う実際のPC）を多数リモートで同時起動し、「名前・学年・コースの入力→
 // 練習モード開始→かるたを取る」という一連の動作を完全自動で行わせるためのモード。
-// スクリプトでURLを開くだけで人の操作（クリック・キー入力）を伴わないため、Chromeの
-// 自動再生ポリシーにより音声(AudioContext)が実際には鳴らない可能性が高い。音声の
-// 再生そのものは通常どおり試みる（鳴れば鳴るで良い）が、進行判定（ホストの報告・
-// 次の読み上げ・カードを取る判断）は音声の再生状態に一切依存しない、ここだけの
-// 独立したソケットリスナーで行う。これにより音声がブロックされても進行は止まらない。
+//
+// 進行役の報告（intro_started・yomi_finished・announce_finished）や次の読み上げの
+// 自動開始(maybeAutoReadNext)は、既存の音声再生ロジック（armFlying・scheduleReadCard・
+// card_taken/time_upのfinishAll）にそのまま任せる。ボット側で別タイマーを持たせると、
+// 実際の音声（警告→読み上げます→上の句、そこまで→DJ→答え合わせ等）より早く・短く
+// 次へ進めてしまい、本番と違うタイミングで音声が途中で打ち切られてしまうため
+// （Voice.play の各区切りは setTimeout による実時間ベースなので、audioCtx が
+// 自動再生ポリシーで suspended のままでも正しい間隔で進む。鳴る/鳴らないに
+// かかわらず、タイミングは本番と揃う）。
+// ボットがここで自動化するのは、あくまで「人が手で行うはずだった操作」
+// （参加・練習モード開始・次の試合へ・札を取る）だけに留める。
+//
+// 40台すべてに全く同じ1つのURL（?bot、番号なし）を配るだけで使えるように、
+// 番号を省略した場合はこのページ自身がランダムな番号を自動で生成する
+// （?bot=5 のように明示すれば、その番号がそのまま使われる＝動作確認用）。
 const BOT_LINK = (() => {
-  const n = +new URLSearchParams(location.search).get('bot');
-  return Number.isInteger(n) && n > 0 ? n : null;
+  const params = new URLSearchParams(location.search);
+  if (!params.has('bot')) return null;
+  const n = +params.get('bot');
+  if (Number.isInteger(n) && n > 0) return n;
+  return 100 + Math.floor(Math.random() * 900);   // 番号未指定時：100〜999のランダムな番号
 })();
 (function applyBotLink() {
   if (!BOT_LINK) return;
@@ -931,13 +944,15 @@ const BOT_LINK = (() => {
     $('courseSelect').value = pick(COURSE_OPTIONS[grade]);
     doJoin();
 
-    // ② 練習モード開始：参加済みなら誰でも押せる（先に押した人の設定が全員に適用される）。
-    //    自分が一番乗りとは限らないので、既に始まっていれば何もしない。
+    // ② 練習モード開始（人が「ゲームスタート」ボタンを押す操作の代わり）。
+    //    参加済みなら誰でも押せる（先に押した人の設定が全員に適用される）ので、
+    //    自分が一番乗りとは限らない。既に始まっていれば何もしない。
     setTimeout(() => { if (!gameStarted) startGame(); }, rand(1000, 5000));
   }, rand(200, 1500));
 
-  // ③ 盤面整理：自分の音声の先読みが終わり次第スキップする（練習モードは誰か1人が
-  //    スキップすれば全員分進む仕組みなので、全ボットが同じことを試みて問題ない）。
+  // ③ 盤面整理：自分の音声の先読みが終わり次第スキップする（人が「スキップ」ボタンを
+  //    押す操作の代わり。練習モードは誰か1人がスキップすれば全員分進む仕組みなので、
+  //    全ボットが同じことを試みて問題ない）。
   socket.on('memorize_start', () => {
     const iv = setInterval(() => {
       if (voiceReadyForSkip()) { clearInterval(iv); skipMemorize(); }
@@ -945,25 +960,14 @@ const BOT_LINK = (() => {
     setTimeout(() => clearInterval(iv), 60000);   // 保険：いつまでも回り続けないようにする
   });
 
-  // ③.5 仮想カーソル(Pointer Lock)の準備待ち：本物の入力が無いボットでは
-  //     Pointer Lockも自動再生と同様に有効化できない可能性があるため、
-  //     KCursorの実際の状態を待たず、準備完了を直接サーバーへ伝える。
+  // ④ 仮想カーソル(Pointer Lock)の準備待ち（人が仮想カーソルに移る操作の代わり）。
+  //    Pointer Lockは自動再生と同様に人の操作なしでは有効化できない可能性があるため、
+  //    KCursorの実際の状態を待たず、準備完了を直接サーバーへ伝える。
   socket.on('ready_wait', () => socket.emit('cursor_ready'));
 
-  // ④ 試合進行：音声の再生終了を待たず、ソケットイベントの到着だけを見て独自に進める。
-  socket.on('game_waiting', () => {
-    if (!myIsHost) return;
-    setTimeout(() => socket.emit('read_next'), rand(300, 1200));
-  });
+  // ⑤ 札を取る（人がクリックする操作の代わり）。本番と同じく、読み上げ中にランダムな
+  //    タイミング・精度で「正しい札だと思ってクリックする」動作を模擬する。
   const botOnRead = (d, isDecoy) => {
-    if (myIsHost) {
-      socket.emit('intro_started', { t: hiResNow() + serverOffset });
-      setTimeout(() => {
-        if (isDecoy) socket.emit('decoy_finished');
-        else socket.emit('yomi_finished', { cardId: d.card.id });
-      }, rand(1000, 8000));
-    }
-    // 本番同様、何人かはこの札（ダミーなら何にクリックしても誤答）を取ろうとする
     if (Math.random() < 0.6) {
       const cardId = isDecoy ? d.id : d.card.id;
       setTimeout(() => {
@@ -973,15 +977,11 @@ const BOT_LINK = (() => {
   };
   socket.on('read_card', d => botOnRead(d, false));
   socket.on('decoy_read', d => botOnRead(d, true));
-  const botOnAnnounce = () => {
-    if (!myIsHost) return;
-    setTimeout(() => socket.emit('announce_finished', {}), rand(100, 500));
-  };
-  socket.on('card_taken', botOnAnnounce);
-  socket.on('time_up', botOnAnnounce);
+
+  // ⑥ 次の試合へ（人が結果画面で「次の試合へ」ボタンを押す操作の代わり）。
   socket.on('round_finished', () => {
     if (!myIsHost) return;
-    setTimeout(() => socket.emit('start_next_round'), rand(500, 2000));
+    setTimeout(() => socket.emit('start_next_round'), rand(1000, 3000));
   });
 })();
 
