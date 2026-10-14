@@ -7,6 +7,8 @@
 //   node check_misreads.js --from=257       … ID 257以降だけチェック
 //   node check_misreads.js --from=257 --to=300
 //   node check_misreads.js --whisper=http://zeroai.local/whisper-api
+//   node check_misreads.js --rescore=misread-reports/misread-report-xxx.json
+//                                           … Whisperを呼び直さず、既存結果を採点し直すだけ
 //
 // 結果は misread-reports/ に、違いが大きい順に並べたHTML（人が読む用）と
 // JSON（次回の比較・自動処理用）の両方で保存される。
@@ -21,6 +23,7 @@ const path = require('path');
 const { VoiceEngine } = require('./voice-engine.js');
 const VD = require('./public/voice-defs.js');
 const D = require('./public/karuta-data.js');
+const { speechText } = require('./public/tts.js');
 
 const args = Object.fromEntries(process.argv.slice(2).map(a => {
   const m = a.match(/^--([^=]+)=(.*)$/);
@@ -44,9 +47,14 @@ const targets = D.filter(k => k.id >= fromId && k.id <= toId).sort((a, b) => a.i
 
 // ── 文章の正規化（表記ゆれを誤読と誤判定しないため）────────────────
 const KANJI_NUM = { '〇': '0', '一': '1', '二': '2', '三': '3', '四': '4', '五': '5', '六': '6', '七': '7', '八': '8', '九': '9', '十': '10' };
+// カタカナ→ひらがな（Whisperの文字起こしは単語によってカタカナ/ひらがなの選び方がゆれるため、
+// 「音が合っているか」を見たいここでは区別しない）
+function kataToHira(s) {
+  return s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+}
 function normalize(text) {
-  return String(text)
-    .replace(/[。、．，,.!！?？「」『』（）()・\s]/g, '')
+  return kataToHira(String(text))
+    .replace(/[。、．，,.!！?？「」『』（）()\[\]［］・\s]/g, '')
     .replace(/[〇一二三四五六七八九]/g, c => KANJI_NUM[c] ?? c)
     .toLowerCase();
 }
@@ -68,11 +76,19 @@ function levenshtein(a, b) {
   }
   return prev[n];
 }
-// 0（完全一致）〜1（全く違う）の差分スコア
+function rawDiffScore(a, b) {
+  const na = normalize(a), nb = normalize(b);
+  if (!na.length && !nb.length) return 0;
+  return levenshtein(na, nb) / Math.max(na.length, nb.length, 1);
+}
+// 0（完全一致）〜1（全く違う）の差分スコア。
+// 「表示文のまま」と「tts.js補正後（英字→カタカナ等）」の両方と比べ、近い方を採用する。
+// VOICEVOX自体が辞書に無い英単語もそれなりに読める（例：Apple→アップル）ため、どちらか
+// 一方だけと比べると「辞書に無いだけで実際は正しく読めている」ものまで誤読扱いになってしまう。
 function diffScore(expected, got) {
-  const a = normalize(expected), b = normalize(got);
-  if (!a.length && !b.length) return 0;
-  return levenshtein(a, b) / Math.max(a.length, b.length, 1);
+  const viaRaw = rawDiffScore(expected, got);
+  const viaSpoken = rawDiffScore(speechText(expected), got);
+  return Math.min(viaRaw, viaSpoken);
 }
 
 async function transcribe(file) {
@@ -154,7 +170,21 @@ ${rows}
   return { jsonFile: path.join(REPORT_DIR, base + '.json'), htmlFile: path.join(REPORT_DIR, base + '.html') };
 }
 
+// 既存の結果(JSON)を、Whisperへ再度問い合わせずにスコアだけ付け直す
+// （発音辞書(tts.js)を直した後の見直しや、採点ロジック自体の改善に使う）。
+async function rescoreFromFile(file) {
+  const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
+  const results = data.results.map(r => r.error ? r : { ...r, score: diffScore(r.expected, r.got) });
+  const { jsonFile, htmlFile } = writeReport(results, { ...data.meta, startedAt: data.meta.startedAt + '（再採点: ' + new Date().toISOString() + '）' });
+  const errorCount = results.filter(r => r.error).length;
+  const suspectCount = results.filter(r => !r.error && r.score >= 0.15).length;
+  console.log(`再採点完了。疑わしい札(差分15%以上): ${suspectCount}件 / 確認できず: ${errorCount}件`);
+  console.log('HTML:', htmlFile);
+  console.log('JSON:', jsonFile);
+}
+
 async function main() {
+  if (args.rescore) { await rescoreFromFile(args.rescore); return; }
   console.log(`対象: ID ${fromId}〜${toId}（${targets.length}件） / Whisper: ${WHISPER_BASE}`);
   const engine = new VoiceEngine({ baseUrl: VOICEVOX_URL, dir: VOICE_CACHE_DIR, log: () => {} });
   const results = [];

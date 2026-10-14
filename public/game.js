@@ -905,6 +905,86 @@ let ltIsHost  = false;   // join_load_test_monitorの応答で一度だけ届く
   socket.on('load_test_status', renderLoadTestStatus);
 })();
 
+// ── 実機ボット自動プレイ（アドレスの最後に ?bot=番号 を付けたもの）────────
+// 実機（本番で使う実際のPC）を多数リモートで同時起動し、「名前・学年・コースの入力→
+// 練習モード開始→かるたを取る」という一連の動作を完全自動で行わせるためのモード。
+// スクリプトでURLを開くだけで人の操作（クリック・キー入力）を伴わないため、Chromeの
+// 自動再生ポリシーにより音声(AudioContext)が実際には鳴らない可能性が高い。音声の
+// 再生そのものは通常どおり試みる（鳴れば鳴るで良い）が、進行判定（ホストの報告・
+// 次の読み上げ・カードを取る判断）は音声の再生状態に一切依存しない、ここだけの
+// 独立したソケットリスナーで行う。これにより音声がブロックされても進行は止まらない。
+const BOT_LINK = (() => {
+  const n = +new URLSearchParams(location.search).get('bot');
+  return Number.isInteger(n) && n > 0 ? n : null;
+})();
+(function applyBotLink() {
+  if (!BOT_LINK) return;
+  const rand = (min, max) => min + Math.random() * (max - min);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  // ① 参加：名前・学年・コースを自動入力して送信する
+  setTimeout(() => {
+    $('nameInput').value = '負荷PC' + String(BOT_LINK).padStart(2, '0');
+    const grade = pick(Object.keys(COURSE_OPTIONS));
+    $('gradeSelect').value = grade;
+    updateCourseOptions();
+    $('courseSelect').value = pick(COURSE_OPTIONS[grade]);
+    doJoin();
+
+    // ② 練習モード開始：参加済みなら誰でも押せる（先に押した人の設定が全員に適用される）。
+    //    自分が一番乗りとは限らないので、既に始まっていれば何もしない。
+    setTimeout(() => { if (!gameStarted) startGame(); }, rand(1000, 5000));
+  }, rand(200, 1500));
+
+  // ③ 盤面整理：自分の音声の先読みが終わり次第スキップする（練習モードは誰か1人が
+  //    スキップすれば全員分進む仕組みなので、全ボットが同じことを試みて問題ない）。
+  socket.on('memorize_start', () => {
+    const iv = setInterval(() => {
+      if (voiceReadyForSkip()) { clearInterval(iv); skipMemorize(); }
+    }, 500);
+    setTimeout(() => clearInterval(iv), 60000);   // 保険：いつまでも回り続けないようにする
+  });
+
+  // ③.5 仮想カーソル(Pointer Lock)の準備待ち：本物の入力が無いボットでは
+  //     Pointer Lockも自動再生と同様に有効化できない可能性があるため、
+  //     KCursorの実際の状態を待たず、準備完了を直接サーバーへ伝える。
+  socket.on('ready_wait', () => socket.emit('cursor_ready'));
+
+  // ④ 試合進行：音声の再生終了を待たず、ソケットイベントの到着だけを見て独自に進める。
+  socket.on('game_waiting', () => {
+    if (!myIsHost) return;
+    setTimeout(() => socket.emit('read_next'), rand(300, 1200));
+  });
+  const botOnRead = (d, isDecoy) => {
+    if (myIsHost) {
+      socket.emit('intro_started', { t: hiResNow() + serverOffset });
+      setTimeout(() => {
+        if (isDecoy) socket.emit('decoy_finished');
+        else socket.emit('yomi_finished', { cardId: d.card.id });
+      }, rand(1000, 8000));
+    }
+    // 本番同様、何人かはこの札（ダミーなら何にクリックしても誤答）を取ろうとする
+    if (Math.random() < 0.6) {
+      const cardId = isDecoy ? d.id : d.card.id;
+      setTimeout(() => {
+        socket.emit('grab_card', { cardId, t: hiResNow() + serverOffset, offsetMm: rand(0, 20), distMm: rand(10, 290) });
+      }, rand(300, 3000));
+    }
+  };
+  socket.on('read_card', d => botOnRead(d, false));
+  socket.on('decoy_read', d => botOnRead(d, true));
+  const botOnAnnounce = () => {
+    if (!myIsHost) return;
+    setTimeout(() => socket.emit('announce_finished', {}), rand(100, 500));
+  };
+  socket.on('card_taken', botOnAnnounce);
+  socket.on('time_up', botOnAnnounce);
+  socket.on('round_finished', () => {
+    if (!myIsHost) return;
+    setTimeout(() => socket.emit('start_next_round'), rand(500, 2000));
+  });
+})();
+
 function fmtElapsed(ms) {
   const s = Math.floor((ms || 0) / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
