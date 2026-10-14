@@ -1,11 +1,12 @@
 'use strict';
-// 読み札（上の句・めたん）の読み上げ音声を、音声認識(Whisper)で文字起こしして元の文章と
-// 突き合わせ、誤読の疑いがある札を一覧にするツール。
+// 読み札（上の句）・答え（下の句）の読み上げ音声を、音声認識(Whisper)で文字起こしして
+// 元の文章と突き合わせ、誤読の疑いがある札を一覧にするツール。
 //
 // 使い方：
-//   node check_misreads.js                 … 全ての読み札（ID 1〜最大）をチェック
+//   node check_misreads.js                 … 読み札（上の句・めたん）を全件チェック
 //   node check_misreads.js --from=257       … ID 257以降だけチェック
 //   node check_misreads.js --from=257 --to=300
+//   node check_misreads.js --field=tori     … 答え（下の句・青山龍星、答え合わせで実際に読む声）をチェック
 //   node check_misreads.js --whisper=http://zeroai.local/whisper-api
 //   node check_misreads.js --rescore=misread-reports/misread-report-xxx.json
 //                                           … Whisperを呼び直さず、既存結果を採点し直すだけ
@@ -41,6 +42,11 @@ const allIds = D.map(k => k.id).sort((a, b) => a - b);
 const minId = allIds[0], maxId = allIds[allIds.length - 1];
 const fromId = args.from ? +args.from : minId;
 const toId = args.to ? +args.to : maxId;
+
+// 読み札（上の句・めたん）か、答え（下の句・青山龍星。答え合わせで実際に読む声）か
+const FIELD = args.field === 'tori' ? 'tori' : 'yomi';
+const VOICE = FIELD === 'tori' ? 'aoyama' : 'metan';
+const FIELD_LABEL = FIELD === 'tori' ? '答え（下の句）' : '読み札（上の句）';
 
 const byId = Object.fromEntries(D.map(k => [k.id, k]));
 const targets = D.filter(k => k.id >= fromId && k.id <= toId).sort((a, b) => a.id - b.id);
@@ -155,7 +161,7 @@ tr.ok .score{color:#6fcf97}
 tr.err{background:#2a1a1a;color:#aaa}
 </style></head>
 <body>
-<h1>誤読チェック結果（読み札・めたん）</h1>
+<h1>誤読チェック結果（${escHtml(meta.fieldLabel || FIELD_LABEL)}）</h1>
 <div class="sub">対象: ID ${meta.fromId}〜${meta.toId}（${meta.total}件） / 実行: ${meta.startedAt}<br>
 「差分」が大きいものほど誤読の疑いが強い（句読点・数字の表記ゆれは無視するよう正規化済み）。
 実際に音は <code>tts-check.html</code> で該当の文章を検索して確認してください。</div>
@@ -185,19 +191,20 @@ async function rescoreFromFile(file) {
 
 async function main() {
   if (args.rescore) { await rescoreFromFile(args.rescore); return; }
-  console.log(`対象: ID ${fromId}〜${toId}（${targets.length}件） / Whisper: ${WHISPER_BASE}`);
+  console.log(`対象: ${FIELD_LABEL} ID ${fromId}〜${toId}（${targets.length}件） / Whisper: ${WHISPER_BASE}`);
   const engine = new VoiceEngine({ baseUrl: VOICEVOX_URL, dir: VOICE_CACHE_DIR, log: () => {} });
   const results = [];
   let done = 0;
   for (const card of targets) {
-    const r = { id: card.id, expected: card.yomi };
+    const text = card[FIELD];
+    const r = { id: card.id, expected: text };
     try {
-      const ok = await engine.request('metan', card.yomi, 'bg');
+      const ok = await engine.request(VOICE, text, 'bg');
       if (!ok) throw new Error('音声の準備に失敗（VOICEVOXに接続できない可能性）');
-      const file = engine.file('metan', card.yomi);
+      const file = engine.file(VOICE, text);
       const got = await transcribe(file);
       r.got = got;
-      r.score = diffScore(card.yomi, got);
+      r.score = diffScore(text, got);
     } catch (e) {
       r.error = String(e && e.message || e);
     }
@@ -207,7 +214,7 @@ async function main() {
       console.log(`${done}/${targets.length} 完了`);
     }
   }
-  const meta = { fromId, toId, total: targets.length, startedAt: new Date().toISOString() };
+  const meta = { fromId, toId, total: targets.length, startedAt: new Date().toISOString(), field: FIELD, fieldLabel: FIELD_LABEL };
   const { jsonFile, htmlFile } = writeReport(results, meta);
   const errorCount = results.filter(r => r.error).length;
   const suspectCount = results.filter(r => !r.error && r.score >= 0.15).length;
