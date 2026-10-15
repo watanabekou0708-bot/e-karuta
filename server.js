@@ -245,6 +245,31 @@ const loadTestRunner = new LoadTestRunner({
     if (loadtestLogStream) { loadtestLogStream.end(); loadtestLogStream = null; }
   },
 });
+
+// ── 実機ボットテスト（?bot=N/?bot=host）の通信・スペック診断 ──────────────
+// 各ボット端末が数秒おきに自己申告してくる往復時間・接続方式・端末スペック・
+// 音声取得時間を集約し、①専用ログ(logs/bottest-<開始時刻>.jsonl)に記録、
+// ②全ボット端末へブロードキャスト（応答が悪い順）して、40台のどの画面からでも
+// 今どのPCが詰まっているかをその場で確認できるようにする。
+let botMetricsLogStream = null;
+function botMetricsLog(type, data = {}) {
+  if (!botMetricsLogStream) {
+    try {
+      fs.mkdirSync(LOG_DIR, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      botMetricsLogStream = fs.createWriteStream(path.join(LOG_DIR, `bottest-${stamp}-p${PORT}.jsonl`), { flags: 'a' });
+    } catch (e) { console.warn('ボットテストのログファイルを作成できません:', e.message); return; }
+  }
+  botMetricsLogStream.write(JSON.stringify({ at: new Date().toISOString(), t: Math.round(hiResNow()), type, ...data }) + '\n');
+}
+const botMetrics = new Map();   // socket.id -> 最新の自己申告データ
+let botMetricsDirty = false;
+setInterval(() => {
+  if (!botMetricsDirty || !botMetrics.size) return;
+  botMetricsDirty = false;
+  const list = [...botMetrics.values()].sort((a, b) => (b.rttMs ?? -1) - (a.rttMs ?? -1));   // 応答が悪い（遅い）順
+  io.emit('bot_metrics_broadcast', list);
+}, 3000);
 // VOICEVOX エンジン（CT107）。環境変数 VOICEVOX_URL で変更できる。音声の保存先は VOICE_CACHE_DIR（既定 ./voice-cache）。
 const VOICE_CACHE_DIR = process.env.VOICE_CACHE_DIR || path.join(__dirname, 'voice-cache');
 const voiceEngine = new VoiceEngine({
@@ -1846,7 +1871,8 @@ io.on('connection', socket => {
       p.score = 0; p.bonus = 0; p.cards = 0; p.misses = 0; p.isEliminated = false;
     });
 
-    addCpuPlayersForPractice(PRACTICE_MOCK_TOTAL_TARGET);
+    // 実機ボットテスト（?bot=host の「ゲームスタート」）はCPUを混ぜず、実機だけで負荷をかける
+    if (!(opts && opts.noCpu)) addCpuPlayersForPractice(PRACTICE_MOCK_TOTAL_TARGET);
     const { humanCount, cpuCount, totalCount } = computeHeadcount();
     gs.survivorCount = Math.min(PRACTICE_MOCK_SURVIVOR_SCHEDULE[0], totalCount);
 
@@ -1871,6 +1897,27 @@ io.on('connection', socket => {
       humanCount, cpuCount, totalCount,
     });
     armMemorize();
+  });
+
+  // ── 実機ボットテストの通信・スペック自己申告（?bot=N/?bot=host のみ送信）────
+  socket.on('bot_metrics', data => {
+    if (!data || typeof data !== 'object') return;
+    const p = gs.players[socket.id];
+    const entry = {
+      id: socket.id,
+      name: (p && p.name) || null,
+      rttMs:        typeof data.rttMs === 'number' ? Math.round(data.rttMs) : null,
+      transport:    typeof data.transport === 'string' ? data.transport.slice(0, 20) : null,
+      reconnects:   Number.isFinite(data.reconnects) ? data.reconnects : 0,
+      hwConcurrency: Number.isFinite(data.hwConcurrency) ? data.hwConcurrency : null,
+      deviceMemory:  Number.isFinite(data.deviceMemory) ? data.deviceMemory : null,
+      ua:           typeof data.ua === 'string' ? data.ua.slice(0, 60) : null,
+      audioAvgMs:   typeof data.audioAvgMs === 'number' ? Math.round(data.audioAvgMs) : null,
+      updatedAt:    Date.now(),
+    };
+    botMetrics.set(socket.id, entry);
+    botMetricsDirty = true;
+    botMetricsLog('bot_metrics', entry);
   });
 
   // ── Skip memorization（ホストのみ・デバッグ用）───────────
@@ -2565,6 +2612,7 @@ io.on('connection', socket => {
   // ── Disconnect ───────────────────────────────────────────
   socket.on('disconnect', () => {
     gs.projectorIds.delete(socket.id);
+    if (botMetrics.delete(socket.id)) botMetricsDirty = true;
     logEvent('leave', { id: socket.id, name: gs.players[socket.id] && gs.players[socket.id].name });
     if (gs.ready.active) {
       gs.ready.need.delete(socket.id);

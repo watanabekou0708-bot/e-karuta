@@ -37,6 +37,16 @@
   </div>
 </div>
 
+<!-- ── 実機ボットの待機画面（参加後、ホストの開始を待つ間）──────── -->
+<div id="oBotWait" class="overlay hidden">
+  <div class="ov-card">
+    <div class="ov-title">🤖 ボットモード</div>
+    <p class="ov-sub" id="botWaitRoleLabel"></p>
+    <p class="ov-sub">現在の参加人数：<span id="botWaitCount">0</span>人</p>
+    <button id="botWaitStartBtn" class="btn btn-green hidden">▶ ゲームスタート</button>
+  </div>
+</div>
+
 <!-- ── 負荷テスト専用画面（?mode=test）─────────────────── -->
 <div id="oLoadTest" class="overlay hidden">
   <div class="ov-card loadtest-card">
@@ -275,6 +285,19 @@
 
 <!-- 仮想カーソル（Pointer Lock 中だけ表示。定位置への自動復帰と🚫表示に使う） -->
 <div id="vCursor" class="v-cursor hidden"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M3 2 L3 19 L8 14.5 L11.5 22 L14.5 20.7 L11 13.3 L18 13.3 Z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg><span class="v-cursor-ban">🚫</span></div>
+
+<!-- 実機ボットテスト（?bot=N/?bot=host）専用：通信・スペック診断パネル。
+     待機画面でも対局中でも、40台のどの画面からでも今の状況が見られるよう
+     オーバーレイとは別に常時フロートさせる。 -->
+<div id="botMetricsPanel" class="bot-metrics-panel hidden">
+  <div class="bmp-header" id="bmpHeader">📡 通信診断　<span id="bmpSummary"></span>　<span id="bmpToggle">▲</span></div>
+  <div id="bmpBody" class="bmp-body">
+    <table class="bmp-table">
+      <thead><tr><th>端末</th><th>往復</th><th>方式</th><th>再接</th><th>CPU</th><th>メモリ</th><th>音声</th></tr></thead>
+      <tbody id="bmpTbody"></tbody>
+    </table>
+  </div>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="tts.js"></script>

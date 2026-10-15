@@ -314,26 +314,29 @@ function hiResNow() {
   return clientAnchorDate + (performance.now() - clientAnchorPerf);
 }
 
+let lastRttMs = null;   // 直近の往復時間（ボットの通信診断表示に使う）
 function measureOffset() {
   return new Promise(resolve => {
     const t1 = hiResNow();
     socket.emit('time_sync', { t1 });
     socket.once('time_sync', ({ t1: s1, t2 }) => {
       const t3 = hiResNow();
-      resolve(t2 - (s1 + t3) / 2);
+      resolve({ offset: t2 - (s1 + t3) / 2, rtt: t3 - s1 });
     });
   });
 }
 
 async function syncClock() {
-  const offsets = [];
+  const results = [];
   for (let i = 0; i < 5; i++) {
-    offsets.push(await measureOffset());
+    results.push(await measureOffset());
     if (i < 4) await new Promise(r => setTimeout(r, 100));
   }
-  offsets.sort((a, b) => a - b);
+  const offsets = results.map(r => r.offset).sort((a, b) => a - b);
+  const rtts = results.map(r => r.rtt).sort((a, b) => a - b);
   serverOffset = offsets[2]; // 中央値を採用
-  console.log(`[Sync] オフセット: ${serverOffset.toFixed(1)} ms（5回中央値）`);
+  lastRttMs = rtts[2];
+  console.log(`[Sync] オフセット: ${serverOffset.toFixed(1)} ms（5回中央値） / 往復: ${lastRttMs.toFixed(1)} ms`);
 }
 
 // ゲーム中も時計のずれが蓄積しないよう、30秒おきに再同期する
@@ -971,6 +974,22 @@ function playWarmupBlip() {
 
   const botName = BOT_IS_HOST ? 'ホストPC' : '負荷PC' + String(BOT_LINK).padStart(2, '0');
 
+  // 参加後は、通常のロビー（学年・コース選択やCPU強さなど）ではなく、参加人数だけが
+  // わかる専用の待機画面（#oBotWait。openLobby側でBOT_LINK時に出し分けている）を見せる。
+  // ホストだけ実際に機能する「ゲームスタート」ボタンを表示する。
+  $('botWaitRoleLabel').textContent = BOT_IS_HOST
+    ? 'あなたはホストです。参加人数が揃ったら「ゲームスタート」を押してください。'
+    : 'ホストが「ゲームスタート」を押すのをお待ちください。';
+  if (BOT_IS_HOST) {
+    $('botWaitStartBtn').classList.remove('hidden');
+    $('botWaitStartBtn').addEventListener('click', () => {
+      // 練習モード・CPUなしで開始する（実機だけで負荷をかけるテストのため、
+      // CPUを混ぜない）。モード選択・CPU強さ選択の手順は省略する。
+      $('botWaitStartBtn').disabled = true;
+      socket.emit('start_game', { noCpu: true });
+    });
+  }
+
   // ユーザー操作（ボットスタートボタンのクリック）が起こるまで、参加操作は始めない。
   hide('oName');
   $('botIdLabel').textContent = botName;
@@ -987,13 +1006,9 @@ function playWarmupBlip() {
       updateCourseOptions();
       $('courseSelect').value = pick(COURSE_OPTIONS[grade]);
       doJoin();
-
       // ② 練習モード開始（人が「ゲームスタート」ボタンを押す操作の代わり）。
-      //    ?bot=host のPCだけは自動で押さず、参加後に表示される通常のロビー画面
-      //    （#oLobby。doJoin→applyInitの既存の流れでそのまま表示される）で、
-      //    人間が実際に「ゲームスタート」を押すのを待つ（他の台が揃うタイミングを
-      //    人が見て判断できるようにするため）。それ以外の番号付きボットは参加して
-      //    待つだけで、自分からは開始しない。
+      //    ?bot=host のPCだけが、上で登録したボタンから明示的に開始する。
+      //    それ以外の番号付きボットは参加して待つだけで、自分からは開始しない。
     }, 250);
   });
 
@@ -1030,7 +1045,53 @@ function playWarmupBlip() {
     if (!myIsHost) return;
     setTimeout(() => socket.emit('start_next_round'), rand(1000, 3000));
   });
+
+  // ⑦ 通信・スペック診断：数秒おきに自己申告し、全ボット分の一覧をリアルタイムで
+  //    受け取って画面右下のパネルに表示する（どのPCの通信が詰まっているか、
+  //    40台のどの画面からでもその場で確認できるようにするため）。
+  let botReconnects = 0;
+  socket.io.on('reconnect', () => { botReconnects++; });
+  function sendBotMetrics() {
+    socket.emit('bot_metrics', {
+      rttMs:         lastRttMs,
+      transport:     socket.io.engine && socket.io.engine.transport ? socket.io.engine.transport.name : null,
+      reconnects:    botReconnects,
+      hwConcurrency: navigator.hardwareConcurrency || null,
+      deviceMemory:  navigator.deviceMemory || null,
+      ua:            navigator.userAgent,
+      audioAvgMs:    Voice.avgFetchTime(),
+    });
+  }
+  setInterval(sendBotMetrics, 4000);
+  setTimeout(sendBotMetrics, 1000);
+  socket.on('bot_metrics_broadcast', renderBotMetricsPanel);
+  show('botMetricsPanel');
+  $('bmpHeader').addEventListener('click', () => {
+    $('bmpBody').classList.toggle('collapsed');
+    $('bmpToggle').textContent = $('bmpBody').classList.contains('collapsed') ? '▼' : '▲';
+  });
 })();
+
+// 通信・スペック診断パネルの描画（往復時間が悪い順。1行=1台）。
+function renderBotMetricsPanel(list) {
+  const panel = $('botMetricsPanel');
+  if (!panel || panel.classList.contains('hidden')) return;
+  const worst = list.length ? list[0].rttMs : null;
+  $('bmpSummary').textContent = `${list.length}台` + (worst !== null ? `／最大往復 ${worst}ms` : '');
+  $('bmpTbody').innerHTML = list.map(e => {
+    const bad  = (e.rttMs !== null && e.rttMs > 300) || e.transport === 'polling' || e.reconnects > 0;
+    const warn = !bad && e.rttMs !== null && e.rttMs > 120;
+    const cls  = bad ? 'bmp-bad' : warn ? 'bmp-warn' : '';
+    const name = escHtml(e.name || e.id.slice(0, 6));
+    const rtt  = e.rttMs === null ? '―' : e.rttMs + 'ms';
+    const tr   = e.transport || '―';
+    const rc   = e.reconnects || 0;
+    const cpu  = e.hwConcurrency ?? '―';
+    const mem  = e.deviceMemory ? e.deviceMemory + 'GB' : '―';
+    const aud  = e.audioAvgMs === null ? '―' : e.audioAvgMs + 'ms';
+    return `<tr class="${cls}"><td>${name}</td><td>${rtt}</td><td>${tr}</td><td>${rc}</td><td>${cpu}</td><td>${mem}</td><td>${aud}</td></tr>`;
+  }).join('');
+}
 
 function fmtElapsed(ms) {
   const s = Math.floor((ms || 0) / 1000);
@@ -1139,7 +1200,7 @@ function applyInit(d) {
     gameStarted = true;
     isArranging = false;
     stopArrangeCountdown();
-    hide('oLobby'); hide('oGameOver'); hide('oRoundResult');
+    hide('oLobby'); hide('oBotWait'); hide('oGameOver'); hide('oRoundResult');
     renderGrid(d.cardOrder, new Set(d.remaining), 'play');
     renderTop3(d.players);
     $('leftCount').textContent = d.remaining.length;
@@ -1211,9 +1272,16 @@ function openLobby(players) {
   modeAutoApplied      = false;
   hideScorePanel();
   clearSpectatorChat();
-  $('lobbyUrl').textContent = window.location.href;
   renderLobbyList(players);
   hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oCeremony'); hide('oEventResult');
+  // ?bot=N / ?bot=host は、学年・コース選択やCPU強さなど通常のロビーUIを見せず、
+  // 参加人数だけがわかる専用の待機画面を表示する（ホストだけ実際の開始ボタンあり）。
+  if (BOT_LINK) {
+    hide('oLobby');
+    show('oBotWait');
+    return;
+  }
+  $('lobbyUrl').textContent = window.location.href;
   show('oLobby');
   updateLobbyUI();
   updateHostNotice();
@@ -1224,6 +1292,7 @@ function renderLobbyList(players) {
   ul.innerHTML = '';
   const joined = Object.entries(players).filter(([, p]) => !p.isBot && p.joined);   // ロビーには CPU と未参加者を表示しない
   if ($('lobbyCount')) $('lobbyCount').textContent = joined.length;
+  if ($('botWaitCount')) $('botWaitCount').textContent = joined.length;
   joined
     .forEach(([id, p]) => {
       const row = document.createElement('div');
@@ -1397,7 +1466,7 @@ function openArrangeScreen(cardOrder, cards, endsAt, players, round, layout) {
   if (round) currentRound = round;
   gameStarted  = true;
   isArranging  = true;
-  hide('oLobby'); hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
+  hide('oLobby'); hide('oBotWait'); hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
   updateChips(players);
   const ids = cardOrder && cardOrder.length ? cardOrder : cards.map(k => k.id);
   if (!(layout && setServerLayout(layout, ids))) generateCardLayout(ids);
@@ -1715,7 +1784,7 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
     }
   }
 
-  hide('oLobby'); hide('oGameOver');
+  hide('oLobby'); hide('oBotWait'); hide('oGameOver');
   show('oRoundResult');
 }
 
@@ -1734,7 +1803,7 @@ function startCeremony(sortedHumans, players, onComplete) {
   _ceremonyQueue = sortedHumans.slice(0, 3).reverse();
   _ceremonyIndex = 0;
 
-  hide('oLobby'); hide('oGameOver'); hide('oRoundResult');
+  hide('oLobby'); hide('oBotWait'); hide('oGameOver'); hide('oRoundResult');
   show('oCeremony');
   _showCeremonyStep();
 }
@@ -2294,7 +2363,7 @@ function showGameOver(players) {
     });
     wrap.appendChild(othersWrap);
   }
-  hide('oLobby'); hide('oRoundResult');
+  hide('oLobby'); hide('oBotWait'); hide('oRoundResult');
   show('oGameOver');
 }
 
@@ -2311,22 +2380,27 @@ socket.on('init', data => {
   if (nameEntered) applyInit(liveData);
 });
 
+// ロビー相当の画面（通常のロビー、またはボット専用の待機画面）が表示中か
+function lobbyVisible() {
+  return !$('oLobby').classList.contains('hidden') || !$('oBotWait').classList.contains('hidden');
+}
+
 socket.on('player_joined', ({ players }) => {
   if (liveData) liveData.players = players;
   updateChips(players);
-  if (!$('oLobby').classList.contains('hidden')) renderLobbyList(players);
+  if (lobbyVisible()) renderLobbyList(players);
 });
 
 socket.on('player_left', ({ players }) => {
   if (liveData) liveData.players = players;
   updateChips(players);
-  if (!$('oLobby').classList.contains('hidden')) renderLobbyList(players);
+  if (lobbyVisible()) renderLobbyList(players);
 });
 
 socket.on('players_updated', players => {
   if (liveData) liveData.players = players;
   updateChips(players);
-  if (!$('oLobby').classList.contains('hidden')) renderLobbyList(players);
+  if (lobbyVisible()) renderLobbyList(players);
 });
 
 socket.on('houses_assigned', ({ houses, players }) => {
@@ -2429,7 +2503,7 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
     gameStarted = true;
     isArranging = false;
     stopArrangeCountdown();
-    hide('oLobby'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
+    hide('oLobby'); hide('oBotWait'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
     if (cardOrder) renderGrid(cardOrder, new Set(remaining), 'play');
     startTimer();
     renderTop3(players);
@@ -2704,7 +2778,7 @@ function onEventRoundFinished(data) {
   }
   if (myStatus) myStatus.textContent = myMsg;
 
-  hide('oLobby'); hide('oRoundResult'); hide('oGameOver');
+  hide('oLobby'); hide('oBotWait'); hide('oRoundResult'); hide('oGameOver');
   show('oEventResult');
 }
 

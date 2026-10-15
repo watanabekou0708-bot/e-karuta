@@ -12,11 +12,25 @@ window.Voice = (() => {
 
   const urlOf = it => D.voiceUrl(it.voice, it.text);
 
+  // 取得〜デコードにかかった時間（ミリ秒）の直近20件。ボット通信診断でネットワークが
+  // 遅いのか端末の処理が遅いのかを切り分けるために使う（?bot=N/?bot=host のみ参照）。
+  const fetchTimes = [];
+  function recordFetchTime(ms) {
+    fetchTimes.push(ms);
+    if (fetchTimes.length > 20) fetchTimes.shift();
+  }
+  function avgFetchTime() {
+    return fetchTimes.length ? fetchTimes.reduce((a, b) => a + b, 0) / fetchTimes.length : null;
+  }
+
   async function fetchDecode(url) {
+    const t0 = performance.now();
     const r = await fetch(url);
     if (!r.ok) return null;
     const ab = await r.arrayBuffer();
-    return await getCtx().decodeAudioData(ab);
+    const buf = await getCtx().decodeAudioData(ab);
+    recordFetchTime(performance.now() - t0);
+    return buf;
   }
 
   function loadOne(it) {
@@ -112,6 +126,6 @@ window.Voice = (() => {
 
   return {
     init(o) { getCtx = o.getCtx; if (o.nowServer) nowServer = o.nowServer; },
-    preload, has, hasAll, play, urlOf, cacheSize: () => cache.size, missing,
+    preload, has, hasAll, play, urlOf, cacheSize: () => cache.size, missing, avgFetchTime,
   };
 })();
