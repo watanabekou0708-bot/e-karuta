@@ -906,8 +906,9 @@ let ltIsHost  = false;   // join_load_test_monitorの応答で一度だけ届く
 })();
 
 // ── 実機ボット自動プレイ（アドレスの最後に ?bot=番号 を付けたもの）────────
-// 実機（本番で使う実際のPC）を多数リモートで同時起動し、「名前・学年・コースの入力→
-// 練習モード開始→かるたを取る」という一連の動作を完全自動で行わせるためのモード。
+// 実機（本番で使う実際のPC）を多数リモートで同時起動し、「ボットスタート」ボタンを
+// 1回押すだけで、以降の「名前・学年・コースの入力→練習モード開始→かるたを取る」
+// という一連の動作を自動で行わせるためのモード。
 //
 // 進行役の報告（intro_started・yomi_finished・announce_finished）や次の読み上げの
 // 自動開始(maybeAutoReadNext)は、既存の音声再生ロジック（armFlying・scheduleReadCard・
@@ -930,25 +931,60 @@ const BOT_LINK = (() => {
   if (Number.isInteger(n) && n > 0) return n;
   return 100 + Math.floor(Math.random() * 900);   // 番号未指定時：100〜999のランダムな番号
 })();
+// ブラウザの自動再生ポリシーは「ユーザー操作（本物のクリック・タップ等）を伴わずに
+// 再生を始めた音」をミュートする。以前はページ読み込み後にsetTimeoutで自動的に
+// 参加〜開始まで進めていたため、このボット自身の操作はユーザー操作とみなされず、
+// 音声が鳴らなかった（鳴らなくても進行自体は崩れない設計だが、本番同様に音を鳴らしたい
+// というご要望のため、本物のクリックを挟む構成に変更する）。
+//
+// さらに、クリック直後に鳴らす最初の音は、OS/オーディオデバイスが無音状態から
+// 再生を始める際の立ち上がり（最初の一瞬だけ小さく、すぐに本来の音量に達する）の
+// 影響を受けやすい。これを吸収するため、実際の読み上げを始める前に一瞬だけ
+// 小さなダミー音（playWarmupBlip）を鳴らしてデバイスを「鳴らし始めた状態」にしてから、
+// 本番の音声再生に進む。
+function playWarmupBlip() {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 1000;
+    gain.gain.value = 0.015;   // 耳にほぼ聞こえない程度の小音量
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const t = ctx.currentTime;
+    osc.start(t);
+    osc.stop(t + 0.2);
+  } catch (e) { /* 再生できなくても本編の進行には影響させない */ }
+}
+
 (function applyBotLink() {
   if (!BOT_LINK) return;
   const rand = (min, max) => min + Math.random() * (max - min);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-  // ① 参加：名前・学年・コースを自動入力して送信する
-  setTimeout(() => {
-    $('nameInput').value = '負荷PC' + String(BOT_LINK).padStart(2, '0');
-    const grade = pick(Object.keys(COURSE_OPTIONS));
-    $('gradeSelect').value = grade;
-    updateCourseOptions();
-    $('courseSelect').value = pick(COURSE_OPTIONS[grade]);
-    doJoin();
+  // ユーザー操作（ボットスタートボタンのクリック）が起こるまで、参加操作は始めない。
+  hide('oName');
+  $('botIdLabel').textContent = '負荷PC' + String(BOT_LINK).padStart(2, '0');
+  show('oBotStart');
+  $('botStartBtn').addEventListener('click', () => {
+    hide('oBotStart');
+    playWarmupBlip();
 
-    // ② 練習モード開始（人が「ゲームスタート」ボタンを押す操作の代わり）。
-    //    参加済みなら誰でも押せる（先に押した人の設定が全員に適用される）ので、
-    //    自分が一番乗りとは限らない。既に始まっていれば何もしない。
-    setTimeout(() => { if (!gameStarted) startGame(); }, rand(1000, 5000));
-  }, rand(200, 1500));
+    // ① 参加：名前・学年・コースを自動入力して送信する（ダミー音が鳴り終わるのを待ってから）
+    setTimeout(() => {
+      $('nameInput').value = '負荷PC' + String(BOT_LINK).padStart(2, '0');
+      const grade = pick(Object.keys(COURSE_OPTIONS));
+      $('gradeSelect').value = grade;
+      updateCourseOptions();
+      $('courseSelect').value = pick(COURSE_OPTIONS[grade]);
+      doJoin();
+
+      // ② 練習モード開始（人が「ゲームスタート」ボタンを押す操作の代わり）。
+      //    参加済みなら誰でも押せる（先に押した人の設定が全員に適用される）ので、
+      //    自分が一番乗りとは限らない。既に始まっていれば何もしない。
+      setTimeout(() => { if (!gameStarted) startGame(); }, rand(1000, 5000));
+    }, 250);
+  });
 
   // ③ 盤面整理：自分の音声の先読みが終わり次第スキップする（人が「スキップ」ボタンを
   //    押す操作の代わり。練習モードは誰か1人がスキップすれば全員分進む仕組みなので、
