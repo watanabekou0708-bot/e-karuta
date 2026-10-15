@@ -2694,6 +2694,26 @@ app.get('/api/loadtest/logs/:file', (req, res) => {
   res.download(file, err => { if (err && !res.headersSent) res.status(404).json({ error: 'not found' }); });
 });
 
+// 実機ボットテスト（?bot=N/?bot=host）の通信・スペック診断ログ（教卓PCのみ）
+app.get('/api/bottest/logs', (req, res) => {
+  if (!isHostRequest(req)) return res.status(403).json({ error: 'forbidden' });
+  let files = [];
+  try {
+    files = fs.readdirSync(LOG_DIR)
+      .filter(f => /^bottest-.*\.jsonl$/.test(f))
+      .map(f => ({ name: f, ...fs.statSync(path.join(LOG_DIR, f)) }))
+      .map(f => ({ name: f.name, sizeBytes: f.size, mtime: f.mtime }))
+      .sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+  } catch (e) { /* logsフォルダが無ければ空一覧を返す */ }
+  res.json({ files });
+});
+app.get('/api/bottest/logs/:file', (req, res) => {
+  if (!isHostRequest(req)) return res.status(403).json({ error: 'forbidden' });
+  if (!/^bottest-[\w.-]+\.jsonl$/.test(req.params.file)) return res.status(400).json({ error: 'invalid filename' });
+  const file = path.join(LOG_DIR, req.params.file);
+  res.download(file, err => { if (err && !res.headersSent) res.status(404).json({ error: 'not found' }); });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 起動後、裏で部品（固定セリフ・数字・順位）を作っておく。キャッシュ済みなら一瞬で終わる。失敗した分は1分後にもう一度試す。

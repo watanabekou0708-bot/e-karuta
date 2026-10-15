@@ -109,7 +109,24 @@ function renderLogList(files) {
     </div>`).join('') || '<p class="ov-sub">まだ負荷テストのログがありません。</p>';
 }
 
-socket.on('connect', () => { socket.emit('join_admin'); socket.emit('join_load_test_monitor'); fetchLoadtestLogs(); });
+async function fetchBottestLogs() {
+  try {
+    const r = await fetch('/api/bottest/logs');
+    const d = await r.json();
+    renderBtLogList(d.files || []);
+  } catch (e) { /* 取得できなければ一覧は変えない */ }
+}
+function renderBtLogList(files) {
+  $('btLogList').innerHTML = files.map(f => `
+    <div class="admin-sched-row" style="grid-template-columns:1fr auto auto">
+      <span>${escHtml(f.name)}</span>
+      <span class="admin-hint">${fmtBytes(f.sizeBytes)}</span>
+      <a class="btn-sched-start" href="/api/bottest/logs/${encodeURIComponent(f.name)}" download>⬇ ダウンロード</a>
+    </div>`).join('') || '<p class="ov-sub">まだ実機ボットテストのログがありません。</p>';
+}
+setInterval(fetchBottestLogs, 15000);
+
+socket.on('connect', () => { socket.emit('join_admin'); socket.emit('join_load_test_monitor'); fetchLoadtestLogs(); fetchBottestLogs(); });
 socket.on('load_test_status', renderLtAdminStatus);
 socket.on('admin_init', (d) => {
   isHost = !!d.isHost;
