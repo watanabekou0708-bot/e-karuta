@@ -924,10 +924,17 @@ let ltIsHost  = false;   // join_load_test_monitorの応答で一度だけ届く
 // 40台すべてに全く同じ1つのURL（?bot、番号なし）を配るだけで使えるように、
 // 番号を省略した場合はこのページ自身がランダムな番号を自動で生成する
 // （?bot=5 のように明示すれば、その番号がそのまま使われる＝動作確認用）。
+//
+// ?bot=host は特別扱い：このPCだけ「ゲームスタート」を自動で押さず、通常のロビー
+// 画面（#oLobby）をそのまま表示する。練習モードは参加済みの誰でも開始できる仕組み
+// だが、40台が同時に自動参加する中で誰か1台がランダムなタイミングで開始してしまうと
+// 全員揃う前に始まってしまうため、進行役を人間が明示的に選べるようにする。
+const BOT_PARAM  = new URLSearchParams(location.search).get('bot');
+const BOT_IS_HOST = BOT_PARAM === 'host';
 const BOT_LINK = (() => {
-  const params = new URLSearchParams(location.search);
-  if (!params.has('bot')) return null;
-  const n = +params.get('bot');
+  if (BOT_PARAM === null) return null;
+  if (BOT_IS_HOST) return 'host';
+  const n = +BOT_PARAM;
   if (Number.isInteger(n) && n > 0) return n;
   return 100 + Math.floor(Math.random() * 900);   // 番号未指定時：100〜999のランダムな番号
 })();
@@ -962,9 +969,11 @@ function playWarmupBlip() {
   const rand = (min, max) => min + Math.random() * (max - min);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
+  const botName = BOT_IS_HOST ? 'ホストPC' : '負荷PC' + String(BOT_LINK).padStart(2, '0');
+
   // ユーザー操作（ボットスタートボタンのクリック）が起こるまで、参加操作は始めない。
   hide('oName');
-  $('botIdLabel').textContent = '負荷PC' + String(BOT_LINK).padStart(2, '0');
+  $('botIdLabel').textContent = botName;
   show('oBotStart');
   $('botStartBtn').addEventListener('click', () => {
     hide('oBotStart');
@@ -972,7 +981,7 @@ function playWarmupBlip() {
 
     // ① 参加：名前・学年・コースを自動入力して送信する（ダミー音が鳴り終わるのを待ってから）
     setTimeout(() => {
-      $('nameInput').value = '負荷PC' + String(BOT_LINK).padStart(2, '0');
+      $('nameInput').value = botName;
       const grade = pick(Object.keys(COURSE_OPTIONS));
       $('gradeSelect').value = grade;
       updateCourseOptions();
@@ -980,9 +989,11 @@ function playWarmupBlip() {
       doJoin();
 
       // ② 練習モード開始（人が「ゲームスタート」ボタンを押す操作の代わり）。
-      //    参加済みなら誰でも押せる（先に押した人の設定が全員に適用される）ので、
-      //    自分が一番乗りとは限らない。既に始まっていれば何もしない。
-      setTimeout(() => { if (!gameStarted) startGame(); }, rand(1000, 5000));
+      //    ?bot=host のPCだけは自動で押さず、参加後に表示される通常のロビー画面
+      //    （#oLobby。doJoin→applyInitの既存の流れでそのまま表示される）で、
+      //    人間が実際に「ゲームスタート」を押すのを待つ（他の台が揃うタイミングを
+      //    人が見て判断できるようにするため）。それ以外の番号付きボットは参加して
+      //    待つだけで、自分からは開始しない。
     }, 250);
   });
 
@@ -1211,8 +1222,9 @@ function openLobby(players) {
 function renderLobbyList(players) {
   const ul = $('lobbyList');
   ul.innerHTML = '';
-  Object.entries(players)
-    .filter(([, p]) => !p.isBot && p.joined)   // ロビーには CPU と未参加者を表示しない
+  const joined = Object.entries(players).filter(([, p]) => !p.isBot && p.joined);   // ロビーには CPU と未参加者を表示しない
+  if ($('lobbyCount')) $('lobbyCount').textContent = joined.length;
+  joined
     .forEach(([id, p]) => {
       const row = document.createElement('div');
       row.className = 'lobby-row';

@@ -252,8 +252,6 @@ const voiceEngine = new VoiceEngine({
   dir: VOICE_CACHE_DIR,
   log: logEvent,
 });
-const ARRANGE_HOLD_MS = +process.env.KARUTA_ARRANGE_HOLD_MS || 0;   // 盤面整理の最低の表示時間（本番は0＝即終了。テストで長くする）
-let armedAt = 0;
 const VOICE_WAIT_MAX_MS = +process.env.KARUTA_VOICE_WAIT_MS || 60 * 1000;   // 盤面整理が終わっても音声が揃わないとき、最大これだけ待ってから始める
 
 const MEMO_SECONDS    = +process.env.KARUTA_MEMO_SECONDS || 2 * 60;   // 環境変数はテスト用   // 盤面整理タイム（暗記ではなく、取りやすい配置に並べ替える時間）
@@ -1485,20 +1483,15 @@ function prepareMatchVoice() {
     gs.voice.done = gs.voice.total;
     if (r.failed) gs.voice.finalFailed = true;   // 生成は終わったが揃わなかった分がある（待っても増えないので、そのまま始める）
     else { gs.voice.ready = true; io.emit('voice_ready', { done: gs.voice.total, total: gs.voice.total, failed: 0 }); }
-    if (gs.phase === 'memorizing') {
-      const wait = Math.max(0, ARRANGE_HOLD_MS - (Date.now() - armedAt));
-      setTimeout(() => {
-        if (token !== voiceToken || gs.phase !== 'memorizing' || !gs.voice || !(gs.voice.ready || gs.voice.finalFailed)) return;
-        if (memorizeTimer) { clearTimeout(memorizeTimer); memorizeTimer = null; }
-        startPlayingWhenVoiceReady();   // 音声が揃ったので盤面整理を即終了
-      }, wait);
-    }
+    // 音声の準備ができても盤面整理タイムは自動終了しない（実際に手元の札を並べ替える
+    // 時間を確保するため）。終了するのは、①MEMO_SECONDS経過（armMemorizeのタイマー）、
+    // ②誰かが明示的にskip_memorizeを送る（即終了ボタン・ボットの自動スキップ）、の2通りのみ。
   });
 }
-// 盤面整理を開始する。音声が揃えば即終了し、揃わないときは最大 VOICE_WAIT_MAX_MS 待ってから試合を始める
-// （揃わなかった音声は無音になる）。
+// 盤面整理を開始する。MEMO_SECONDS経過するかskip_memorizeで明示的にスキップされると
+// 試合を始める（音声がまだ揃っていなければ、最大 VOICE_WAIT_MAX_MS 待ってから、
+// それでも揃わない分は無音のまま始める）。
 function armMemorize() {
-  armedAt = Date.now();
   prepareMatchVoice();
   if (memorizeTimer) clearTimeout(memorizeTimer);
   memorizeTimer = setTimeout(startPlayingWhenVoiceReady, MEMO_SECONDS * 1000);
@@ -1884,7 +1877,8 @@ io.on('connection', socket => {
   socket.on('skip_memorize', () => {
     if (gs.phase !== 'memorizing' || !canUseDebug(socket)) return;
     // 練習モードは、音声ファイルが用意できてからでないと盤面整理をスキップできない
-    if (!gs.event.active && gs.voice && !gs.voice.ready) { socket.emit('skip_denied', { done: gs.voice.done, total: gs.voice.total }); return; }
+    // （生成自体が失敗して揃わなかった場合は、待っても増えないのでスキップを許可する）
+    if (!gs.event.active && gs.voice && !gs.voice.ready && !gs.voice.finalFailed) { socket.emit('skip_denied', { done: gs.voice.done, total: gs.voice.total }); return; }
     doStartPlaying();
   });
 
