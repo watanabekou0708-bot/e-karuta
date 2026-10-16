@@ -1321,7 +1321,6 @@ function setEventStage(stage) {
 // 準決勝以降は最も難しい配分、敗者復活戦は45枚すべて易→難の順で使う。
 function startEventMatch(participantIds) {
   gs.event.participantIds = new Set(participantIds);
-  removeCpuPlayers();
   participantIds.forEach(id => {
     if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].bonus = 0; gs.players[id].cards = 0; gs.players[id].misses = 0; }
   });
@@ -2516,9 +2515,17 @@ io.on('connection', socket => {
   socket.on('start_event', () => {
     if (!isHostEligible(socket) || !isJoinedHuman(socket.id) || gs.phase !== 'lobby') return;
     setHost(socket.id);   // 大会モードの進行役はサーバーPC。参加者はそれ以外のロビーにいる全員
-    const participantIds = Object.entries(gs.players)
+    removeCpuPlayers();   // 前の練習モード等から残ったCPUがいれば一旦クリアする
+    let participantIds = Object.entries(gs.players)
       .filter(([id, p]) => id !== gs.hostId && !p.isBot && p.joined)
       .map(([id]) => id);
+    if (participantIds.length === 0) {
+      // 実参加者がいない（進行役のみ）場合は、CPUで満席にして本番の流れを
+      // 最初から最後まで一人で体験できるようにする（CPUの挙動は練習モードと共通）。
+      gs.cpuDifficulty = 'normal';
+      addCpuPlayersForPractice(PRACTICE_MOCK_TOTAL_TARGET);
+      participantIds = Object.keys(gs.players).filter(id => gs.players[id].isBot);
+    }
     if (participantIds.length === 0) return;
 
     gs.event.active            = true;
@@ -2532,7 +2539,6 @@ io.on('connection', socket => {
     gs.event.mainRoundIndex    = 0;
     setEventStage(participantIds.length <= EVENT_SEMIS_THRESHOLD ? 'semis' : 'main');
 
-    removeCpuPlayers();
     startEventMatch(participantIds);
   });
 

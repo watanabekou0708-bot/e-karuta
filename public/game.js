@@ -682,10 +682,6 @@ const HOUSE_LABELS = { A: '🔴 Aハウス', B: '🔵 Bハウス', C: '🟢 Cハ
 let myHouse        = null;
 let currentHouses  = null;
 
-function assignHouses() {
-  socket.emit('assign_houses');
-}
-
 function renderHouseList(houses, players) {
   const wrap = $('lobbyHouseList');
   if (!wrap || !houses) return;
@@ -1939,7 +1935,7 @@ function setGrabLocked(locked, msg) {
     document.body.appendChild(banner);
   }
   if (banner) {
-    if (locked) banner.textContent = msg || '✋ お手付き！次の札が読み上げられるまで取れません';
+    if (locked) banner.textContent = msg || '✋ お手付き！';
     banner.classList.toggle('hidden', !locked);
   }
   syncGrabAvailability();
@@ -2280,7 +2276,7 @@ function showMissPanel(penalty, title, detail) {
   el.className = 'score-panel miss';
   el.innerHTML = `<div class="sp-title">${title || '✋ お手付き'}</div>
     <div class="sp-total"><span>減点</span><span class="sp-miss-big">−${fmtPts(penalty)}</span></div>
-    <div class="sp-cont">${detail ? detail + '<br>' : ''}次の札が読み上げられるまで取れません。</div>`;
+    ${detail ? `<div class="sp-cont">${detail}</div>` : ''}`;
 }
 
 // ── Player chips ──────────────────────────────────────────

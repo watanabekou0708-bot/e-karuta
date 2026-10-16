@@ -92,7 +92,7 @@
           🎮 練習モード<br><small>個人戦・CPU対戦で自由に練習</small>
         </button>
         <button id="btnModeEvent" class="btn-mode" onclick="chooseLobbyMode('event')">
-          🏁 大会モード<br><small>1/8本番用・ハウス対抗トーナメント</small>
+          🏁 大会モード<br><small>1/8本番用・個人戦トーナメント</small>
         </button>
       </div>
     </div>
@@ -119,13 +119,7 @@
         <a href="admin.html" target="_blank" class="btn btn-blue" style="flex:1;text-align:center;text-decoration:none">⚙️ 大会設定を開く</a>
         <a href="projector.html" target="_blank" class="btn btn-blue" style="flex:1;text-align:center;text-decoration:none">📽️ 投影画面を開く</a>
       </div>
-      <div id="lobbyHouseSection" class="lobby-house-section">
-        <div class="lobby-house-title">🏠 ハウス編成（大会モード）</div>
-        <p class="ov-sub" style="margin:.2rem 0 .5rem">出欠が確定したら押してください。学年・コースを横断して4ハウスに自動で均等配分します（何度でも再実行可）。</p>
-        <button class="btn btn-blue" onclick="assignHouses()">ハウスを編成する</button>
-        <div id="lobbyHouseList" class="lobby-house-list"></div>
-        <button id="lobbyEventStartBtn" class="btn btn-green" style="margin-top:.8rem;width:100%" onclick="startEvent()">🏁 大会モードを開始（第1試合）</button>
-      </div>
+      <button id="lobbyEventStartBtn" class="btn btn-green" style="margin-top:.8rem;width:100%" onclick="startEvent()">🏁 大会モードを開始（第1試合）</button>
     </div>
 
     <!-- ゲスト向けメッセージ -->
