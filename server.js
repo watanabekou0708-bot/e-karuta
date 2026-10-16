@@ -486,26 +486,16 @@ function localIPs() {
     .map(n => n.address);
 }
 
-// ホストになれるのは、このサーバーを起動しているPC自身から接続してきた
-// ブラウザだけ（127.0.0.1/::1 経由、またはこのPCのLAN IP宛のアクセス）。
-// 他PCの接続元アドレスはこのPC自身のIPとは一致しないため、ホストにはなれない。
-// nginx などのリバースプロキシ経由だと、接続元がすべて 127.0.0.1（プロキシ自身）に見えて
-// 全員が「サーバーPC」扱いになってしまう。X-Forwarded-For があれば、本当の接続元で判定する。
-function isHostIP(addr) {
-  const a = String(addr || '').replace(/^::ffff:/, '');
-  if (a === '127.0.0.1' || a === '::1') return true;
-  return localIPs().includes(a);
-}
+// ホストになれるのは、参加用アドレスの末尾に ?host を付けて接続してきたブラウザだけ
+// （以前はサーバーPC自身からの接続（IPアドレス）で自動判定していたが、それだと
+// サーバーPC自身で参加者としてのテストができなかったため、明示的な印に変更した）。
+// 管理画面・投影画面もリンクをたどる際に ?host を引き継ぐ（game.js参照）。
 function isHostEligible(socket) {
-  const fwd  = socket.handshake.headers && socket.handshake.headers['x-forwarded-for'];
-  const real = fwd ? String(fwd).split(',')[0].trim() : (socket.handshake.address || '');
-  return isHostIP(real);
+  return socket.handshake.query && socket.handshake.query.host === '1';
 }
 // 管理画面のダウンロードAPIなど、Socket.IOを介さない通常のHTTPリクエスト向けの同じ判定。
 function isHostRequest(req) {
-  const fwd  = req.headers && req.headers['x-forwarded-for'];
-  const real = fwd ? String(fwd).split(',')[0].trim() : (req.socket && req.socket.remoteAddress) || '';
-  return isHostIP(real);
+  return req.query && req.query.host === '1';
 }
 
 // 名前の先頭に付ける「学年＋コース略称」。選んだ学年・コースを他の人にも見えるようにして、偽った入力を防ぐ。

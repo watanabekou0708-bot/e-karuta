@@ -1,6 +1,8 @@
 'use strict';
-// 大会設定の管理画面。教卓PC（サーバーを起動しているパソコン）からのみ変更できる。
-const socket = io();
+// 大会設定の管理画面。?host を付けて開いたブラウザからのみ変更できる
+// （ロビーの「⚙️ 大会設定を開く」からは、ホストのときだけ ?host 付きのリンクが渡される）。
+const HOST_PARAM = new URLSearchParams(location.search).has('host');
+const socket = io({ query: { host: HOST_PARAM ? '1' : '' } });
 const $ = id => document.getElementById(id);
 const escHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -95,7 +97,7 @@ function renderLtAdminStatus(st) {
 }
 async function fetchLoadtestLogs() {
   try {
-    const r = await fetch('/api/loadtest/logs');
+    const r = await fetch('/api/loadtest/logs?host=' + (HOST_PARAM ? '1' : ''));
     const d = await r.json();
     renderLogList(d.files || []);
   } catch (e) { /* 取得できなければ一覧は変えない */ }
@@ -105,13 +107,13 @@ function renderLogList(files) {
     <div class="admin-sched-row" style="grid-template-columns:1fr auto auto">
       <span>${escHtml(f.name)}</span>
       <span class="admin-hint">${fmtBytes(f.sizeBytes)}</span>
-      <a class="btn-sched-start" href="/api/loadtest/logs/${encodeURIComponent(f.name)}" download>⬇ ダウンロード</a>
+      <a class="btn-sched-start" href="/api/loadtest/logs/${encodeURIComponent(f.name)}?host=${HOST_PARAM ? '1' : ''}" download>⬇ ダウンロード</a>
     </div>`).join('') || '<p class="ov-sub">まだ負荷テストのログがありません。</p>';
 }
 
 async function fetchBottestLogs() {
   try {
-    const r = await fetch('/api/bottest/logs');
+    const r = await fetch('/api/bottest/logs?host=' + (HOST_PARAM ? '1' : ''));
     const d = await r.json();
     renderBtLogList(d.files || []);
   } catch (e) { /* 取得できなければ一覧は変えない */ }
@@ -121,7 +123,7 @@ function renderBtLogList(files) {
     <div class="admin-sched-row" style="grid-template-columns:1fr auto auto">
       <span>${escHtml(f.name)}</span>
       <span class="admin-hint">${fmtBytes(f.sizeBytes)}</span>
-      <a class="btn-sched-start" href="/api/bottest/logs/${encodeURIComponent(f.name)}" download>⬇ ダウンロード</a>
+      <a class="btn-sched-start" href="/api/bottest/logs/${encodeURIComponent(f.name)}?host=${HOST_PARAM ? '1' : ''}" download>⬇ ダウンロード</a>
     </div>`).join('') || '<p class="ov-sub">まだ実機ボットテストのログがありません。</p>';
 }
 setInterval(fetchBottestLogs, 15000);

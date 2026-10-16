@@ -482,7 +482,21 @@ function renderTop3(players) {
 }
 
 // ── App state ─────────────────────────────────────────────
-const socket    = io();
+// ?host を付けて開いたブラウザだけが、大会モードの開始・管理画面などの操作ができる
+// 「ホスト」になる（以前はサーバーPC自身からの接続を自動的にホスト扱いしていたが、
+// それだとサーバーPC自身で参加者としてテストできなかったため、明示的な印に変更した）。
+const HOST_PARAM = new URLSearchParams(location.search).has('host');
+const socket    = io({ query: { host: HOST_PARAM ? '1' : '' } });
+// 管理画面・投影画面へのリンクも ?host 付きで開けるよう引き継ぐ（そのページ自身のHTTPリクエストが
+// ホスト判定を行うため。isHostRequest() 参照）。
+if (HOST_PARAM) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const adminLink     = document.getElementById('adminLink');
+    const projectorLink = document.getElementById('projectorLink');
+    if (adminLink)     adminLink.href     = 'admin.html?host';
+    if (projectorLink) projectorLink.href = 'projector.html?host';
+  });
+}
 let myId        = null;
 let myIsHost    = false;
 let isServerPc  = false;   // サーバーを立ち上げているPC自身のブラウザか（大会モードの操作はここだけ）
