@@ -102,13 +102,29 @@ function buildEventRoundCardIds(roundIndex) {
   return shuffle(LEVELS.flatMap((lv, i) => shuffle(LEVEL_IDS[lv]).slice(0, mix[i])));
 }
 
+// 敗者復活戦で使うレベル別の枚数 [A, B, C, D]（1試合5枚）。EVENT_ROUND_MIXと同じ形（本戦の
+// 回戦が進むほど難しくなる配分）を5枚分に縮小したもの。本戦の現在の回戦数（mainRoundIndex）を
+// そのまま指数として使う＝本戦の進み具合に合わせて敗者復活戦も難しくなっていく。
+const REVIVAL_ROUND_MIX = [
+  [5, 0, 0, 0],
+  [2, 3, 0, 0],
+  [0, 2, 3, 0],
+  [0, 0, 2, 3],
+  [0, 0, 1, 4],
+  [0, 0, 1, 4],
+  [0, 0, 0, 5],
+];
+function buildRevivalRoundCardIds(roundIndex) {
+  const mix = REVIVAL_ROUND_MIX[Math.min(Math.max(roundIndex, 1), REVIVAL_ROUND_MIX.length) - 1];
+  return shuffle(LEVELS.flatMap((lv, i) => shuffle(LEVEL_IDS[lv]).slice(0, mix[i])));
+}
+
 // 練習モード：第N試合はレベルN（A→B→C→D）。1試合15枚。
 function buildPracticeCardIds() {
   return buildLevelCardIds(gs.round - 1, 15, true);
 }
 
-// 復活戦・グループ戦用の20枚（A4・B5・C6・D5）をレベルの低い順に並べる。
-// 画面に札を大きく表示するため、以前の45枚から20枚に減らしている。
+// グループ戦用の20枚（A4・B5・C6・D5）をレベルの低い順に並べる（敗者復活戦では使わなくなった）。
 const LONG_MATCH_MIX = [4, 5, 6, 5];
 function buildDifficultyOrderedCardIds() {
   return LEVELS.flatMap((lv, i) => shuffle(LEVEL_IDS[lv]).slice(0, LONG_MATCH_MIX[i]));
@@ -1318,7 +1334,8 @@ function setEventStage(stage) {
 
 // 大会モードの1試合を開始する（暗記フェーズから）。
 // 本戦（main）は回戦カウンタに応じた易/普通/難しいの配分で10枚抽出、
-// 準決勝以降は最も難しい配分、敗者復活戦は45枚すべて易→難の順で使う。
+// 準決勝以降は最も難しい配分、敗者復活戦は本戦と同じ考え方で5枚
+// （本戦の回戦数に連動して難しくなる）を使う。
 function startEventMatch(participantIds) {
   gs.event.participantIds = new Set(participantIds);
   participantIds.forEach(id => {
@@ -1326,7 +1343,7 @@ function startEventMatch(participantIds) {
   });
 
   const cardIds = gs.event.stage === 'revival'
-    ? buildDifficultyOrderedCardIds()
+    ? buildRevivalRoundCardIds(gs.event.mainRoundIndex)
     : gs.event.stage === 'main'
     ? buildEventRoundCardIds(gs.event.mainRoundIndex)
     : buildEventRoundCardIds(EVENT_ROUND_MIX.length); // 準決勝・決勝5人・3位決定戦・決勝戦は最難
@@ -1385,7 +1402,7 @@ function endEventRound() {
   const stage = gs.event.stage;
 
   const active = [...gs.event.participantIds]
-    .filter(id => gs.players[id] && gs.players[id].joined)
+    .filter(id => gs.players[id] && (gs.players[id].isBot || gs.players[id].joined))
     .map(id => [id, gs.players[id]])
     .sort(([, a], [, b]) => b.score - a.score);
 
