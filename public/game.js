@@ -996,20 +996,17 @@ function playWarmupBlip() {
   show('oBotStart');
   $('botStartBtn').addEventListener('click', () => {
     hide('oBotStart');
-    playWarmupBlip();
-
-    // ① 参加：名前・学年・コースを自動入力して送信する（ダミー音が鳴り終わるのを待ってから）
-    setTimeout(() => {
-      $('nameInput').value = botName;
-      const grade = pick(Object.keys(COURSE_OPTIONS));
-      $('gradeSelect').value = grade;
-      updateCourseOptions();
-      $('courseSelect').value = pick(COURSE_OPTIONS[grade]);
-      doJoin();
-      // ② 練習モード開始（人が「ゲームスタート」ボタンを押す操作の代わり）。
-      //    ?bot=host のPCだけが、上で登録したボタンから明示的に開始する。
-      //    それ以外の番号付きボットは参加して待つだけで、自分からは開始しない。
-    }, 250);
+    // ① 参加：名前・学年・コースを自動入力して送信する
+    //    （ダミー音の再生はdoJoin()が担う。bot/通常参加の両方で共通化している）
+    $('nameInput').value = botName;
+    const grade = pick(Object.keys(COURSE_OPTIONS));
+    $('gradeSelect').value = grade;
+    updateCourseOptions();
+    $('courseSelect').value = pick(COURSE_OPTIONS[grade]);
+    doJoin();
+    // ② 練習モード開始（人が「ゲームスタート」ボタンを押す操作の代わり）。
+    //    ?bot=host のPCだけが、上で登録したボタンから明示的に開始する。
+    //    それ以外の番号付きボットは参加して待つだけで、自分からは開始しない。
   });
 
   // ③ 盤面整理：自分の音声の先読みが終わり次第スキップする（人が「スキップ」ボタンを
@@ -1135,6 +1132,8 @@ function doJoin() {
   const course = (!PRACTICE_LINK && courseSel) ? courseSel.value : null;
   unlockTts();
   getAudioCtx();
+  playWarmupBlip();   // 参加操作（＝本物のクリック）直後に一瞬だけ鳴らし、本編の音声が
+                       // 立ち上がり時のフェードを受けずに最初から本来の音量で鳴るようにする
   socket.emit('set_name', { name, grade, course });
   hide('oName');
   nameEntered = true;
