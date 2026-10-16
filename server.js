@@ -279,7 +279,7 @@ const voiceEngine = new VoiceEngine({
 });
 const VOICE_WAIT_MAX_MS = +process.env.KARUTA_VOICE_WAIT_MS || 60 * 1000;   // 盤面整理が終わっても音声が揃わないとき、最大これだけ待ってから始める
 
-const MEMO_SECONDS    = +process.env.KARUTA_MEMO_SECONDS || 2 * 60;   // 環境変数はテスト用   // 盤面整理タイム（暗記ではなく、取りやすい配置に並べ替える時間）
+const MEMO_SECONDS    = +process.env.KARUTA_MEMO_SECONDS || 60;   // 環境変数はテスト用   // 盤面整理タイム（暗記ではなく、取りやすい配置に並べ替える時間）
 // 「読み上げ開始（上の句 / ダミーの読み始め）→そこまで」の合計時間を、文章の長さに関わらず
 // 全ての札で統一する（進行予定が計算しやすくなるため）。読み上げ自体が長い札ほど、その分
 // 読み終わった後の受付時間が短くなる（最長の札でも受付時間が0未満にならないよう
@@ -1290,7 +1290,7 @@ function endRound() {
 // ── 大会モード（1/8本番用）───────────────────────────────────
 const EVENT_SEMIS_THRESHOLD = 12;  // mainPool がこの人数以下になったら「決勝5人選抜」に切り替える
 const EVENT_FINALIST_COUNT  = 5;
-const EVENT_MIN_GAMES       = 3;   // 全員がこれだけの試合数を消化できることを保証する
+const EVENT_MIN_GAMES       = 2;   // 全員がこれだけの試合数を消化できることを保証する
 
 const EVENT_STAGE_LABELS = {
   main: '本戦', revival: '敗者復活戦', semis: '決勝進出決定戦',
