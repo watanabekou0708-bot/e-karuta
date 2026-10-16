@@ -1373,6 +1373,10 @@ function notifyEventStageReady() {
     restThree:        gs.event.restThree,
     gamesPlayed:      gs.event.gamesPlayed,
     players:          gs.players,
+    // 各自が「次に自分は何をすればいいか」を画面に出せるよう、プール内訳と次の本戦番号も渡す
+    mainPoolIds:        [...gs.event.mainPool],
+    revivalCandidateIds: [...gs.event.revivalCandidates],
+    nextMainRoundIndex:  gs.event.mainRoundIndex + 1,
   });
 }
 

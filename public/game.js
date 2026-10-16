@@ -1614,9 +1614,17 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
     // 意味を持たない（誤解を招く）ので付けない。
     const isPracticeNormalRound = !isGroupMatchIntermediate && !isRevivalIntermediate && !isRevival && !isFinal;
     const rrRanks = competitionRanks(sorted);
+    let dividerDrawn = false;
     sorted.forEach(([id, p], i) => {
       const isSurv = survivorIds.includes(id);
       const isElim = eliminatedIds.includes(id);
+      // 通過者と敗退者の境目に、試合のボーダーがひと目でわかる区切り線を入れる
+      if (isElim && !dividerDrawn) {
+        dividerDrawn = true;
+        const div = document.createElement('div');
+        div.className = 'rr-cutoff-divider';
+        table.appendChild(div);
+      }
       const rank = rrRanks[i];   // 同じ枚数は同順位
       const row = document.createElement('div');
       row.className = 'rr-row'
@@ -2781,7 +2789,7 @@ function onEventRoundFinished(data) {
   show('oEventResult');
 }
 
-socket.on('event_stage_ready', ({ stage, mainReady, revivalReady, mainPoolSize, revivalPoolSize }) => {
+socket.on('event_stage_ready', ({ stage, mainReady, revivalReady, mainPoolSize, revivalPoolSize, mainPoolIds, revivalCandidateIds, nextMainRoundIndex }) => {
   eventStage = stage;
   const hostControls = $('evHostControls');
   const guestWait    = $('evGuestWait');
@@ -2789,6 +2797,17 @@ socket.on('event_stage_ready', ({ stage, mainReady, revivalReady, mainPoolSize, 
   const mainBtn      = $('evMainBtn');
   const revivalBtn   = $('evRevivalBtn');
   const nextBtn      = $('evNextBtn');
+
+  // 自分が次に何をすればいいか（本戦の対象／敗者復活戦の対象／観戦のみ）を案内する
+  if (guestWait) {
+    if ((mainPoolIds || []).includes(myId)) {
+      guestWait.textContent = `あなたは本戦 第${nextMainRoundIndex}試合 に参加してください。ホストが開始するまでお待ちください。`;
+    } else if ((revivalCandidateIds || []).includes(myId)) {
+      guestWait.textContent = 'あなたは敗者復活戦に参加してください。ホストが開始するまでお待ちください。';
+    } else {
+      guestWait.textContent = '本日の対局への参加は以上です。お疲れ様でした！';
+    }
+  }
 
   if (stage === 'done') {
     if (hostControls) hostControls.classList.add('hidden');

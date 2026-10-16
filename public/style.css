@@ -234,6 +234,9 @@ body {
 
 .rr-cpu { color: var(--dim); font-size: .7rem; margin-left: .2rem; font-weight: 400; }
 
+/* 通過者と敗退者の境目を示す区切り線（試合のボーダーがひと目でわかるように） */
+.rr-cutoff-divider { height: 3px; background: var(--warn); border-radius: 2px; margin: .1rem 0 .55rem; box-shadow: 0 0 6px rgba(255,170,68,.6); }
+
 /* 1〜3位が複数名いても自分の行が見つけやすいよう、順位ごとの背景色はつけない。
    順位は名前の先頭のアイコン（🥇🥈🥉／4位以降は数字）だけで示し、色で目立たせるのは「自分」の行だけ。 */
 .rr-rank { font-size: 1.05rem; min-width: 2.4rem; text-align: center; }
