@@ -60,8 +60,10 @@
     const man = Math.floor(n / 10000), sen = Math.floor(n / 1000) % 10, hyaku = Math.floor(n / 100) % 10, rest = n % 100;
     const out = [];
     if (man) out.push(djSeg(`${man}万`));
-    if (sen) out.push(djSeg(`${sen}千`));
-    if (hyaku) out.push(djSeg(`${hyaku}百`));
+    // 百・千は「1」のときは「いちひゃく」「いっせん」ではなく「ひゃく」「せん」と読む
+    // （万は「一万」と読むのでそのまま。例：1137 → 千百37点）
+    if (sen) out.push(djSeg(sen === 1 ? '千' : `${sen}千`));
+    if (hyaku) out.push(djSeg(hyaku === 1 ? '百' : `${hyaku}百`));
     if (rest || !out.length) out.push(djSeg(`${rest}点`)); else out.push(djSeg('点'));
     return out;
   }
@@ -107,7 +109,7 @@
       'ナイスマウスさばき', 'あと少しで1位です！', 'おめでとうございます。あなたは', 'で', 'です。', '惜しい。あと', 'でした。', 'マイナス', '点',
       '惜しい。', 'あと', 'で優勝でした。',
     ].forEach(t => items.push(djSeg(t)));
-    for (let i = 1; i <= 9; i++) { items.push(djSeg(`${i}万`)); items.push(djSeg(`${i}千`)); items.push(djSeg(`${i}百`)); }
+    for (let i = 1; i <= 9; i++) { items.push(djSeg(`${i}万`)); items.push(djSeg(i === 1 ? '千' : `${i}千`)); items.push(djSeg(i === 1 ? '百' : `${i}百`)); }
     for (let i = 0; i <= 99; i++) items.push(djSeg(`${i}点`));
     for (let r = 1; r <= 99; r++) items.push(rankSegment(r));
     // CPU の名前（強CPU01〜弱CPU30）もDJが呼ぶので、「名前＋さん」を事前に作る
