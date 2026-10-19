@@ -799,7 +799,6 @@ function updateHostNotice() {
 
   // 盤面整理タイム中はカード以外の情報を出さない（即終了デバッグボタンのみ残す）
   const chips       = $('chips');
-  const progWrap     = $('progWrap');
   const readingWrap  = document.querySelector('.reading-wrap');
   const sideL = $('sideLeft');
   const sideR = $('sideRight');
@@ -810,10 +809,6 @@ function updateHostNotice() {
   if (sideR) sideR.classList.toggle('ghost', isArranging);
   fitAll();
   refreshDebugButtons();
-  // 残り枚数（進捗バー含む）はホストにのみ見せる
-  if (progWrap) progWrap.classList.toggle('hidden', isArranging || !(myIsHost && isEventMode));
-  const leftCountWrap = $('leftCountWrap');
-  if (leftCountWrap) leftCountWrap.classList.toggle('hidden', !(myIsHost && isEventMode));
   // ホスト／観戦・盤面整理タイムの状態もここでまとめて変わるため、ホバー禁止マークも同期する
   syncGrabAvailability();
 }
@@ -1212,8 +1207,6 @@ function applyInit(d) {
     hide('oLobby'); hide('oBotWait'); hide('oGameOver'); hide('oRoundResult');
     renderGrid(d.cardOrder, new Set(d.remaining), 'play');
     renderTop3(d.players);
-    $('leftCount').textContent = d.remaining.length;
-    $('progFill').style.width = ((liveTotalCards - d.remaining.length) / liveTotalCards * 100).toFixed(1) + '%';
     isAnnouncing = false;
     if (d.phase === 'waiting') {
       $('readingText').textContent = '— 準備中 —';
@@ -2511,8 +2504,6 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
   myIsRevivalSpectator = ir && (!liveEliminatedIds.has(myId) || revivalEliminatedIds.has(myId)) && !myIsHost && isEventMode;
   myIsGroupSpectator   = ig && !myIsHost && (!groupParticipantIds.has(myId) || groupEliminatedIds.has(myId)) && isEventMode;
   updateChips(players);
-  $('leftCount').textContent = remaining.length;
-  $('progFill').style.width = ((liveTotalCards - remaining.length) / liveTotalCards * 100).toFixed(1) + '%';
   $('readingText').textContent = '— 準備中 —';
   showReadBtn();
 
@@ -2538,8 +2529,6 @@ socket.on('read_card', ({ card, remaining, playAt }) => {
   myClickedThisRead = false;
   setCurrentPhase('reading');
   hideReadBtn();
-  $('leftCount').textContent = remaining.length;
-  $('progFill').style.width = ((liveTotalCards - remaining.length) / liveTotalCards * 100).toFixed(1) + '%';
   currentReadingYomiText = card ? card.yomi : '';
   $('readingText').textContent = card ? '📢 読み上げ中...' : '—';
   // 自分の端末で正解発表やDJ実況がまだ再生中なら、それが終わるまで詠み上げを

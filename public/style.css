@@ -376,10 +376,6 @@ body {
 .rr-my-status.adv  { color: var(--green); }
 .rr-my-status.elim { color: var(--warn); }
 
-/* ── Progress bar ────────────────────────────────────────── */
-.prog      { height: 3px; background: var(--border); }
-.prog-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); transition: width .5s ease; }
-
 /* ── Reading panel ───────────────────────────────────────── */
 .reading-wrap { margin: 0 0 8px; padding: 0; flex: none; }
 .reading-box {
