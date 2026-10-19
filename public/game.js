@@ -555,6 +555,7 @@ let eventParticipantIds  = new Set();
 let eventGamesPlayed     = {};
 let myIsEventSpectator   = false;
 let eventStarted         = false;   // 大会モードが実際に開始された（＝ラウンド間はホームに戻る対象）かどうか
+let eventShowingHub      = false;   // ラウンド結果画面で「ホームに戻る」を押した後かどうか
 let lastEventStageReady  = null;    // 直近の event_stage_ready（ホーム画面の次アクション表示に使う）
 let lastEventRoundResult = null;    // 直近の event_round_finished（ホーム画面の結果表示に使う）
 
@@ -768,15 +769,23 @@ function updateLobbyUI() {
   renderLobbyEventSection();
 }
 
-// 大会モードの「ホーム」画面（lobbyEventSection / lobbyEventGuestSection）の中身を、
-// 直近の event_stage_ready / event_round_finished のデータから描画する。
-// 大会モード開始前・ラウンド間・最終試合後のすべてでここから呼ばれる。
+// 大会モードの結果画面に出ている「🏠 ホームに戻る」ボタン用。結果を見終わったら
+// ホーム（本戦／敗者復活戦の選択、または表彰式案内）へ進む。ホスト・非ホスト共通。
+function goToEventHub() {
+  eventShowingHub = true;
+  renderLobbyEventSection();
+}
+
+// 大会モードの画面（結果画面／ホーム画面＝lobbyEventSection・lobbyEventGuestSection）の
+// 中身を、直近の event_stage_ready / event_round_finished のデータから描画する。
+// 大会モード開始前・ラウンド間（結果画面→ホーム画面）・最終試合後のすべてでここから呼ばれる。
 function renderLobbyEventSection() {
   const startBtn      = $('lobbyEventStartBtn');
   const resultBox      = $('lobbyEventResult');
   const resultTitle     = $('lobbyEventResultTitle');
   const resultTable     = $('lobbyEventResultTable');
   const resultMyStatus  = $('lobbyEventResultMyStatus');
+  const hubLinks       = $('lobbyEventHubLinks');   // 大会設定・投影画面リンク
   const hostControls   = $('lobbyEventHostControls');
   const mainBtn         = $('evMainBtn');
   const revivalBtn      = $('evRevivalBtn');
@@ -785,12 +794,16 @@ function renderLobbyEventSection() {
   const guestMsg       = $('lobbyEventGuestMsg');
 
   if (!eventStarted) {
-    // 大会モード開始前：開始ボタンのみ
+    // 大会モード開始前：開始ボタン＋リンクのみ（結果・ホーム切り替えは対象外）
     if (startBtn)     startBtn.classList.remove('hidden');
+    if (hubLinks)      hubLinks.style.display = '';
     if (resultBox)    resultBox.classList.add('hidden');
     if (hostControls) hostControls.classList.add('hidden');
     if (ceremonyBox)  ceremonyBox.classList.add('hidden');
-    if (guestMsg)      guestMsg.innerHTML = `現在の参加人数：<span id="lobbyEventGuestCount">${lobbyParticipantCount()}</span>人<br>ホストが大会モードを開始するまでお待ちください。`;
+    if (guestMsg) {
+      guestMsg.classList.remove('hidden');
+      guestMsg.innerHTML = `現在の参加人数：<span id="lobbyEventGuestCount">${lobbyParticipantCount()}</span>人<br>ホストが大会モードを開始するまでお待ちください。`;
+    }
     return;
   }
 
@@ -799,10 +812,13 @@ function renderLobbyEventSection() {
   const data = lastEventRoundResult;
   const ready = lastEventStageReady;
   const stageDone = ready && ready.stage === 'done';
+  // 結果を見終わって「ホームに戻る」を押すまでは、結果画面だけを表示する
+  // （ホスト・非ホスト共通。大会設定リンクや次アクションはそのあとに出す）。
+  const showResult = !!data && !eventShowingHub;
+  const showHub     = !eventStarted || (eventShowingHub && !stageDone);
 
-  // ── 直前の試合結果 ──────────────────────────────────────
+  // ── 直前の試合結果（ホスト・非ホスト共通）────────────────────
   if (data && resultBox) {
-    resultBox.classList.remove('hidden');
     const players = data.players || {};
     const row = (id, badgeText, badgeCls) => ({ id, badgeText, badgeCls });
     let rows = [];
@@ -841,22 +857,23 @@ function renderLobbyEventSection() {
       }).join('');
     }
     if (resultMyStatus) resultMyStatus.textContent = myMsg;
-  } else if (resultBox) {
-    resultBox.classList.add('hidden');
   }
+  if (resultBox) resultBox.classList.toggle('hidden', !showResult);
 
-  // ── 表彰式の案内（最終試合後のみ）────────────────────────
-  if (stageDone && data && data.ceremony && ceremonyBox) {
+  // ── 表彰式の案内（最終試合後、ホームに戻ったら表示。ホスト・非ホスト共通）────
+  if (stageDone && data && data.ceremony && ceremonyBox && eventShowingHub) {
     ceremonyBox.classList.remove('hidden');
     if (ceremonyMsg) ceremonyMsg.textContent = `${data.ceremony.time}から表彰式を行います。${data.ceremony.location}に集合してください。`;
   } else if (ceremonyBox) {
     ceremonyBox.classList.add('hidden');
   }
 
-  // ── ホストの次アクション ───────────────────────────────
+  // ── ホーム画面：大会設定・投影画面リンク／次アクション（ホストのみ）────────
+  if (hubLinks) hubLinks.style.display = showHub ? '' : 'none';
   if (isServerPc) {
-    if (hostControls) hostControls.classList.toggle('hidden', stageDone || !ready);
-    if (ready && !stageDone) {
+    const showControls = showHub && !stageDone && ready;
+    if (hostControls) hostControls.classList.toggle('hidden', !showControls);
+    if (showControls) {
       if (mainBtn) {
         mainBtn.classList.toggle('hidden', !ready.mainReady);
         mainBtn.disabled = !ready.mainReady;
@@ -870,11 +887,11 @@ function renderLobbyEventSection() {
     }
   } else {
     if (hostControls) hostControls.classList.add('hidden');
-    // 非ホスト（観戦・待機中の参加者向けの案内）
+    // 非ホスト（待機中の参加者向けの案内。結果を見てホームに戻ったあとのみ）
+    const showGuestMsg = showHub && !stageDone;
     if (guestMsg) {
-      if (stageDone) {
-        guestMsg.textContent = '本日の対局への参加は以上です。お疲れ様でした！';
-      } else if (ready) {
+      guestMsg.classList.toggle('hidden', !showGuestMsg);
+      if (showGuestMsg && ready) {
         if ((ready.mainPoolIds || []).includes(myId)) {
           guestMsg.textContent = `あなたは本戦 第${ready.nextMainRoundNumber}試合 に参加してください。ホストが開始するまでお待ちください。`;
         } else if ((ready.revivalCandidateIds || []).includes(myId)) {
@@ -922,9 +939,8 @@ function updateHostNotice() {
   const grid = $('grid');
   if (grid) {
     grid.classList.toggle('host-locked', myIsHost && isEventMode && gameStarted && !isArranging);
-    grid.classList.toggle('hidden', amSpectating);
-    const bw = $('boardWrap');
-    if (bw) bw.classList.toggle('hidden', amSpectating);   // 観戦者は盤面の枠ごと隠し、観戦パネルを大きく使う
+    // 観戦者も実際の盤面（今の試合の様子）を見られるようにする。盤面は隠さず、
+    // コメント・リアクション用のパネルを重ねて表示する。
   }
   const specPanel = $('specPanel');
   if (specPanel) specPanel.classList.toggle('hidden', !amSpectating || isArranging);
@@ -1441,6 +1457,7 @@ function openLobby(players) {
   eventParticipantIds  = new Set();
   myIsEventSpectator   = false;
   eventStarted         = false;
+  eventShowingHub      = false;
   lastEventStageReady  = null;
   lastEventRoundResult = null;
   lobbyMode            = null;
@@ -2907,6 +2924,8 @@ socket.on('event_round_finished', data => whenAudioIdle(() => onEventRoundFinish
 function onEventRoundFinished(data) {
   stopTimer(); stopAllAudio(); hideReadBtn();
   lastEventRoundResult = data;
+  eventShowingHub = false;   // 新しい結果が来たら、まず結果画面から見せる
+  speakEventRoundResultDj(data);
   showEventHome();
 }
 
@@ -2971,6 +2990,33 @@ const DJ_CLOSE_MAX_DIFF  = 500;
 
 // DJが名前を呼ぶときは学年・コースのタグなしの名前を使う（サーバー側 djName と同じ）
 const rawName = p => (p && (p.rawName || p.name)) || '';
+
+// 大会モードの結果画面のDJ音声（各端末で、その端末のユーザー自身の結果に合わせて読み上げる）。
+function speakEventRoundResultDj(data) {
+  const players = data.players || {};
+  const me = players[myId];
+  if (!me) return;
+  const name = rawName(me);
+  let segs = null;
+  if (data.isFinal) {
+    const ranking = data.finalRanking || [];
+    const idx = ranking.indexOf(myId);
+    if (idx === 0)      segs = VD.eventChampionSegments(name);
+    else if (idx === 1) segs = VD.eventRunnerUpSegments(name);
+    else if (idx === 2) segs = VD.eventThirdPlaceSegments(name);
+    else if (idx >= 0)  segs = VD.eventRankedSegments(name, idx + 1);
+  } else if (data.stage === 'main') {
+    if ((data.passers || []).includes(myId))      segs = VD.eventPassedSegments(name);
+    else if ((data.losers || []).includes(myId))  segs = VD.eventEliminatedSegments(name);
+  } else if (data.stage === 'revival') {
+    if ((data.revived || []).includes(myId))      segs = VD.eventRevivedSegments(name);
+    else if ((data.stillOut || []).includes(myId)) segs = VD.eventStillOutSegments(name);
+  }
+  if (!segs) return;
+  const text = segs.map(s => s.text).join('');
+  // showEventHome() 内の stopAllAudio() 直後に話し始めると取りこぼすことがあるため少し待つ
+  setTimeout(() => queueDj(text, segs), 300);
+}
 
 // 試合結果画面のDJ音声（各端末で、その端末のユーザー自身の順位に合わせて読み上げる）。
 // 順位は結果画面のランキングと同じく、CPUを含む全参加者の中での順位。
@@ -3044,10 +3090,34 @@ const SPEC_REACTIONS = ['👏', '🔥', '😲', '😆', '😭', '🎉', '💪', 
 let specWarnTimer = null;
 
 function clearSpectatorChat() {
-  const log = $('specChatLog');
-  if (log) log.innerHTML = '';
+  const layer = $('specCommentsLayer');
+  if (layer) layer.innerHTML = '';
   const warn = $('specChatWarn');
   if (warn) warn.textContent = '';
+}
+
+// ニコニコ動画のように、コメントを画面右から左へ流す。複数レーン（縦方向の段）に
+// 順番に振り分け、長い文章ほどゆっくり・長い時間流れるようにする。
+const SPEC_COMMENT_LANES = 6;
+let specCommentLaneIdx = 0;
+function postSpecComment(name, color, text, isMe) {
+  const layer = $('specCommentsLayer');
+  if (!layer) return;
+  const el = document.createElement('div');
+  el.className = 'spec-comment' + (isMe ? ' me' : '');
+  const who = document.createElement('b');
+  who.style.color = color || '#8fb4ff';
+  who.textContent = name ? `${name}： ` : '';
+  const body = document.createElement('span');
+  body.textContent = text;   // textContent で入れるのでHTMLは解釈されない
+  el.append(who, body);
+  const lane = specCommentLaneIdx % SPEC_COMMENT_LANES;
+  specCommentLaneIdx++;
+  el.style.top = (lane * (100 / SPEC_COMMENT_LANES)) + '%';
+  const durationMs = Math.max(6000, Math.min(14000, 6000 + text.length * 180));
+  el.style.animationDuration = durationMs + 'ms';
+  layer.appendChild(el);
+  setTimeout(() => el.remove(), durationMs + 200);
 }
 function showChatWarn(msg) {
   const warn = $('specChatWarn');
@@ -3081,19 +3151,7 @@ function showChatWarn(msg) {
 })();
 
 socket.on('spectator_chat', ({ id, name, color, text }) => {
-  const log = $('specChatLog');
-  if (!log) return;
-  const line = document.createElement('div');
-  line.className = 'spec-chat-line' + (id === myId ? ' me' : '');
-  const who = document.createElement('b');
-  who.style.color = color || '#8fb4ff';
-  who.textContent = name;
-  const body = document.createElement('span');
-  body.textContent = text;   // textContent で入れるのでHTMLは解釈されない
-  line.append(who, body);
-  log.appendChild(line);
-  while (log.children.length > 80) log.removeChild(log.firstChild);
-  log.scrollTop = log.scrollHeight;
+  postSpecComment(name, color, text, id === myId);
   if (id === myId) { const input = $('specChatInput'); if (input) input.value = ''; }
 });
 socket.on('chat_rejected', ({ message }) => showChatWarn(message || 'このメッセージは送信できません'));

@@ -82,6 +82,16 @@
     return [djSeg('惜しい。'), nameSeg(name), djSeg('あと'), ...pointsSegments(diff), djSeg('で優勝でした。')];
   }
 
+  // ── 大会モードの結果画面のDJ（各自の端末で、各自の結果に応じて組み立てる）──
+  const eventPassedSegments     = name => [nameSeg(name), djSeg('本戦を突破しました！')];
+  const eventEliminatedSegments = name => [nameSeg(name), djSeg('敗退です。敗者復活戦のチャンスがあります。')];
+  const eventRevivedSegments    = name => [nameSeg(name), djSeg('復活しました！本戦に戻ります。')];
+  const eventStillOutSegments   = name => [nameSeg(name), djSeg('敗退です。')];
+  const eventChampionSegments   = name => [djSeg('優勝です！'), nameSeg(name), djSeg('おめでとうございます！')];
+  const eventRunnerUpSegments   = name => [nameSeg(name), djSeg('準優勝です！')];
+  const eventThirdPlaceSegments = name => [nameSeg(name), djSeg('3位入賞です！')];
+  const eventRankedSegments     = (name, rank) => [nameSeg(name), rankSegment(rank), djSeg('でした。')];
+
   // ── 札を取ったときのDJ（サーバーで組み立てる）。名前の部品は「名前＋さん」1つだけ。すべてずんだもん ──
   const nameSeg = name => djSeg(`${name}さん`);
   const DJ_TAKE = [
@@ -108,6 +118,9 @@
       'が札をとりました！', 'ナイスキャッチ！', '現在', 'です。', 'お見事、', 'が1枚ゲットです！', '流石です！', 'いい精度。', '素晴らしい！',
       'ナイスマウスさばき', 'あと少しで1位です！', 'おめでとうございます。あなたは', 'で', 'です。', '惜しい。あと', 'でした。', 'マイナス', '点',
       '惜しい。', 'あと', 'で優勝でした。',
+      // 大会モードの結果画面のDJ用
+      '本戦を突破しました！', '敗退です。敗者復活戦のチャンスがあります。', '復活しました！本戦に戻ります。', '敗退です。',
+      '優勝です！', 'おめでとうございます！', '準優勝です！', '3位入賞です！',
     ].forEach(t => items.push(djSeg(t)));
     for (let i = 1; i <= 9; i++) { items.push(djSeg(`${i}万`)); items.push(djSeg(i === 1 ? '千' : `${i}千`)); items.push(djSeg(i === 1 ? '百' : `${i}百`)); }
     for (let i = 0; i <= 99; i++) items.push(djSeg(`${i}点`));
@@ -123,5 +136,7 @@
     VOICES, CACHE_VERSION, FIXED, hash, voiceDir, voiceKey, voiceUrl, seg, djSeg,
     pointsSegments, rankSegment, roundEndSegments, resultCongratsSegments, resultCloseSegments, resultNearWinSegments,
     nameSeg, DJ_TAKE, djBonusSegments, djMouseSegments, djNearSegments, answerSegments, warmupItems,
+    eventPassedSegments, eventEliminatedSegments, eventRevivedSegments, eventStillOutSegments,
+    eventChampionSegments, eventRunnerUpSegments, eventThirdPlaceSegments, eventRankedSegments,
   };
 });

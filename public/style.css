@@ -692,39 +692,51 @@ body.vcursor-on, body.vcursor-on * { cursor: none !important; }
 :root { --subtext: #5a7aaa; }
 
 /* ── ロビー敗者復活戦セクション ───────────────────────── */
-/* ── Spectator panel（敗退者の自動観戦画面。リアクション・チャット付き）── */
+/* ── Spectator panel（敗退者の自動観戦画面）。盤面はそのまま見せたまま、
+   ニコニコ動画のように右から左へ流れるコメントと、画面下部のリアクション・
+   コメント入力バーだけを盤面に重ねて表示する ──────────────────────── */
 .spec-panel {
-  flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; overflow: hidden;
-  margin: 0; max-width: none; text-align: center;
-  padding: 1rem 1.2rem;
-  background: var(--surf); border: 1px dashed var(--border);
-  border-radius: 16px;
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; flex-direction: column;
+  pointer-events: none;   /* 下部バー以外は素通しして盤面が見えるようにする */
 }
 .spec-panel.hidden { display: none; }
-.spec-panel-title { font-size: 1.4rem; font-weight: 800; color: var(--accent); margin-bottom: .4rem; flex: none; }
-.spec-panel-sub { color: var(--dim); font-size: .88rem; line-height: 1.6; flex: none; }
-.spec-house-scores { margin-top: .8rem; display: flex; flex-direction: column; gap: .4rem; flex: none; }
-.spec-social { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .5rem; margin-top: .8rem; text-align: left; }
-.spec-react-bar { display: flex; gap: .4rem; flex-wrap: wrap; justify-content: center; flex: none; }
-.spec-react-btn { font-size: 1.7rem; background: var(--surf2); border: 1px solid var(--border); border-radius: 12px; padding: .15rem .65rem; cursor: pointer; transition: transform .1s, border-color .15s; }
+.spec-comments-layer { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.spec-comment {
+  position: absolute; left: 100%; white-space: nowrap;
+  font-weight: 800; font-size: 1.35rem; line-height: 1;
+  color: #fff; text-shadow: 0 0 5px rgba(0,0,0,.9), 0 0 10px rgba(0,0,0,.6);
+  animation: specCommentFly linear forwards;
+}
+.spec-comment.me { color: #9fd4ff; }
+@keyframes specCommentFly {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(-100vw - 100%)); }
+}
+.spec-bottom-bar {
+  pointer-events: auto; flex: none;
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  background: rgba(6, 8, 26, .82); backdrop-filter: blur(6px);
+  border-top: 1px solid var(--border); border-radius: 0 0 12px 12px;
+  padding: .5rem .7rem;
+}
+.spec-react-bar { display: flex; gap: .3rem; flex-wrap: wrap; flex: none; }
+.spec-react-btn { font-size: 1.3rem; background: var(--surf2); border: 1px solid var(--border); border-radius: 10px; padding: .1rem .5rem; cursor: pointer; transition: transform .1s, border-color .15s; }
 .spec-react-btn:hover { border-color: var(--accent); transform: translateY(-2px); }
 .spec-react-btn:active { transform: scale(.92); }
-.spec-chat-log { flex: 1; min-height: 70px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: .5rem .7rem; font-size: .92rem; line-height: 1.6; }
-.spec-chat-line b { margin-right: .4rem; }
-.spec-chat-line.me { background: rgba(74, 158, 255, .1); border-radius: 6px; }
-.spec-chat-form { display: flex; gap: .4rem; flex: none; }
-.spec-chat-form input { flex: 1; padding: .5rem .7rem; background: var(--surf2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: .95rem; outline: none; }
+.spec-chat-form { flex: 1; min-width: 160px; display: flex; gap: .4rem; }
+.spec-chat-form input { flex: 1; padding: .45rem .7rem; background: var(--surf2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: .9rem; outline: none; }
 .spec-chat-form input:focus { border-color: var(--accent); }
-.spec-chat-form .btn-sm { padding: .4rem 1rem; font-size: .9rem; }
-.spec-chat-warn { color: var(--danger); font-weight: 700; font-size: .88rem; min-height: 1.3em; flex: none; }
+.spec-chat-form .btn-sm { padding: .4rem 1rem; font-size: .85rem; }
+.spec-chat-warn { pointer-events: none; color: var(--danger); font-weight: 700; font-size: .85rem; text-align: center; min-height: 1.3em; flex: none; text-shadow: 0 0 6px rgba(0,0,0,.9); }
 .react-float-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.react-float { position: absolute; bottom: 0; display: flex; flex-direction: column; align-items: center; animation: reactUp 2.6s ease-out forwards; }
+.react-float { position: absolute; bottom: 70px; display: flex; flex-direction: column; align-items: center; animation: reactUp 2.6s ease-out forwards; }
 .react-float span { font-size: 2.6rem; line-height: 1; }
-.react-float small { font-size: .7rem; color: var(--dim); white-space: nowrap; }
+.react-float small { font-size: .7rem; color: var(--dim); white-space: nowrap; text-shadow: 0 0 6px rgba(0,0,0,.9); }
 @keyframes reactUp {
   0%   { transform: translateY(0) scale(.6); opacity: 0; }
   12%  { opacity: 1; transform: translateY(-30px) scale(1.1); }
-  100% { transform: translateY(-420px) scale(1); opacity: 0; }
+  100% { transform: translateY(-380px) scale(1); opacity: 0; }
 }
 
 /* ── Lobby mode select ────────────────────────────────── */
