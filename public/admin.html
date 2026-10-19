@@ -38,6 +38,10 @@
         <input id="cfgRevivalCutRatio" type="number" min="10" max="90" step="1"> %</label>
       <span class="admin-hint">既定 60%（最終ラウンドの本戦復帰人数は別途自動算出）</span>
     </div>
+    <div class="admin-row">
+      <label><input id="cfgTestCpuFill" type="checkbox"> テスト用：CPUで人数を補充する</label>
+      <span class="admin-hint">オンにすると、実参加者が少なくても（0人でも）CPUを足して開始します。既定はオフ。<b>本番当日はオフのままにしてください。</b></span>
+    </div>
     <button id="cfgSaveBtn" class="btn btn-green" onclick="saveConfig()">保存する</button>
     <span id="cfgSaved" class="admin-saved hidden">✓ 保存しました</span>
   </div>

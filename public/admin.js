@@ -15,7 +15,7 @@ function pct(ratio) { return Math.round(ratio * 100); }
 
 function applyLockState() {
   const locked = !isHost || eventLocked;
-  ['cfgMainCutRatio', 'cfgMainMaxRounds', 'cfgRevivalMaxRounds', 'cfgRevivalCutRatio', 'cfgSaveBtn'].forEach(id => {
+  ['cfgMainCutRatio', 'cfgMainMaxRounds', 'cfgRevivalMaxRounds', 'cfgRevivalCutRatio', 'cfgTestCpuFill', 'cfgSaveBtn'].forEach(id => {
     const el = $(id);
     if (el) el.disabled = locked;
   });
@@ -30,6 +30,7 @@ function fillConfig(cfg) {
   $('cfgMainMaxRounds').value    = cfg.mainMaxRounds;
   $('cfgRevivalMaxRounds').value = cfg.revivalMaxRounds;
   $('cfgRevivalCutRatio').value  = pct(cfg.revivalCutRatio);
+  $('cfgTestCpuFill').checked    = !!cfg.testCpuFill;
 }
 
 function saveConfig() {
@@ -39,6 +40,7 @@ function saveConfig() {
     mainMaxRounds:    +$('cfgMainMaxRounds').value || 7,
     revivalMaxRounds: +$('cfgRevivalMaxRounds').value || 3,
     revivalCutRatio:  (+$('cfgRevivalCutRatio').value || 60) / 100,
+    testCpuFill:      $('cfgTestCpuFill').checked,
   });
   const saved = $('cfgSaved');
   saved.classList.remove('hidden');

@@ -2061,8 +2061,12 @@ function renderGrid(cardOrder, remainingSet, mode) {
     el.style.top       = layout.y + 'px';
     el.style.transform = `rotate(${layout.rot}deg)`;
     if (mode === 'arrange') {
-      el.classList.add(layout.zone === 'top' || !myIsHost ? 'zone-top' : 'draggable');
-      if (layout.zone === 'bottom' && myIsHost) attachFreeDrag(el, id);
+      // 盤面整理は各自が自分の画面で自由に並べ替えるもの（大会モードで札を取らない
+      // 進行役だけは対象外）。ホストかどうかではなく、実際にこの試合で札を取るか
+      // （canEverTake）で判定する。
+      const canArrange = canEverTake();
+      el.classList.add(layout.zone === 'top' || !canArrange ? 'zone-top' : 'draggable');
+      if (layout.zone === 'bottom' && canArrange) attachFreeDrag(el, id);
     } else {
       el.addEventListener('click', ev => onCardClick(id, el, ev));
     }

@@ -40,6 +40,9 @@ body {
   background: var(--surf2); border: 1px solid var(--border);
   border-radius: 16px; padding: 2.2rem 2rem;
   max-width: 480px; width: 100%; text-align: center;
+  /* 画面が低い端末でも、内容が長いときにボタンごと画面外にはみ出さないよう
+     カード自体をスクロール可能にする（body は overflow:hidden のため）。 */
+  max-height: 92vh; overflow-y: auto;
 }
 
 .ov-title {

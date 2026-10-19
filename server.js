@@ -410,6 +410,8 @@ const gs = {
     mainMaxRounds:    7,       // 本戦：第何試合で最終試合として終了するか（そのときの残り人数で最終試合を行う）
     revivalMaxRounds: 3,       // 敗者復活戦：第何試合で終了するか
     revivalCutRatio:  0.6,     // 敗者復活戦：中間ラウンドの通過比率
+    testCpuFill:      false,   // テスト用：大会モード開始時、実参加者が少なくてもCPUで人数を補充する
+                                // （既定でオフ。本番当日はオフのまま＝実参加者のみで開始する）
   },
   schedule:    [],   // 当日の進行予定（{ id, label, plannedAt }）。管理画面で記録・表示するだけ
   scheduleLog: {},   // 実際に開始した時刻（{ [id]: startedAt }）
@@ -2449,6 +2451,7 @@ io.on('connection', socket => {
       mainMaxRounds:    Math.round(num(cfg.mainMaxRounds, 1, 20, gs.eventConfig.mainMaxRounds)),
       revivalMaxRounds: Math.round(num(cfg.revivalMaxRounds, 1, 10, gs.eventConfig.revivalMaxRounds)),
       revivalCutRatio:  num(cfg.revivalCutRatio, 0.1, 0.9, gs.eventConfig.revivalCutRatio),
+      testCpuFill:      typeof cfg.testCpuFill === 'boolean' ? cfg.testCpuFill : gs.eventConfig.testCpuFill,
     };
     io.emit('event_config', gs.eventConfig);
   });
@@ -2524,12 +2527,15 @@ io.on('connection', socket => {
     let participantIds = Object.entries(gs.players)
       .filter(([id, p]) => id !== gs.hostId && !p.isBot && p.joined)
       .map(([id]) => id);
-    if (participantIds.length === 0) {
-      // 実参加者がいない（進行役のみ）場合は、CPUで満席にして本番の流れを
-      // 最初から最後まで一人で体験できるようにする（CPUの挙動は練習モードと共通）。
+    if (gs.eventConfig.testCpuFill) {
+      // テスト用：管理画面の「CPUで人数を補充する」がオンのときだけ、実参加者が
+      // 0人でも少人数でも、CPUを足して本番の流れを体験できるようにする
+      // （CPUの挙動は練習モードと共通）。既定はオフ＝本番は実参加者のみで開始する。
       gs.cpuDifficulty = 'normal';
       addCpuPlayersForPractice(PRACTICE_MOCK_TOTAL_TARGET);
-      participantIds = Object.keys(gs.players).filter(id => gs.players[id].isBot);
+      participantIds = Object.entries(gs.players)
+        .filter(([id, p]) => id !== gs.hostId && (p.isBot || p.joined))
+        .map(([id]) => id);
     }
     if (participantIds.length === 0) return;
 
