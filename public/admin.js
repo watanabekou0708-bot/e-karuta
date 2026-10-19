@@ -15,7 +15,7 @@ function pct(ratio) { return Math.round(ratio * 100); }
 
 function applyLockState() {
   const locked = !isHost || eventLocked;
-  ['cfgMainCutRatio', 'cfgRevivalMaxRounds', 'cfgRevivalCutRatio', 'cfgSaveBtn'].forEach(id => {
+  ['cfgMainCutRatio', 'cfgMainMaxRounds', 'cfgRevivalMaxRounds', 'cfgRevivalCutRatio', 'cfgSaveBtn'].forEach(id => {
     const el = $(id);
     if (el) el.disabled = locked;
   });
@@ -27,6 +27,7 @@ function applyLockState() {
 
 function fillConfig(cfg) {
   $('cfgMainCutRatio').value     = pct(cfg.mainCutRatio);
+  $('cfgMainMaxRounds').value    = cfg.mainMaxRounds;
   $('cfgRevivalMaxRounds').value = cfg.revivalMaxRounds;
   $('cfgRevivalCutRatio').value  = pct(cfg.revivalCutRatio);
 }
@@ -35,6 +36,7 @@ function saveConfig() {
   if (!isHost || eventLocked) return;
   socket.emit('set_event_config', {
     mainCutRatio:     (+$('cfgMainCutRatio').value || 33) / 100,
+    mainMaxRounds:    +$('cfgMainMaxRounds').value || 7,
     revivalMaxRounds: +$('cfgRevivalMaxRounds').value || 3,
     revivalCutRatio:  (+$('cfgRevivalCutRatio').value || 60) / 100,
   });

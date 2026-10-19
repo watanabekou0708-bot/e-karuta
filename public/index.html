@@ -112,23 +112,50 @@
       <button id="lobbyStartBtn" class="btn btn-green" onclick="startGame()">ゲームスタート（全4試合：レベルA→B→C→D）</button>
     </div>
 
-    <!-- ホストのみ表示：大会モード一式 -->
+    <!-- ホストのみ表示：大会モード一式（開始前・ラウンド間・終了後をすべてここに表示） -->
     <div id="lobbyEventSection" style="display:none">
-      <button class="btn-back" onclick="backToLobbyModeSelect()">← モード選択に戻る</button>
+      <button id="lobbyEventBackBtn" class="btn-back" onclick="backToLobbyModeSelect()">← モード選択に戻る</button>
       <div style="display:flex;gap:.5rem;margin-bottom:.6rem">
         <a id="adminLink" href="admin.html" target="_blank" class="btn btn-blue" style="flex:1;text-align:center;text-decoration:none">⚙️ 大会設定を開く</a>
         <a id="projectorLink" href="projector.html" target="_blank" class="btn btn-blue" style="flex:1;text-align:center;text-decoration:none">📽️ 投影画面を開く</a>
       </div>
-      <button id="lobbyEventStartBtn" class="btn btn-green" style="margin-top:.8rem;width:100%" onclick="startEvent()">🏁 大会モードを開始（第1試合）</button>
+
+      <!-- 大会開始前のみ表示 -->
+      <button id="lobbyEventStartBtn" class="btn btn-green" style="margin-top:.8rem;width:100%" onclick="startEvent()">🏁 大会モードを開始（本戦 第1試合）</button>
+
+      <!-- 直前の試合結果（ラウンド間のみ表示） -->
+      <div id="lobbyEventResult" class="hidden" style="margin-top:.8rem">
+        <div class="ov-title" id="lobbyEventResultTitle" style="font-size:1.05rem;margin-bottom:.5rem">本戦 終了！</div>
+        <div class="rr-table" id="lobbyEventResultTable"></div>
+        <div class="rr-my-status" id="lobbyEventResultMyStatus"></div>
+      </div>
+
+      <!-- 次のアクション選択（ラウンド間のみ表示） -->
+      <div id="lobbyEventHostControls" class="hidden" style="margin-top:.6rem;text-align:center">
+        <button id="evMainBtn" class="btn btn-green" style="margin:.3rem" onclick="advanceEvent('main')">本戦を行う</button>
+        <button id="evRevivalBtn" class="btn btn-revival" style="margin:.3rem" onclick="advanceEvent('revival')">敗者復活戦を行う</button>
+      </div>
+
+      <!-- 表彰式の案内（本戦の最終試合後のみ表示） -->
+      <div id="lobbyEventCeremony" class="hidden" style="margin-top:.8rem;text-align:center">
+        <p id="lobbyEventCeremonyMsg" class="ov-sub" style="font-size:1.05rem;font-weight:700;color:var(--accent)"></p>
+        <button class="btn btn-blue" onclick="requestLobby()">ロビーに戻る</button>
+      </div>
     </div>
 
-    <!-- ゲスト向けメッセージ -->
+    <!-- 非ホスト表示：大会モード（表示の切り替えのみ。開始・進行はホストが行う） -->
+    <div id="lobbyEventGuestSection" style="display:none">
+      <button class="btn-back" id="lobbyEventGuestBackBtn" onclick="backToLobbyModeSelect()">← モード選択に戻る</button>
+      <p id="lobbyEventGuestMsg" class="ov-sub" style="margin-top:.6rem"></p>
+    </div>
+
+    <!-- ゲスト向けメッセージ（モード未選択時） -->
     <p id="lobbyWaiting" class="ov-sub" style="margin-top:.8rem">ホストがモードを選択するまでお待ちください</p>
     <button class="btn btn-leave" onclick="leaveLobby()">🚪 退室する</button>
   </div>
 </div>
 
-<!-- ── Round Result（試合間インターバル）────────────────── -->
+<!-- ── Round Result（試合間インターバル・練習モード）─────────── -->
 <div id="oRoundResult" class="overlay hidden">
   <div class="ov-card rr-card">
     <div class="rr-round-dots" id="rrDots"></div>
@@ -143,24 +170,6 @@
 
     <p id="rrGuestWait" class="ov-sub hidden">ホストが次の試合を開始するまでお待ちください</p>
     <button id="rrLobbyBtn" class="btn btn-blue hidden" onclick="requestLobby()">ロビーに戻る</button>
-  </div>
-</div>
-
-<!-- ── 大会モード：試合間インターバル ────────────────────── -->
-<div id="oEventResult" class="overlay hidden">
-  <div class="ov-card rr-card">
-    <div class="ov-title" id="evTitle">本戦 終了！</div>
-    <div class="rr-table" id="evTable"></div>
-    <div class="rr-my-status" id="evMyStatus"></div>
-
-    <!-- ホストのみ：次のアクション -->
-    <div id="evHostControls" class="hidden">
-      <button id="evMainBtn" class="btn btn-green" style="margin:.3rem" onclick="advanceEvent('main')">本戦を行う</button>
-      <button id="evRevivalBtn" class="btn btn-revival" style="margin:.3rem" onclick="advanceEvent('revival')">敗者復活戦を行う</button>
-      <button id="evNextBtn" class="btn btn-green hidden" style="margin:.3rem" onclick="advanceEvent()">▶ 次へ進む</button>
-    </div>
-    <p id="evGuestWait" class="ov-sub hidden">ホストが次の試合を開始するまでお待ちください</p>
-    <button id="evLobbyBtn" class="btn btn-blue hidden" onclick="requestLobby()">ロビーに戻る</button>
   </div>
 </div>
 

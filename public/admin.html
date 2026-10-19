@@ -24,7 +24,12 @@
       <span class="admin-hint">高いほど勝ち上がりやすく、試合数は少なくなります（既定 33%）</span>
     </div>
     <div class="admin-row">
-      <label>敗者復活戦：ラウンド数
+      <label>本戦：第何試合で最終試合にするか
+        <input id="cfgMainMaxRounds" type="number" min="1" max="20" step="1"></label>
+      <span class="admin-hint">この試合数に達すると、そのときの残り人数のまま最終試合（上位3名ハイライト）を行います（既定 7）</span>
+    </div>
+    <div class="admin-row">
+      <label>敗者復活戦：第何試合で終了するか
         <input id="cfgRevivalMaxRounds" type="number" min="1" max="10" step="1"></label>
       <span class="admin-hint">既定 3</span>
     </div>

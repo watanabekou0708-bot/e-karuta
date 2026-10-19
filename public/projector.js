@@ -94,7 +94,6 @@ socket.on('round_finished', (d) => {
   showResult(d.isFinal ? `🏆 第${d.round}試合（最終）終了！` : `第${d.round}試合終了！`, d.players, d.round);
 });
 socket.on('event_round_finished', (d) => {
-  const label = { main: '本戦', semis: '準決勝進出', revival: '敗者復活戦', final5: '決勝進出',
-    thirdplace: '3位決定戦', championship: '優勝決定戦' }[d.stage] || d.stage;
-  showResult(`🏁 ${label}の結果`, d.players);
+  const label = d.isFinal ? '🏆 本戦 最終結果' : `🏁 ${{ main: '本戦', revival: '敗者復活戦' }[d.stage] || d.stage}の結果`;
+  showResult(label, d.players);
 });

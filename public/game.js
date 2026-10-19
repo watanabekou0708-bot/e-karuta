@@ -549,9 +549,14 @@ let middleGroupWinners   = null;
 let isEventMode          = false;
 let eventStage           = null;
 let eventStageLabel      = null;
+let eventRoundNumber     = 0;       // 本戦・敗者復活戦それぞれの「第〇試合」表示用
+let eventIsFinalMainRound = false;  // 今の本戦が設定された最終試合かどうか
 let eventParticipantIds  = new Set();
 let eventGamesPlayed     = {};
 let myIsEventSpectator   = false;
+let eventStarted         = false;   // 大会モードが実際に開始された（＝ラウンド間はホームに戻る対象）かどうか
+let lastEventStageReady  = null;    // 直近の event_stage_ready（ホーム画面の次アクション表示に使う）
+let lastEventRoundResult = null;    // 直近の event_round_finished（ホーム画面の結果表示に使う）
 
 // ── 試合開始前の人数内訳（暗記タイムで表示）────────────────
 let matchHeadcount = { humanCount: 0, cpuCount: 0, totalCount: 0 };
@@ -619,7 +624,7 @@ function startEvent() {
 }
 
 function advanceEvent(which) {
-  ['evMainBtn', 'evRevivalBtn', 'evNextBtn'].forEach(id => { const b = $(id); if (b) b.disabled = true; });
+  ['evMainBtn', 'evRevivalBtn'].forEach(id => { const b = $(id); if (b) b.disabled = true; });
   socket.emit('advance_event', which ? { which } : {});
 }
 
@@ -722,11 +727,12 @@ function backToLobbyModeSelect() {
 }
 
 function updateLobbyUI() {
-  const startBtn      = $('lobbyStartBtn');
-  const waiting        = $('lobbyWaiting');
-  const modeSelect      = $('lobbyModeSelect');
-  const practiceSection = $('lobbyPracticeSection');
-  const eventSection    = $('lobbyEventSection');
+  const startBtn        = $('lobbyStartBtn');
+  const waiting          = $('lobbyWaiting');
+  const modeSelect        = $('lobbyModeSelect');
+  const practiceSection   = $('lobbyPracticeSection');
+  const eventSection      = $('lobbyEventSection');
+  const eventGuestSection = $('lobbyEventGuestSection');
   const eventBtn = $('lobbyEventStartBtn');
   if (eventBtn) eventBtn.disabled = false;
 
@@ -736,24 +742,176 @@ function updateLobbyUI() {
     lobbyMode = 'practice';
     modeAutoApplied = true;
   }
-  // 大会モードはサーバーPCだけが選べる。それ以外のユーザーは最初から練習モードの設定画面。
+  // 大会モードを実際に開始できるのはサーバーPCだけ。それ以外の参加者も大会モードを
+  // 選んで待機画面を見ることはできる（表示の切り替えのみ。開始操作はできない）。
   const canEvent = isServerPc;
-  if (!canEvent && !lobbyMode) lobbyMode = 'practice';
-  if (!canEvent && lobbyMode === 'event') lobbyMode = 'practice';
-  const evBtn = $('btnModeEvent');
-  if (evBtn) evBtn.style.display = canEvent ? '' : 'none';
-  document.querySelectorAll('#lobbyPracticeSection .btn-back').forEach(b => { b.style.display = canEvent ? '' : 'none'; });
+  // 大会モードが実際に始まっている間（ラウンド間でホームに戻ってきた状態）は、
+  // 誰であっても強制的に大会モード表示にする（モード選択に戻って抜けることはできない）。
+  if (eventStarted) lobbyMode = 'event';
 
-  // 練習ゲームは参加登録済みの誰でも難易度を選んで開始できる（先に押した人の設定が全員に適用される）
   if (modeSelect)      modeSelect.style.display      = !lobbyMode ? '' : 'none';
+  // 練習ゲームは参加登録済みの誰でも難易度を選んで開始できる（先に押した人の設定が全員に適用される）
   if (practiceSection) practiceSection.style.display = lobbyMode === 'practice' ? '' : 'none';
-  if (eventSection)    eventSection.style.display    = (canEvent && lobbyMode === 'event') ? '' : 'none';
+  if (eventSection)      eventSection.style.display      = (canEvent  && lobbyMode === 'event') ? '' : 'none';
+  if (eventGuestSection) eventGuestSection.style.display  = (!canEvent && lobbyMode === 'event') ? '' : 'none';
+  const evBackBtn = $('lobbyEventBackBtn');
+  if (evBackBtn) evBackBtn.style.display = eventStarted ? 'none' : '';
+  const evGuestBackBtn = $('lobbyEventGuestBackBtn');
+  if (evGuestBackBtn) evGuestBackBtn.style.display = eventStarted ? 'none' : '';
 
   if (startBtn) {
     startBtn.disabled = false;
     startBtn.textContent = 'ゲームスタート（全4試合：レベルA→B→C→D）';
   }
   if (waiting) waiting.style.display = 'none';
+
+  renderLobbyEventSection();
+}
+
+// 大会モードの「ホーム」画面（lobbyEventSection / lobbyEventGuestSection）の中身を、
+// 直近の event_stage_ready / event_round_finished のデータから描画する。
+// 大会モード開始前・ラウンド間・最終試合後のすべてでここから呼ばれる。
+function renderLobbyEventSection() {
+  const startBtn      = $('lobbyEventStartBtn');
+  const resultBox      = $('lobbyEventResult');
+  const resultTitle     = $('lobbyEventResultTitle');
+  const resultTable     = $('lobbyEventResultTable');
+  const resultMyStatus  = $('lobbyEventResultMyStatus');
+  const hostControls   = $('lobbyEventHostControls');
+  const mainBtn         = $('evMainBtn');
+  const revivalBtn      = $('evRevivalBtn');
+  const ceremonyBox    = $('lobbyEventCeremony');
+  const ceremonyMsg     = $('lobbyEventCeremonyMsg');
+  const guestMsg       = $('lobbyEventGuestMsg');
+
+  if (!eventStarted) {
+    // 大会モード開始前：開始ボタンのみ
+    if (startBtn)     startBtn.classList.remove('hidden');
+    if (resultBox)    resultBox.classList.add('hidden');
+    if (hostControls) hostControls.classList.add('hidden');
+    if (ceremonyBox)  ceremonyBox.classList.add('hidden');
+    if (guestMsg)      guestMsg.innerHTML = `現在の参加人数：<span id="lobbyEventGuestCount">${lobbyParticipantCount()}</span>人<br>ホストが大会モードを開始するまでお待ちください。`;
+    return;
+  }
+
+  if (startBtn) startBtn.classList.add('hidden');
+
+  const data = lastEventRoundResult;
+  const ready = lastEventStageReady;
+  const stageDone = ready && ready.stage === 'done';
+
+  // ── 直前の試合結果 ──────────────────────────────────────
+  if (data && resultBox) {
+    resultBox.classList.remove('hidden');
+    const players = data.players || {};
+    const row = (id, badgeText, badgeCls) => ({ id, badgeText, badgeCls });
+    let rows = [];
+    let myMsg = '';
+    if (data.isFinal) {
+      if (resultTitle) resultTitle.textContent = '🏆 本戦 最終試合 終了！';
+      rows = (data.finalRanking || []).map((id, i) =>
+        row(id, i === 0 ? '🥇 優勝' : i === 1 ? '🥈 2位' : i === 2 ? '🥉 3位' : `${i + 1}位`, i < 3 ? 'promoted' : ''));
+      myMsg = (data.finalRanking || [])[0] === myId ? '🥇 優勝おめでとうございます！'
+            : (data.finalRanking || [])[1] === myId ? '🥈 2位です！'
+            : (data.finalRanking || [])[2] === myId ? '🥉 3位です！' : '';
+    } else if (data.stage === 'main') {
+      if (resultTitle) resultTitle.textContent = '本戦 終了！';
+      rows = [
+        ...(data.passers || []).map(id => row(id, '通過', 'adv')),
+        ...(data.losers || []).map(id => row(id, '敗者復活戦へ', 'spec')),
+      ];
+      myMsg = (data.passers || []).includes(myId) ? '✅ 本戦を突破しました！'
+            : (data.losers || []).includes(myId)  ? '😢 敗退…敗者復活戦のチャンスがあります' : '';
+    } else if (data.stage === 'revival') {
+      if (resultTitle) resultTitle.textContent = '敗者復活戦 終了！';
+      rows = [
+        ...(data.revived || []).map(id => row(id, '復活！本戦へ', 'adv')),
+        ...(data.stillOut || []).map(id => row(id, '敗退', 'elim')),
+      ];
+      myMsg = (data.revived || []).includes(myId) ? '🎉 復活しました！本戦に戻ります' : '';
+    }
+    if (resultTable) {
+      resultTable.innerHTML = rows.map(r => {
+        const p = players[r.id];
+        return `<div class="rr-row${r.id === myId ? ' me' : ''}">
+          <span class="rr-name">${p ? escHtml(p.name) : r.id}${r.id === myId ? ' <small>(あなた)</small>' : ''}</span>
+          <span class="rr-score">${p ? fmtPts(p.score) : ''}点</span>
+          ${r.badgeCls ? `<span class="rr-badge ${r.badgeCls}">${escHtml(r.badgeText)}</span>` : ''}
+        </div>`;
+      }).join('');
+    }
+    if (resultMyStatus) resultMyStatus.textContent = myMsg;
+  } else if (resultBox) {
+    resultBox.classList.add('hidden');
+  }
+
+  // ── 表彰式の案内（最終試合後のみ）────────────────────────
+  if (stageDone && data && data.ceremony && ceremonyBox) {
+    ceremonyBox.classList.remove('hidden');
+    if (ceremonyMsg) ceremonyMsg.textContent = `${data.ceremony.time}から表彰式を行います。${data.ceremony.location}に集合してください。`;
+  } else if (ceremonyBox) {
+    ceremonyBox.classList.add('hidden');
+  }
+
+  // ── ホストの次アクション ───────────────────────────────
+  if (isServerPc) {
+    if (hostControls) hostControls.classList.toggle('hidden', stageDone || !ready);
+    if (ready && !stageDone) {
+      if (mainBtn) {
+        mainBtn.classList.toggle('hidden', !ready.mainReady);
+        mainBtn.disabled = !ready.mainReady;
+        mainBtn.textContent = `本戦 第${ready.nextMainRoundNumber}試合 を行う（対象:${ready.mainPoolSize}人）`;
+      }
+      if (revivalBtn) {
+        revivalBtn.classList.toggle('hidden', !ready.revivalReady);
+        revivalBtn.disabled = !ready.revivalReady;
+        revivalBtn.textContent = `敗者復活戦 第${ready.nextRevivalRoundNumber}試合 を行う（対象:${ready.revivalPoolSize}人）`;
+      }
+    }
+  } else {
+    if (hostControls) hostControls.classList.add('hidden');
+    // 非ホスト（観戦・待機中の参加者向けの案内）
+    if (guestMsg) {
+      if (stageDone) {
+        guestMsg.textContent = '本日の対局への参加は以上です。お疲れ様でした！';
+      } else if (ready) {
+        if ((ready.mainPoolIds || []).includes(myId)) {
+          guestMsg.textContent = `あなたは本戦 第${ready.nextMainRoundNumber}試合 に参加してください。ホストが開始するまでお待ちください。`;
+        } else if ((ready.revivalCandidateIds || []).includes(myId)) {
+          guestMsg.textContent = 'あなたは敗者復活戦に参加してください。ホストが開始するまでお待ちください。';
+        } else {
+          guestMsg.textContent = '本日の対局への参加は以上です。お疲れ様でした！';
+        }
+      }
+    }
+  }
+}
+
+function lobbyParticipantCount() {
+  return Object.values(livePlayers || {}).filter(p => !p.isBot && p.joined).length;
+}
+
+// 大会モードのラウンド間（ホーム）に戻る。サーバーの大会状態はそのまま維持したまま、
+// 画面だけをロビー（lobbyEventSection / lobbyEventGuestSection）に切り替える。
+// go_to_lobby（requestLobby）と違い、大会そのものを中断・リセットしない。
+function showEventHome() {
+  if (_ceremonyTimer) { clearTimeout(_ceremonyTimer); _ceremonyTimer = null; }
+  _ceremonyCallback = null;
+  stopAllAudio();
+  gameStarted  = false;
+  syncGrabAvailability();
+  isAnnouncing = false;
+  currentPhase = 'waiting';
+  eventStarted = true;
+  lobbyMode    = 'event';
+  hideScorePanel();
+  clearSpectatorChat();
+  renderLobbyList(livePlayers || {});
+  hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oCeremony');
+  $('lobbyUrl').textContent = window.location.href;
+  show('oLobby');
+  updateLobbyUI();
+  updateHostNotice();
 }
 
 function updateHostNotice() {
@@ -782,7 +940,10 @@ function updateHostNotice() {
   const ab = $('arrangeBadge');
   const groupTierName = groupTier === 'top' ? '上位' : groupTier === 'middle' ? '中位' : '下位';
   const roundLabel = isEventMode
-    ? (eventStageLabel || '大会モード')
+    ? (eventStage === 'revival' ? `敗者復活戦 第${eventRoundNumber}試合`
+       : eventIsFinalMainRound  ? `🏆 本戦 最終試合（第${eventRoundNumber}試合）`
+       : eventStage === 'main'  ? `本戦 第${eventRoundNumber}試合`
+       : (eventStageLabel || '大会モード'))
     : isGroupMatch
     ? `${groupTierName}グループ戦 R${groupRound}／${groupMaxRounds}${groupHumanCount > 0 ? ` (${groupHumanCount}人)` : ''}（通過${groupSurvivorCount}人）`
     : isRevivalMode
@@ -1184,8 +1345,11 @@ function applyInit(d) {
   if (d.isEvent !== undefined)             isEventMode          = d.isEvent;
   if (d.eventStage !== undefined)          eventStage           = d.eventStage;
   if (d.eventStageLabel !== undefined)     eventStageLabel      = d.eventStageLabel;
+  if (d.eventRoundNumber !== undefined)    eventRoundNumber     = d.eventRoundNumber;
+  if (d.eventIsFinalMainRound !== undefined) eventIsFinalMainRound = d.eventIsFinalMainRound;
   if (d.eventParticipantIds)               eventParticipantIds  = new Set(d.eventParticipantIds);
   if (d.eventGamesPlayed)                  eventGamesPlayed     = d.eventGamesPlayed;
+  if (d.isEvent) eventStarted = true;
 
   // 復活戦中なら本戦勝者は観戦扱い（復活戦で脱落済みも観戦）。練習モードでは観戦にしない。
   myIsRevivalSpectator = d.isRevival && (!liveEliminatedIds.has(myId) || revivalEliminatedIds.has(myId)) && !myIsHost && d.isEvent;
@@ -1223,6 +1387,10 @@ function applyInit(d) {
     }
     startTimer();
     updateHostNotice();
+  } else if (d.phase === 'round_finished' && d.isEvent) {
+    // 大会モードのラウンド間に接続・再接続：ホーム画面を出す。結果・次アクションの
+    // 詳細はこの直後にサーバーから個別に届く event_stage_ready / event_round_finished で埋まる。
+    showEventHome();
   } else if (d.phase === 'round_finished' && d.lastRoundResult) {
     const r = d.lastRoundResult;
     if (r.humanGroups) humanGroups = r.humanGroups;
@@ -1268,14 +1436,19 @@ function openLobby(players) {
   liveTotalCards       = 10;
   isEventMode          = false;
   eventStage           = null;
+  eventRoundNumber     = 0;
+  eventIsFinalMainRound = false;
   eventParticipantIds  = new Set();
   myIsEventSpectator   = false;
+  eventStarted         = false;
+  lastEventStageReady  = null;
+  lastEventRoundResult = null;
   lobbyMode            = null;
   modeAutoApplied      = false;
   hideScorePanel();
   clearSpectatorChat();
   renderLobbyList(players);
-  hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oCeremony'); hide('oEventResult');
+  hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oCeremony');
   // ?bot=N / ?bot=host は、学年・コース選択やCPU強さなど通常のロビーUIを見せず、
   // 参加人数だけがわかる専用の待機画面を表示する（ホストだけ実際の開始ボタンあり）。
   if (BOT_LINK) {
@@ -1468,7 +1641,7 @@ function openArrangeScreen(cardOrder, cards, endsAt, players, round, layout) {
   if (round) currentRound = round;
   gameStarted  = true;
   isArranging  = true;
-  hide('oLobby'); hide('oBotWait'); hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
+  hide('oLobby'); hide('oBotWait'); hide('oName'); hide('oGameOver'); hide('oRoundResult');
   updateChips(players);
   const ids = cardOrder && cardOrder.length ? cardOrder : cards.map(k => k.id);
   if (!(layout && setServerLayout(layout, ids))) generateCardLayout(ids);
@@ -2474,11 +2647,14 @@ socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRoun
 });
 
 // ── 大会モード：試合開始（暗記フェーズ）───────────────────
-socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, stageLabel, participantIds, gamesPlayed, humanCount: hc, cpuCount: cc, totalCount: tc, layout: lay }) => {
+socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, stageLabel, roundNumber, isFinalMainRound, participantIds, gamesPlayed, humanCount: hc, cpuCount: cc, totalCount: tc, layout: lay }) => {
   matchHeadcount      = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   isEventMode         = true;
+  eventStarted        = true;
   eventStage          = stage;
   eventStageLabel     = stageLabel;
+  eventRoundNumber    = roundNumber || 0;
+  eventIsFinalMainRound = !!isFinalMainRound;
   eventParticipantIds = new Set(participantIds);
   eventGamesPlayed    = gamesPlayed || {};
   myIsEventSpectator  = !myIsHost && !eventParticipantIds.has(myId);
@@ -2486,7 +2662,7 @@ socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, s
   openArrangeScreen(cardOrder, cards, endsAt, players, currentRound, lay);
 });
 
-socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, totalCards, isRevival: ir, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, groupRound: gRound, groupMaxRounds: gMax, isEvent: iev, eventStage: es, eventStageLabel: esl, eventParticipantIds: epi }) => {
+socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, totalCards, isRevival: ir, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, groupRound: gRound, groupMaxRounds: gMax, isEvent: iev, eventStage: es, eventStageLabel: esl, eventRoundNumber: ern, eventIsFinalMainRound: efmr, eventParticipantIds: epi }) => {
   liveHostId = hostId;
   myIsHost   = (hostId === myId);
   if (round)            { currentRound   = round; }
@@ -2497,7 +2673,10 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
   if (gpi)              { groupParticipantIds = new Set(gpi); }
   if (gRound !== undefined) { groupRound    = gRound; }
   if (iev !== undefined) { isEventMode = iev; }
+  if (es  !== undefined) { eventStage = es; }
   if (esl !== undefined) { eventStageLabel = esl; }
+  if (ern !== undefined) { eventRoundNumber = ern; }
+  if (efmr !== undefined) { eventIsFinalMainRound = efmr; }
   if (epi) { eventParticipantIds = new Set(epi); }
   if (isEventMode) { myIsEventSpectator = !myIsHost && !eventParticipantIds.has(myId); }
   if (gMax   !== undefined) { groupMaxRounds = gMax; }
@@ -2511,7 +2690,7 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
     gameStarted = true;
     isArranging = false;
     stopArrangeCountdown();
-    hide('oLobby'); hide('oBotWait'); hide('oGameOver'); hide('oRoundResult'); hide('oEventResult');
+    hide('oLobby'); hide('oBotWait'); hide('oGameOver'); hide('oRoundResult');
     if (cardOrder) renderGrid(cardOrder, new Set(remaining), 'play');
     startTimer();
     renderTop3(players);
@@ -2723,118 +2902,16 @@ socket.on('event_round_finished', data => whenAudioIdle(() => onEventRoundFinish
 
 function onEventRoundFinished(data) {
   stopTimer(); stopAllAudio(); hideReadBtn();
-  gameStarted = false;
-  syncGrabAvailability();
-  const { stage, players } = data;
-  const title    = $('evTitle');
-  const table    = $('evTable');
-  const myStatus = $('evMyStatus');
-  let rows = [];
-  let myMsg = '';
-
-  const row = (id, badgeText, badgeCls, extraCls) =>
-    ({ id, badgeText, badgeCls, extraCls: extraCls || '' });
-
-  if (stage === 'main') {
-    if (title) title.textContent = '本戦 終了！';
-    rows = [
-      ...data.passers.map(id => row(id, '通過', 'adv', 'survivor')),
-      ...data.losers.map(id => row(id, '敗者復活戦へ', 'spec', 'eliminated')),
-    ];
-    myMsg = data.passers.includes(myId) ? '✅ 本戦を突破しました！'
-          : data.losers.includes(myId)  ? '😢 敗退…敗者復活戦のチャンスがあります' : '';
-  } else if (stage === 'revival') {
-    if (title) title.textContent = '敗者復活戦 終了！';
-    rows = [
-      ...data.revived.map(id => row(id, '復活！本戦へ', 'adv', 'survivor')),
-      ...data.stillOut.map(id => row(id, '敗退', 'elim', 'eliminated')),
-    ];
-    myMsg = data.revived.includes(myId) ? '🎉 復活しました！本戦に戻ります' : '';
-  } else if (stage === 'semis') {
-    if (title) title.textContent = '決勝進出決定戦 終了！';
-    rows = [
-      ...data.finalists.map(id => row(id, '決勝進出！', 'adv', 'survivor')),
-      ...data.losers.map(id => row(id, '敗退', 'elim', 'eliminated')),
-    ];
-    myMsg = data.finalists.includes(myId) ? '🏆 決勝進出です！' : '';
-  } else if (stage === 'final5') {
-    if (title) title.textContent = '決勝ラウンド 終了！';
-    rows = data.finalRanking.map((id, i) =>
-      row(id, i < 2 ? `${i + 1}位・決勝戦へ` : `${i + 1}位・3位決定戦へ`, i < 2 ? 'adv' : 'spec'));
-    myMsg = '';
-  } else if (stage === 'thirdplace') {
-    if (title) title.textContent = '3位決定戦 終了！';
-    rows = data.ranking.map((id, i) => row(id, `${i + 3}位`, i === 0 ? 'adv' : ''));
-    myMsg = data.ranking[0] === myId ? '🥉 3位です！' : '';
-  } else if (stage === 'championship') {
-    if (title) title.textContent = '🏆 決勝戦 終了！';
-    rows = data.ranking.map((id, i) => row(id, i === 0 ? '🥇 優勝！' : '🥈 準優勝', i === 0 ? 'adv' : ''));
-    myMsg = data.ranking[0] === myId ? '🥇 優勝おめでとうございます！' : data.ranking[1] === myId ? '🥈 準優勝です！' : '';
-  }
-
-  if (table) {
-    table.innerHTML = rows.map(r => {
-      const p = players[r.id];
-      return `<div class="rr-row ${r.extraCls}${r.id === myId ? ' me' : ''}">
-        <span class="rr-name">${p ? escHtml(p.name) : r.id}${r.id === myId ? ' <small>(あなた)</small>' : ''}</span>
-        <span class="rr-score">${p ? fmtPts(p.score) : ''}点</span>
-        ${r.badgeCls ? `<span class="rr-badge ${r.badgeCls}">${escHtml(r.badgeText)}</span>` : ''}
-      </div>`;
-    }).join('');
-  }
-  if (myStatus) myStatus.textContent = myMsg;
-
-  hide('oLobby'); hide('oBotWait'); hide('oRoundResult'); hide('oGameOver');
-  show('oEventResult');
+  lastEventRoundResult = data;
+  showEventHome();
 }
 
-socket.on('event_stage_ready', ({ stage, mainReady, revivalReady, mainPoolSize, revivalPoolSize, mainPoolIds, revivalCandidateIds, nextMainRoundIndex }) => {
-  eventStage = stage;
-  const hostControls = $('evHostControls');
-  const guestWait    = $('evGuestWait');
-  const lobbyBtn     = $('evLobbyBtn');
-  const mainBtn      = $('evMainBtn');
-  const revivalBtn   = $('evRevivalBtn');
-  const nextBtn      = $('evNextBtn');
-
-  // 自分が次に何をすればいいか（本戦の対象／敗者復活戦の対象／観戦のみ）を案内する
-  if (guestWait) {
-    if ((mainPoolIds || []).includes(myId)) {
-      guestWait.textContent = `あなたは本戦 第${nextMainRoundIndex}試合 に参加してください。ホストが開始するまでお待ちください。`;
-    } else if ((revivalCandidateIds || []).includes(myId)) {
-      guestWait.textContent = 'あなたは敗者復活戦に参加してください。ホストが開始するまでお待ちください。';
-    } else {
-      guestWait.textContent = '本日の対局への参加は以上です。お疲れ様でした！';
-    }
-  }
-
-  if (stage === 'done') {
-    if (hostControls) hostControls.classList.add('hidden');
-    if (guestWait)    guestWait.classList.add('hidden');
-    if (lobbyBtn)     lobbyBtn.classList.remove('hidden');
-    isEventMode = false;
-    return;
-  }
-
-  const singleAction = ['final5', 'thirdplace', 'championship'].includes(stage);
-  if (myIsHost) {
-    if (hostControls) hostControls.classList.remove('hidden');
-    if (guestWait)    guestWait.classList.add('hidden');
-    if (mainBtn) {
-      mainBtn.classList.toggle('hidden', singleAction);
-      mainBtn.disabled = !mainReady;
-      mainBtn.textContent = `本戦を行う（対象:${mainPoolSize}人）`;
-    }
-    if (revivalBtn) {
-      revivalBtn.classList.toggle('hidden', singleAction);
-      revivalBtn.disabled = !revivalReady;
-      revivalBtn.textContent = `敗者復活戦を行う（対象:${revivalPoolSize}人）`;
-    }
-    if (nextBtn) { nextBtn.classList.toggle('hidden', !singleAction); nextBtn.disabled = false; }
-  } else {
-    if (hostControls) hostControls.classList.add('hidden');
-    if (guestWait)    guestWait.classList.remove('hidden');
-  }
+socket.on('event_stage_ready', (data) => {
+  eventStage = data.stage;
+  lastEventStageReady = data;
+  if (data.stage === 'done') isEventMode = false;
+  // ホーム画面（lobbyEventSection/lobbyEventGuestSection）が表示中なら、その場で反映する
+  if (!$('oLobby').classList.contains('hidden')) renderLobbyEventSection();
 });
 
 // 最後の札の正解発表・DJ実況が終わってから結果画面を出す。
