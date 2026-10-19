@@ -1516,8 +1516,16 @@ function prepareMatchVoice() {
     if (token !== voiceToken || !gs.voice) return;
     logEvent('voice_ready', { total: uniq.length, failed: r.failed, ms: Date.now() - t0, stats: voiceEngine.stats });
     gs.voice.done = gs.voice.total;
-    if (r.failed) gs.voice.finalFailed = true;   // 生成は終わったが揃わなかった分がある（待っても増えないので、そのまま始める）
-    else { gs.voice.ready = true; io.emit('voice_ready', { done: gs.voice.total, total: gs.voice.total, failed: 0 }); }
+    if (r.failed) {
+      // 生成は終わったが揃わなかった分がある（待っても増えないので、そのまま始める）。
+      // voice_ready は失敗時も送る。送らないと、クライアント側の「盤面整理をスキップ」
+      // ボタンが voiceState.ready の成立を待ち続け、押しても反応しなくなってしまう。
+      gs.voice.finalFailed = true;
+      io.emit('voice_ready', { done: gs.voice.total, total: gs.voice.total, failed: r.failed });
+    } else {
+      gs.voice.ready = true;
+      io.emit('voice_ready', { done: gs.voice.total, total: gs.voice.total, failed: 0 });
+    }
     // 音声の準備ができても盤面整理タイムは自動終了しない（実際に手元の札を並べ替える
     // 時間を確保するため）。終了するのは、①MEMO_SECONDS経過（armMemorizeのタイマー）、
     // ②誰かが明示的にskip_memorizeを送る（即終了ボタン・ボットの自動スキップ）、の2通りのみ。
@@ -2640,11 +2648,13 @@ io.on('connection', socket => {
     io.emit('player_left', { id: socket.id, players: gs.players });
 
     if (wasHost) {
-      // 進行役が抜けたら、サーバーPCがいればそこへ、対局中ならほかの参加者へ引き継ぐ。
-      // ロビーで誰もいなければホスト不在にする（サーバーPCが入れば再びホストになる）。
+      // 進行役が抜けたら、?host接続がいればそこへ引き継ぐ。
+      // 大会モード中は、?host以外には絶対に進行役を渡さない（他の参加者が誤ってホスト扱いに
+      // ならないように）。練習モードのみ、?host接続がいなければ対局中は他の参加者へ引き継ぐ
+      // （ロビーで誰もいなければホスト不在にする）。
       gs.hostId = null;
       let next = findServerPcId();
-      if (!next && gs.phase !== 'lobby') {
+      if (!next && !gs.event.active && gs.phase !== 'lobby') {
         next = Object.keys(gs.players).find(id => isJoinedHuman(id)) || null;
       }
       gs.hostId = next;
