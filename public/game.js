@@ -447,21 +447,34 @@ let lastRankUserScroll = 0;
   });
 })();
 
+// 大会モードでは「今の試合の参加者」だけを対象にする（別の試合の人や、CPUポイント
+// デバッグ機能の残りが紛れ込んでランキングの人数が合わなくならないように）。
+// 練習モードはこれまで通り、参加登録済み全員を対象にする。
+function eventFilterPlayers(players) {
+  return Object.entries(players).filter(([id, p]) => {
+    if (id === liveHostId && isEventMode) return false;
+    if (isEventMode) return eventParticipantIds.has(id);
+    return p.isBot || p.joined;
+  });
+}
+
 function renderTop3(players) {
   renderHouseScoreboard(players);
   const el = $('top3');
   if (!el) return;
-  const all = Object.entries(players)
-    .filter(([id, p]) => !(id === liveHostId && isEventMode) && (p.isBot || p.joined))
-    .sort(([, a], [, b]) => b.score - a.score);
+  const all = eventFilterPlayers(players).sort(([, a], [, b]) => b.score - a.score);
   const ranks = competitionRanks(all);
   // 全員が同じ点数（試合開始直後の全員0点など）のときは、全員に🥇を付けず「－」にする
   const allTied = all.length > 1 && all[0][1].score === all[all.length - 1][1].score;
   const keep = el.scrollTop;
+  // 大会モードは、今の試合で何人が通過するかが決まっているので、そこにボーダーを引く
+  // （ランキングが更新されるたびに再描画されるので、ボーダーの位置も自動的について来る）。
+  const showCutoff = isEventMode && typeof eventPassCount === 'number' && eventPassCount > 0 && eventPassCount < all.length;
   el.innerHTML = all.map(([id, p], i) => {
     const cpuTag = p.isBot ? '<span class="t3-cpu">CPU</span>' : '';
     const youTag = id === myId ? '<span class="t3-you">YOU</span>' : '';
-    return `<div class="t3-row${id === myId ? ' me' : ''}" data-id="${escHtml(id)}">
+    const cutoffDivider = (showCutoff && i === eventPassCount) ? '<div class="t3-cutoff-divider"></div>' : '';
+    return `${cutoffDivider}<div class="t3-row${id === myId ? ' me' : ''}" data-id="${escHtml(id)}">
       <span class="t3-rank">${allTied ? '－' : rankIcon(ranks[i])}</span>
       <span class="t3-name">${escHtml(p.name)}${cpuTag}${youTag}</span>
       <span class="t3-score">${fmtPts(p.score)}<small>点</small></span>
@@ -551,6 +564,7 @@ let eventStage           = null;
 let eventStageLabel      = null;
 let eventRoundNumber     = 0;       // 本戦・敗者復活戦それぞれの「第〇試合」表示用
 let eventIsFinalMainRound = false;  // 今の本戦が設定された最終試合かどうか
+let eventPassCount       = null;    // 今の試合で何人が通過するか（ランキングのボーダー表示用）
 let eventParticipantIds  = new Set();
 let eventGamesPlayed     = {};
 let myIsEventSpectator   = false;
@@ -840,9 +854,14 @@ function renderLobbyEventSection() {
       ];
     }
     if (resultTable) {
-      resultTable.innerHTML = rows.map(r => {
+      // rows は通過者→敗退者（または復活者→敗退者、最終試合は得点順）の順に並んでおり、
+      // 各グループ内もスコア降順のまま届くので、そのまま順位を振れる（同点は同順位）。
+      const rankEntries = rows.map(r => [r.id, players[r.id] || { score: 0 }]);
+      const ranks = competitionRanks(rankEntries);
+      resultTable.innerHTML = rows.map((r, i) => {
         const p = players[r.id];
         return `<div class="rr-row${r.id === myId ? ' me' : ''}">
+          <span class="rr-rank">${ranks[i]}位</span>
           <span class="rr-name">${p ? escHtml(p.name) : r.id}${r.id === myId ? ' <small>(あなた)</small>' : ''}</span>
           <span class="rr-score">${p ? fmtPts(p.score) : ''}点</span>
           ${r.badgeCls ? `<span class="rr-badge ${r.badgeCls}">${escHtml(r.badgeText)}</span>` : ''}
@@ -851,6 +870,11 @@ function renderLobbyEventSection() {
     }
   }
   if (resultBox) resultBox.classList.toggle('hidden', !showResult);
+  // 結果画面の表示中は、ロビー本来の案内（接続URL・参加人数・退室するボタン）を隠す
+  const topInfo = $('lobbyTopInfo');
+  const leaveBtn = $('lobbyLeaveBtn');
+  if (topInfo)  topInfo.classList.toggle('hidden', showResult);
+  if (leaveBtn) leaveBtn.classList.toggle('hidden', showResult);
 
   // ── 表彰式の案内（最終試合後、ホームに戻ったら表示。ホスト・非ホスト共通）────
   if (stageDone && data && data.ceremony && ceremonyBox && eventShowingHub) {
@@ -1355,6 +1379,7 @@ function applyInit(d) {
   if (d.eventStageLabel !== undefined)     eventStageLabel      = d.eventStageLabel;
   if (d.eventRoundNumber !== undefined)    eventRoundNumber     = d.eventRoundNumber;
   if (d.eventIsFinalMainRound !== undefined) eventIsFinalMainRound = d.eventIsFinalMainRound;
+  if (d.eventPassCount !== undefined)      eventPassCount       = d.eventPassCount;
   if (d.eventParticipantIds)               eventParticipantIds  = new Set(d.eventParticipantIds);
   if (d.eventGamesPlayed)                  eventGamesPlayed     = d.eventGamesPlayed;
   if (d.isEvent) eventStarted = true;
@@ -1446,6 +1471,7 @@ function openLobby(players) {
   eventStage           = null;
   eventRoundNumber     = 0;
   eventIsFinalMainRound = false;
+  eventPassCount       = null;
   eventParticipantIds  = new Set();
   myIsEventSpectator   = false;
   eventStarted         = false;
@@ -2496,9 +2522,7 @@ function updateChips(players) {
 
 // 自分の現在の順位（ホストを除いた全参加者中の順位）を返す
 function myRankLabel(players) {
-  const sorted = Object.entries(players)
-    .filter(([id]) => !(id === liveHostId && isEventMode))
-    .sort(([, a], [, b]) => b.score - a.score);
+  const sorted = eventFilterPlayers(players).sort(([, a], [, b]) => b.score - a.score);
   const idx = sorted.findIndex(([id]) => id === myId);
   if (idx === -1) return '';
   return `${competitionRanks(sorted)[idx]}位 / ${sorted.length}人中`;
@@ -2660,7 +2684,7 @@ socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRoun
 });
 
 // ── 大会モード：試合開始（暗記フェーズ）───────────────────
-socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, stageLabel, roundNumber, isFinalMainRound, participantIds, gamesPlayed, humanCount: hc, cpuCount: cc, totalCount: tc, layout: lay }) => {
+socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, stageLabel, roundNumber, isFinalMainRound, passCount, participantIds, gamesPlayed, humanCount: hc, cpuCount: cc, totalCount: tc, layout: lay }) => {
   matchHeadcount      = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   isEventMode         = true;
   eventStarted        = true;
@@ -2668,6 +2692,7 @@ socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, s
   eventStageLabel     = stageLabel;
   eventRoundNumber    = roundNumber || 0;
   eventIsFinalMainRound = !!isFinalMainRound;
+  eventPassCount      = (typeof passCount === 'number') ? passCount : null;
   eventParticipantIds = new Set(participantIds);
   eventGamesPlayed    = gamesPlayed || {};
   myIsEventSpectator  = !myIsHost && !eventParticipantIds.has(myId);
@@ -2675,7 +2700,7 @@ socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, s
   openArrangeScreen(cardOrder, cards, endsAt, players, currentRound, lay);
 });
 
-socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, totalCards, isRevival: ir, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, groupRound: gRound, groupMaxRounds: gMax, isEvent: iev, eventStage: es, eventStageLabel: esl, eventRoundNumber: ern, eventIsFinalMainRound: efmr, eventParticipantIds: epi }) => {
+socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, totalCards, isRevival: ir, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, groupRound: gRound, groupMaxRounds: gMax, isEvent: iev, eventStage: es, eventStageLabel: esl, eventRoundNumber: ern, eventIsFinalMainRound: efmr, eventPassCount: epc, eventParticipantIds: epi }) => {
   liveHostId = hostId;
   myIsHost   = (hostId === myId);
   if (round)            { currentRound   = round; }
@@ -2690,6 +2715,7 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
   if (esl !== undefined) { eventStageLabel = esl; }
   if (ern !== undefined) { eventRoundNumber = ern; }
   if (efmr !== undefined) { eventIsFinalMainRound = efmr; }
+  if (epc !== undefined) { eventPassCount = epc; }
   if (epi) { eventParticipantIds = new Set(epi); }
   if (isEventMode) { myIsEventSpectator = !myIsHost && !eventParticipantIds.has(myId); }
   if (gMax   !== undefined) { groupMaxRounds = gMax; }

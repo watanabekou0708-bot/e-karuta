@@ -77,12 +77,15 @@
 <!-- ── Lobby ─────────────────────────────────────────── -->
 <div id="oLobby" class="overlay hidden">
   <div class="ov-card">
-    <div class="ov-title">ロビー</div>
-    <p class="ov-sub">他のパソコンは下記URLにアクセスしてください</p>
-    <div class="lobby-url-label">接続URL</div>
-    <div class="lobby-url" id="lobbyUrl" title="クリックで選択"></div>
-    <div class="lobby-url-label">現在の参加人数：<span id="lobbyCount">0</span>人</div>
-    <div class="lobby-players" id="lobbyList"></div>
+    <!-- 大会モードの結果画面の表示中は、ロビー本来の案内（接続URL・参加人数など）は隠す -->
+    <div id="lobbyTopInfo">
+      <div class="ov-title">ロビー</div>
+      <p class="ov-sub">他のパソコンは下記URLにアクセスしてください</p>
+      <div class="lobby-url-label">接続URL</div>
+      <div class="lobby-url" id="lobbyUrl" title="クリックで選択"></div>
+      <div class="lobby-url-label">現在の参加人数：<span id="lobbyCount">0</span>人</div>
+      <div class="lobby-players" id="lobbyList"></div>
+    </div>
 
     <!-- ホストのみ表示：モード選択 -->
     <div id="lobbyModeSelect" class="lobby-mode-select" style="display:none">
@@ -114,9 +117,9 @@
 
     <!-- 大会モード：直前の試合結果（ホスト・非ホスト共通。ラウンド間のみ表示）──── -->
     <div id="lobbyEventResult" class="hidden" style="margin-top:.6rem">
+      <button class="btn btn-blue" style="margin-bottom:.6rem" onclick="goToEventHub()">🏠 ホームに戻る</button>
       <div class="ov-title" id="lobbyEventResultTitle" style="font-size:1.05rem;margin-bottom:.5rem">本戦第1試合終了！</div>
       <div class="rr-table" id="lobbyEventResultTable"></div>
-      <button class="btn btn-blue" style="margin-top:.6rem" onclick="goToEventHub()">🏠 ホームに戻る</button>
     </div>
 
     <!-- 大会モード：表彰式の案内（ホスト・非ホスト共通。本戦の最終試合後のみ表示） ── -->
@@ -151,7 +154,7 @@
 
     <!-- ゲスト向けメッセージ（モード未選択時） -->
     <p id="lobbyWaiting" class="ov-sub" style="margin-top:.8rem">ホストがモードを選択するまでお待ちください</p>
-    <button class="btn btn-leave" onclick="leaveLobby()">🚪 退室する</button>
+    <button id="lobbyLeaveBtn" class="btn btn-leave" onclick="leaveLobby()">🚪 退室する</button>
   </div>
 </div>
 

@@ -901,6 +901,9 @@ body.vcursor-on, body.vcursor-on * { cursor: none !important; }
 .t3-row.me .t3-name  { color: #fff; font-weight: 800; }
 .t3-row.me .t3-score { color: #8ff; }
 
+/* 大会モード中、今の試合で何位までが通過かを示すボーダー（ランキング更新のたびに位置も更新される） */
+.t3-cutoff-divider { height: 3px; background: var(--warn); border-radius: 2px; margin: .2rem 0; box-shadow: 0 0 6px rgba(255,170,68,.6); flex: none; }
+
 /* ── 取得通知バナー（右サイドパネルに常設）──────────────────── */
 .taken-notif {
   pointer-events: none;

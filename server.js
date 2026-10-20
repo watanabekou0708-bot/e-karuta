@@ -454,6 +454,7 @@ const gs = {
     mainRoundIndex:    0,      // 本戦（main）を行った回数。難易度配分（EVENT_ROUND_MIX）・表示用の試合番号に使う
     revivalRoundIndex: 0,      // 敗者復活戦を行った回数。表示用の試合番号・終了判定に使う
     isFinalMainRound:  false,  // 今進行中（または直近）の本戦が、設定された最終試合かどうか
+    passCount:         null,   // 今の試合で何人が通過するか（画面のボーダー表示用。最終試合はnull）
     mainPool:          new Set(),   // 本戦の系譜にまだ残っている人
     revivalCandidates: new Set(), // 敗者復活戦にまだ挑戦していない／再挑戦権が残っている人（累積）
     gamesPlayed:       {},          // id → 消化した試合数
@@ -1331,10 +1332,20 @@ function startEventMatch(participantIds) {
   participantIds.forEach(id => {
     if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].bonus = 0; gs.players[id].cards = 0; gs.players[id].misses = 0; }
   });
+  // CPUポイント（デバッグ機能）で入れた点数が、参加していない試合のランキング表示に
+  // そのまま残って紛らわしくならないよう、CPUは参加の有無を問わず試合のたびに必ずリセットする。
+  CPU_IDS.forEach(id => {
+    if (gs.players[id]) { gs.players[id].score = 0; gs.players[id].bonus = 0; gs.players[id].cards = 0; gs.players[id].misses = 0; }
+  });
 
   // 設定された回数に達した本戦は「最終試合」：このあとは通過・敗退で絞らず、
   // その時点の残り人数でそのまま順位を決める（endEventRound 側で判定に使う）。
   gs.event.isFinalMainRound = gs.event.stage === 'main' && gs.event.mainRoundIndex >= gs.eventConfig.mainMaxRounds;
+  // 今の試合で何人が通過するか（最終試合は絞り込みがないので対象外）。画面にボーダーを
+  // 出すために使う。試合開始時点の設定値で固定し、試合中に設定が変わっても反映しない。
+  gs.event.passCount = gs.event.isFinalMainRound ? null
+    : gs.event.stage === 'revival' ? eventCutCounts(participantIds.length, gs.eventConfig.revivalCutRatio).pass
+    : eventCutCounts(participantIds.length, gs.eventConfig.mainCutRatio).pass;
 
   const cardIds = gs.event.stage === 'revival'
     ? buildRevivalRoundCardIds(gs.event.mainRoundIndex)
@@ -1359,6 +1370,7 @@ function startEventMatch(participantIds) {
     stageLabel:     EVENT_STAGE_LABELS[gs.event.stage] || '大会モード',
     roundNumber:    gs.event.stage === 'revival' ? gs.event.revivalRoundIndex : gs.event.mainRoundIndex,
     isFinalMainRound: gs.event.isFinalMainRound,
+    passCount:      gs.event.passCount,
     participantIds: [...gs.event.participantIds],
     gamesPlayed:    gs.event.gamesPlayed,
     humanCount, cpuCount, totalCount,
@@ -1426,7 +1438,7 @@ function endEventRound() {
   }
 
   if (stage === 'revival') {
-    const { pass } = eventCutCounts(ids.length);
+    const pass = gs.event.passCount != null ? Math.min(gs.event.passCount, ids.length) : eventCutCounts(ids.length, gs.eventConfig.revivalCutRatio).pass;
     const revived   = ids.slice(0, pass);
     const stillOut  = ids.slice(pass);
     revived.forEach(id => gs.event.mainPool.add(id));
@@ -1446,7 +1458,7 @@ function endEventRound() {
   }
 
   // stage === 'main'（最終試合ではない通常の本戦）
-  const { pass } = eventCutCounts(ids.length, gs.eventConfig.mainCutRatio);
+  const pass = gs.event.passCount != null ? Math.min(gs.event.passCount, ids.length) : eventCutCounts(ids.length, gs.eventConfig.mainCutRatio).pass;
   const passers = ids.slice(0, pass);
   const losers   = ids.slice(pass);
   gs.event.mainPool  = new Set(passers);
@@ -1566,6 +1578,7 @@ function doStartPlaying() {
     eventStageLabel:     EVENT_STAGE_LABELS[gs.event.stage] || null,
     eventRoundNumber:    gs.event.stage === 'revival' ? gs.event.revivalRoundIndex : gs.event.mainRoundIndex,
     eventIsFinalMainRound: gs.event.isFinalMainRound,
+    eventPassCount:      gs.event.passCount,
     eventParticipantIds: [...gs.event.participantIds],
   });
   beginReadyBarrier();
@@ -1768,6 +1781,7 @@ io.on('connection', socket => {
     eventStageLabel:     EVENT_STAGE_LABELS[gs.event.stage] || null,
     eventRoundNumber:    gs.event.stage === 'revival' ? gs.event.revivalRoundIndex : gs.event.mainRoundIndex,
     eventIsFinalMainRound: gs.event.isFinalMainRound,
+    eventPassCount:      gs.event.passCount,
     eventParticipantIds: [...gs.event.participantIds],
     eventGamesPlayed:    gs.event.gamesPlayed,
   });
@@ -2594,6 +2608,7 @@ io.on('connection', socket => {
     gs.event.mainRoundIndex     = 0;
     gs.event.revivalRoundIndex  = 0;
     gs.event.isFinalMainRound   = false;
+    gs.event.passCount          = null;
     gs.event.finalRanking       = [];
     gs.event.lastResult         = null;
 
