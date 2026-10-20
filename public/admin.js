@@ -7,22 +7,19 @@ const $ = id => document.getElementById(id);
 const escHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let isHost = false;
-let eventLocked = false;   // 大会モード開始後は設定変更不可
 let schedule = [];
 let scheduleLog = {};
 
 function pct(ratio) { return Math.round(ratio * 100); }
 
 function applyLockState() {
-  const locked = !isHost || eventLocked;
+  const locked = !isHost;
   ['cfgMainCutRatio', 'cfgMainMaxRounds', 'cfgRevivalMaxRounds', 'cfgRevivalCutRatio', 'cfgTestCpuFill', 'cfgSaveBtn'].forEach(id => {
     const el = $(id);
     if (el) el.disabled = locked;
   });
   $('adminNotHost').classList.toggle('hidden', isHost);
-  $('adminConfigNote').textContent = eventLocked
-    ? '大会モードが進行中のため、現在は変更できません（ロビーに戻ると再び変更できます）。'
-    : '大会モードを開始する前だけ変更できます。';
+  $('adminConfigNote').textContent = '大会モード進行中でも変更できます。変更は次に始まる試合・敗者復活戦から反映され、今進行中の試合には影響しません。';
 }
 
 function fillConfig(cfg) {
@@ -34,7 +31,7 @@ function fillConfig(cfg) {
 }
 
 function saveConfig() {
-  if (!isHost || eventLocked) return;
+  if (!isHost) return;
   socket.emit('set_event_config', {
     mainCutRatio:     (+$('cfgMainCutRatio').value || 33) / 100,
     mainMaxRounds:    +$('cfgMainMaxRounds').value || 7,
@@ -136,7 +133,6 @@ socket.on('connect', () => { socket.emit('join_admin'); socket.emit('join_load_t
 socket.on('load_test_status', renderLtAdminStatus);
 socket.on('admin_init', (d) => {
   isHost = !!d.isHost;
-  eventLocked = !!d.eventActive;
   fillConfig(d.eventConfig);
   schedule = d.schedule || [];
   scheduleLog = d.scheduleLog || {};
@@ -149,5 +145,3 @@ socket.on('schedule_updated', (d) => {
   scheduleLog = d.scheduleLog || {};
   renderSchedule();
 });
-socket.on('event_memorize_start', () => { eventLocked = true; applyLockState(); });
-socket.on('back_to_lobby', () => { eventLocked = false; applyLockState(); });

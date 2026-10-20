@@ -114,9 +114,8 @@
 
     <!-- 大会モード：直前の試合結果（ホスト・非ホスト共通。ラウンド間のみ表示）──── -->
     <div id="lobbyEventResult" class="hidden" style="margin-top:.6rem">
-      <div class="ov-title" id="lobbyEventResultTitle" style="font-size:1.05rem;margin-bottom:.5rem">本戦 終了！</div>
+      <div class="ov-title" id="lobbyEventResultTitle" style="font-size:1.05rem;margin-bottom:.5rem">本戦第1試合終了！</div>
       <div class="rr-table" id="lobbyEventResultTable"></div>
-      <div class="rr-my-status" id="lobbyEventResultMyStatus"></div>
       <button class="btn btn-blue" style="margin-top:.6rem" onclick="goToEventHub()">🏠 ホームに戻る</button>
     </div>
 
@@ -200,14 +199,22 @@
 
 <!-- ── Game UI ────────────────────────────────────────── -->
 <header class="header">
-  <div class="logo">💻 Webかるた</div>
-  <div class="round-badge hidden" id="roundBadge">第1試合</div>
-  <div class="spectator-badge hidden" id="spectatorBadge">👀 観戦中</div>
-  <div class="arrange-badge hidden" id="arrangeBadge">🃏 盤面整理タイム — <span id="arrangeTimer">02:30</span></div>
-  <div class="chips" id="chips"></div>
-  <div class="game-timer" id="timer">00:00</div>
-  <button id="debugCpuBtn" class="btn btn-debug" onclick="debugGiveCpuPoints()" title="デバッグ用：CPUにランダムポイント" style="display:none">🎲 CPUポイント</button>
-  <button id="debugEndBtn" class="btn btn-debug" onclick="debugSmartSkip()" title="デバッグ用：即終了／盤面整理をスキップ" style="display:none">⏹ 即終了（デバッグ）</button>
+  <div class="header-left">
+    <div class="logo">💻 Webかるた</div>
+    <div class="round-badge hidden" id="roundBadge">第1試合</div>
+    <div class="spectator-badge hidden" id="spectatorBadge">👀 観戦中</div>
+  </div>
+  <!-- 中央：盤面整理タイムの表示／自分のチップ（名前・順位・点数）。左右の内容量に
+       かかわらず画面中央に来るよう、ヘッダーは3列グリッドにしている -->
+  <div class="header-center">
+    <div class="arrange-badge hidden" id="arrangeBadge">🃏 盤面整理タイム — <span id="arrangeTimer">02:30</span></div>
+    <div class="chips" id="chips"></div>
+  </div>
+  <div class="header-right">
+    <div class="game-timer" id="timer">00:00</div>
+    <button id="debugCpuBtn" class="btn btn-debug" onclick="debugGiveCpuPoints()" title="デバッグ用：CPUにランダムポイント" style="display:none">🎲 CPUポイント</button>
+    <button id="debugEndBtn" class="btn btn-debug" onclick="debugSmartSkip()" title="デバッグ用：即終了／盤面整理をスキップ" style="display:none">⏹ 即終了（デバッグ）</button>
+  </div>
 </header>
 
 <div class="game-layout">

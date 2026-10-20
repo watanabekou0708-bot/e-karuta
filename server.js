@@ -1415,10 +1415,10 @@ function endEventRound() {
     gs.event.finalRanking = ids;
     gs.event.mainPool     = new Set();
     gs.event.stage         = 'done';
-    gs.event.lastResult    = { stage: 'main', isFinal: true, finalRanking: ids, players: playersSnap, ceremony: CEREMONY };
+    gs.event.lastResult    = { stage: 'main', isFinal: true, finalRanking: ids, players: playersSnap, ceremony: CEREMONY, roundNumber: gs.event.mainRoundIndex };
     setTimeout(() => {
       io.emit('event_round_finished', {
-        stage: 'main', isFinal: true, finalRanking: ids, players: playersSnap, ceremony: CEREMONY,
+        stage: 'main', isFinal: true, finalRanking: ids, players: playersSnap, ceremony: CEREMONY, roundNumber: gs.event.mainRoundIndex,
       });
       notifyEventStageReady();
     }, 3000);
@@ -1437,9 +1437,9 @@ function endEventRound() {
         if ((gs.event.gamesPlayed[id] || 0) < EVENT_MIN_GAMES) gs.event.revivalCandidates.add(id);
       });
     }
-    gs.event.lastResult = { stage, revived, stillOut, players: playersSnap };
+    gs.event.lastResult = { stage, revived, stillOut, players: playersSnap, roundNumber: gs.event.revivalRoundIndex };
     setTimeout(() => {
-      io.emit('event_round_finished', { stage, revived, stillOut, players: playersSnap });
+      io.emit('event_round_finished', { stage, revived, stillOut, players: playersSnap, roundNumber: gs.event.revivalRoundIndex });
       notifyEventStageReady();
     }, 3000);
     return;
@@ -1451,9 +1451,9 @@ function endEventRound() {
   const losers   = ids.slice(pass);
   gs.event.mainPool  = new Set(passers);
   losers.forEach(id => gs.event.revivalCandidates.add(id));
-  gs.event.lastResult = { stage: 'main', passers, losers, players: playersSnap };
+  gs.event.lastResult = { stage: 'main', passers, losers, players: playersSnap, roundNumber: gs.event.mainRoundIndex };
   setTimeout(() => {
-    io.emit('event_round_finished', { stage: 'main', passers, losers, players: playersSnap });
+    io.emit('event_round_finished', { stage: 'main', passers, losers, players: playersSnap, roundNumber: gs.event.mainRoundIndex });
     notifyEventStageReady();
   }, 3000);
 }
@@ -2443,7 +2443,9 @@ io.on('connection', socket => {
 
   // ── 管理画面：大会モードの通過比率・復活戦ラウンド数の設定（教卓PCのみ・ロビー中のみ）──
   socket.on('set_event_config', (cfg) => {
-    if (!isHostEligible(socket) || gs.phase !== 'lobby' || gs.event.active) return;
+    // 大会モード進行中でも当日の状況に応じて変更できるようにする（変更は次に
+    // 始まる試合・敗者復活戦から反映される。今進行中の試合には影響しない）。
+    if (!isHostEligible(socket)) return;
     if (!cfg || typeof cfg !== 'object') return;
     const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v)) ? Math.max(lo, Math.min(hi, v)) : d;
     gs.eventConfig = {

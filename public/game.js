@@ -784,7 +784,6 @@ function renderLobbyEventSection() {
   const resultBox      = $('lobbyEventResult');
   const resultTitle     = $('lobbyEventResultTitle');
   const resultTable     = $('lobbyEventResultTable');
-  const resultMyStatus  = $('lobbyEventResultMyStatus');
   const hubLinks       = $('lobbyEventHubLinks');   // 大会設定・投影画面リンク
   const hostControls   = $('lobbyEventHostControls');
   const mainBtn         = $('evMainBtn');
@@ -817,34 +816,28 @@ function renderLobbyEventSection() {
   const showResult = !!data && !eventShowingHub;
   const showHub     = !eventStarted || (eventShowingHub && !stageDone);
 
-  // ── 直前の試合結果（ホスト・非ホスト共通）────────────────────
+  // ── 直前の試合結果（ホスト・非ホスト共通）。タイトル・通過者と敗退者の
+  // ランキング・ホームに戻るボタンのみを表示する（個人向けの一言コメントは出さない）────
   if (data && resultBox) {
     const players = data.players || {};
     const row = (id, badgeText, badgeCls) => ({ id, badgeText, badgeCls });
     let rows = [];
-    let myMsg = '';
     if (data.isFinal) {
-      if (resultTitle) resultTitle.textContent = '🏆 本戦 最終試合 終了！';
+      if (resultTitle) resultTitle.textContent = `🏆 本戦第${data.roundNumber}試合（最終）終了！`;
       rows = (data.finalRanking || []).map((id, i) =>
         row(id, i === 0 ? '🥇 優勝' : i === 1 ? '🥈 2位' : i === 2 ? '🥉 3位' : `${i + 1}位`, i < 3 ? 'promoted' : ''));
-      myMsg = (data.finalRanking || [])[0] === myId ? '🥇 優勝おめでとうございます！'
-            : (data.finalRanking || [])[1] === myId ? '🥈 2位です！'
-            : (data.finalRanking || [])[2] === myId ? '🥉 3位です！' : '';
     } else if (data.stage === 'main') {
-      if (resultTitle) resultTitle.textContent = '本戦 終了！';
+      if (resultTitle) resultTitle.textContent = `本戦第${data.roundNumber}試合終了！`;
       rows = [
         ...(data.passers || []).map(id => row(id, '通過', 'adv')),
         ...(data.losers || []).map(id => row(id, '敗者復活戦へ', 'spec')),
       ];
-      myMsg = (data.passers || []).includes(myId) ? '✅ 本戦を突破しました！'
-            : (data.losers || []).includes(myId)  ? '😢 敗退…敗者復活戦のチャンスがあります' : '';
     } else if (data.stage === 'revival') {
-      if (resultTitle) resultTitle.textContent = '敗者復活戦 終了！';
+      if (resultTitle) resultTitle.textContent = `敗者復活戦第${data.roundNumber}試合終了！`;
       rows = [
         ...(data.revived || []).map(id => row(id, '復活！本戦へ', 'adv')),
         ...(data.stillOut || []).map(id => row(id, '敗退', 'elim')),
       ];
-      myMsg = (data.revived || []).includes(myId) ? '🎉 復活しました！本戦に戻ります' : '';
     }
     if (resultTable) {
       resultTable.innerHTML = rows.map(r => {
@@ -856,7 +849,6 @@ function renderLobbyEventSection() {
         </div>`;
       }).join('');
     }
-    if (resultMyStatus) resultMyStatus.textContent = myMsg;
   }
   if (resultBox) resultBox.classList.toggle('hidden', !showResult);
 
