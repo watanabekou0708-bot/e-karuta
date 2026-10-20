@@ -252,6 +252,37 @@ body {
 .rr-row.me { background: linear-gradient(135deg, rgba(74, 158, 255, .28), rgba(74, 158, 255, .08)); border-color: var(--accent); }
 .rr-score small { font-size: .7rem; color: var(--dim); font-weight: 400; margin-left: .2rem; }
 
+/* ── 大会モード：結果画面の「自分の結果」欄（ランキング一覧とは独立して表示）──── */
+.rr-me-summary {
+  display: flex; align-items: center; justify-content: center; gap: .8rem;
+  background: linear-gradient(135deg, rgba(74, 158, 255, .2), rgba(74, 158, 255, .05));
+  border: 2px solid var(--accent); border-radius: 10px;
+  padding: .6rem .9rem; margin: .5rem 0;
+}
+.rr-me-rank  { font-size: 1.15rem; font-weight: 800; color: #fff; white-space: nowrap; }
+.rr-me-rank small { font-size: .72rem; font-weight: 400; color: var(--dim); margin-left: .15rem; }
+.rr-me-score { font-size: 1.05rem; font-weight: 700; color: var(--green); white-space: nowrap; }
+
+/* ── 大会モード：最終試合の結果画面だけ、上位3名を目立つ見た目にする。
+   他の結果一覧（本戦の通過／敗者復活戦など）には適用しない専用クラス。 ──── */
+.rr-row.final-top1, .rr-row.final-top2, .rr-row.final-top3 {
+  padding: .6rem .8rem; margin-bottom: .45rem; border-width: 2px;
+}
+.rr-row.final-top1 .rr-rank, .rr-row.final-top2 .rr-rank, .rr-row.final-top3 .rr-rank { font-size: 1.9rem; min-width: 2.8rem; }
+.rr-row.final-top1 .rr-name, .rr-row.final-top2 .rr-name, .rr-row.final-top3 .rr-name { font-size: 1.02rem; font-weight: 800; }
+.rr-row.final-top1 {
+  background: linear-gradient(135deg, rgba(255, 208, 80, .3), rgba(138, 80, 0, .1));
+  border-color: #ffd050; box-shadow: 0 0 16px rgba(255, 208, 80, .35);
+}
+.rr-row.final-top2 {
+  background: linear-gradient(135deg, rgba(210, 220, 235, .26), rgba(130, 140, 155, .1));
+  border-color: #d2dceb; box-shadow: 0 0 12px rgba(210, 220, 235, .25);
+}
+.rr-row.final-top3 {
+  background: linear-gradient(135deg, rgba(224, 155, 95, .26), rgba(130, 75, 30, .1));
+  border-color: #e09b5f; box-shadow: 0 0 12px rgba(224, 155, 95, .22);
+}
+
 /* 昇格バッジ */
 .rr-badge.promoted { background: linear-gradient(135deg, #b87000, #7a4800); color: #ffe0a0; font-weight: 700; border: 1px solid #c8900a; }
 

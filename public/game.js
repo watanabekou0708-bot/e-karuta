@@ -830,16 +830,17 @@ function renderLobbyEventSection() {
   const showResult = !!data && !eventShowingHub;
   const showHub     = !eventStarted || (eventShowingHub && !stageDone);
 
-  // ── 直前の試合結果（ホスト・非ホスト共通）。タイトル・通過者と敗退者の
-  // ランキング・ホームに戻るボタンのみを表示する（個人向けの一言コメントは出さない）────
+  // ── 直前の試合結果（ホスト・非ホスト共通）。タイトル・自分の結果・通過者と
+  // 敗退者のランキング・ホームに戻るボタンを表示する────────────────────
   if (data && resultBox) {
     const players = data.players || {};
-    const row = (id, badgeText, badgeCls) => ({ id, badgeText, badgeCls });
+    const row = (id, badgeText, badgeCls, rankClass) => ({ id, badgeText, badgeCls, rankClass });
     let rows = [];
     if (data.isFinal) {
       if (resultTitle) resultTitle.textContent = `🏆 本戦第${data.roundNumber}試合（最終）終了！`;
       rows = (data.finalRanking || []).map((id, i) =>
-        row(id, i === 0 ? '🥇 優勝' : i === 1 ? '🥈 2位' : i === 2 ? '🥉 3位' : `${i + 1}位`, i < 3 ? 'promoted' : ''));
+        row(id, i === 0 ? '優勝' : i === 1 ? '準優勝' : i === 2 ? '3位' : `${i + 1}位`,
+          i < 3 ? 'promoted' : '', i === 0 ? 'final-top1' : i === 1 ? 'final-top2' : i === 2 ? 'final-top3' : ''));
     } else if (data.stage === 'main') {
       if (resultTitle) resultTitle.textContent = `本戦第${data.roundNumber}試合終了！`;
       rows = [
@@ -853,20 +854,41 @@ function renderLobbyEventSection() {
         ...(data.stillOut || []).map(id => row(id, '敗退', 'elim')),
       ];
     }
+    // rows は通過者→敗退者（または復活者→敗退者、最終試合は得点順）の順に並んでおり、
+    // 各グループ内もスコア降順のまま届くので、そのまま順位を振れる（同点は同順位）。
+    const rankEntries = rows.map(r => [r.id, players[r.id] || { score: 0 }]);
+    const ranks = competitionRanks(rankEntries);
+    const medal = ['🥇', '🥈', '🥉'];
     if (resultTable) {
-      // rows は通過者→敗退者（または復活者→敗退者、最終試合は得点順）の順に並んでおり、
-      // 各グループ内もスコア降順のまま届くので、そのまま順位を振れる（同点は同順位）。
-      const rankEntries = rows.map(r => [r.id, players[r.id] || { score: 0 }]);
-      const ranks = competitionRanks(rankEntries);
       resultTable.innerHTML = rows.map((r, i) => {
         const p = players[r.id];
-        return `<div class="rr-row${r.id === myId ? ' me' : ''}">
-          <span class="rr-rank">${ranks[i]}位</span>
+        const rankLabel = r.rankClass && i < 3 ? medal[i] : `${ranks[i]}位`;
+        return `<div class="rr-row${r.id === myId ? ' me' : ''}${r.rankClass ? ' ' + r.rankClass : ''}">
+          <span class="rr-rank">${rankLabel}</span>
           <span class="rr-name">${p ? escHtml(p.name) : r.id}${r.id === myId ? ' <small>(あなた)</small>' : ''}</span>
           <span class="rr-score">${p ? fmtPts(p.score) : ''}点</span>
           ${r.badgeCls ? `<span class="rr-badge ${r.badgeCls}">${escHtml(r.badgeText)}</span>` : ''}
         </div>`;
       }).join('');
+    }
+    // ── ランキング一覧とは独立して、自分の順位・点数・通過の有無だけを表示する欄 ──
+    const meIdx = rows.findIndex(r => r.id === myId);
+    const meBox     = $('lobbyEventMeSummary');
+    const meRankEl  = $('lobbyEventMeRank');
+    const meScoreEl = $('lobbyEventMeScore');
+    const meBadgeEl = $('lobbyEventMeBadge');
+    if (meBox) {
+      meBox.classList.toggle('hidden', meIdx === -1);
+      if (meIdx !== -1) {
+        const r = rows[meIdx];
+        const p = players[r.id];
+        if (meRankEl)  meRankEl.innerHTML = `${ranks[meIdx]}位 <small>/ ${rows.length}人中</small>`;
+        if (meScoreEl) meScoreEl.textContent = `${p ? fmtPts(p.score) : 0}点`;
+        if (meBadgeEl) {
+          meBadgeEl.textContent = r.badgeText;
+          meBadgeEl.className = 'rr-badge' + (r.badgeCls ? ' ' + r.badgeCls : '');
+        }
+      }
     }
   }
   if (resultBox) resultBox.classList.toggle('hidden', !showResult);

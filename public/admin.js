@@ -33,10 +33,10 @@ function fillConfig(cfg) {
 function saveConfig() {
   if (!isHost) return;
   socket.emit('set_event_config', {
-    mainCutRatio:     (+$('cfgMainCutRatio').value || 33) / 100,
+    mainCutRatio:     (+$('cfgMainCutRatio').value || 50) / 100,
     mainMaxRounds:    +$('cfgMainMaxRounds').value || 7,
-    revivalMaxRounds: +$('cfgRevivalMaxRounds').value || 3,
-    revivalCutRatio:  (+$('cfgRevivalCutRatio').value || 60) / 100,
+    revivalMaxRounds: +$('cfgRevivalMaxRounds').value || 5,
+    revivalCutRatio:  (+$('cfgRevivalCutRatio').value || 50) / 100,
     testCpuFill:      $('cfgTestCpuFill').checked,
   });
   const saved = $('cfgSaved');

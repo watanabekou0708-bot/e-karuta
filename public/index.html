@@ -117,8 +117,14 @@
 
     <!-- 大会モード：直前の試合結果（ホスト・非ホスト共通。ラウンド間のみ表示）──── -->
     <div id="lobbyEventResult" class="hidden" style="margin-top:.6rem">
-      <button class="btn btn-blue" style="margin-bottom:.6rem" onclick="goToEventHub()">🏠 ホームに戻る</button>
       <div class="ov-title" id="lobbyEventResultTitle" style="font-size:1.05rem;margin-bottom:.5rem">本戦第1試合終了！</div>
+      <!-- ランキング一覧とは独立して、自分の順位・点数・通過の有無だけがひと目でわかる欄 -->
+      <div class="rr-me-summary hidden" id="lobbyEventMeSummary">
+        <span class="rr-me-rank" id="lobbyEventMeRank"></span>
+        <span class="rr-me-score" id="lobbyEventMeScore"></span>
+        <span class="rr-badge" id="lobbyEventMeBadge"></span>
+      </div>
+      <button class="btn btn-blue" style="margin:.6rem 0" onclick="goToEventHub()">🏠 ホームに戻る</button>
       <div class="rr-table" id="lobbyEventResultTable"></div>
     </div>
 
