@@ -2638,19 +2638,21 @@ function lobbyVisible() {
 socket.on('player_joined', ({ players }) => {
   if (liveData) liveData.players = players;
   updateChips(players);
-  if (lobbyVisible()) renderLobbyList(players);
+  // 参加者がホーム画面に戻った（再接続した）ときも、ホストから見える待機人数を
+  // その場で更新する（renderLobbyList だけでは「対象:接続中/対象」の表示が追従しない）。
+  if (lobbyVisible()) { renderLobbyList(players); renderLobbyEventSection(); }
 });
 
 socket.on('player_left', ({ players }) => {
   if (liveData) liveData.players = players;
   updateChips(players);
-  if (lobbyVisible()) renderLobbyList(players);
+  if (lobbyVisible()) { renderLobbyList(players); renderLobbyEventSection(); }
 });
 
 socket.on('players_updated', players => {
   if (liveData) liveData.players = players;
   updateChips(players);
-  if (lobbyVisible()) renderLobbyList(players);
+  if (lobbyVisible()) { renderLobbyList(players); renderLobbyEventSection(); }
 });
 
 socket.on('houses_assigned', ({ houses, players }) => {
@@ -3053,14 +3055,14 @@ function speakEventRoundResultDj(data) {
   if (data.isFinal) {
     const ranking = data.finalRanking || [];
     const idx = ranking.indexOf(myId);
-    if (idx === 0)      segs = VD.eventChampionSegments(name);
+    if (idx === 0)      segs = VD.eventChampionSegments(name, scoreOf(myId));
     else if (idx === 1) segs = VD.eventRunnerUpSegments(name, scoreOf(myId));
     else if (idx === 2) segs = VD.eventThirdPlaceSegments(name, scoreOf(myId));
     else if (idx !== -1) {
       const closeToThird = ranking.length > 2 && idx >= 3 && idx < 3 + DJ_EVENT_CLOSE_RANK_WINDOW;
       segs = closeToThird
         ? VD.eventFinalCloseSegments(name, Math.max(0, scoreOf(ranking[2]) - scoreOf(myId)))
-        : VD.eventRankedSegments();
+        : VD.eventRankedSegments(name, scoreOf(myId), idx + 1);
     }
     // 最終試合は、自分の結果（対象者のみ）に続けて、全員へ締めの案内を流す。
     // 1つの queueDj にまとめ、自分の結果の最後の部品に gapAfter を付けて

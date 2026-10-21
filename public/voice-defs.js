@@ -97,8 +97,9 @@
   // 敗者復活戦：復帰まであと一歩だった人（ボーダーから順位5以内）
   const eventRevivalCloseSegments = (name, diff) =>
     [djSeg('惜しい！'), nameSeg(name), djSeg('、あと'), ...pointsSegments(diff), djSeg('で本戦に復帰できました。')];
-  const eventChampionSegments = name => [nameSeg(name), djSeg('優勝です！おめでとうございます！')];
-  // 準優勝・3位（入賞者）：名前の後に点数つきでお祝いする
+  // 優勝・準優勝・3位（入賞者）：名前の後に点数つきでお祝いする
+  const eventChampionSegments = (name, score) =>
+    [nameSeg(name), djSeg('。おめでとうございます！'), ...pointsSegments(score), djSeg('で優勝です。')];
   const eventRunnerUpSegments = (name, score) =>
     [nameSeg(name), djSeg('。おめでとうございます！'), ...pointsSegments(score), djSeg('で準優勝です。')];
   const eventThirdPlaceSegments = (name, score) =>
@@ -106,8 +107,9 @@
   // 最終試合：3位まであと一歩だった人（3位から順位5以内）
   const eventFinalCloseSegments = (name, diff) =>
     [djSeg('惜しい！'), nameSeg(name), djSeg('、あと'), ...pointsSegments(diff), djSeg('で3位でした。')];
-  // それ以外（惜しい判定に当てはまらない人）は個人名を出さない簡潔な案内のみ
-  const eventRankedSegments = () => [djSeg('最終試合終了です。お疲れ様でした。')];
+  // それ以外（惜しい判定に当てはまらない人）：名前・点数・順位を読み上げる
+  const eventRankedSegments = (name, score, rank) =>
+    [nameSeg(name), ...pointsSegments(score), djSeg('で'), rankSegment(rank), djSeg('です。')];
   // 最終試合後、全員の個人結果のあとに流す締めの案内（固定文）。個人結果のメッセージが
   // あるときは、聞き取りやすいよう gapAfter（ミリ秒）で間をとってから続ける。
   const eventCeremonyClosingSegments = () =>
@@ -145,8 +147,8 @@
       // 大会モードの結果画面のDJ用
       '残念！', '。敗退です。でも、まだ敗者復活のチャンスがあります。', '本戦', 'を突破しました！',
       '惜しい！', '、あと', 'で勝ち残りでした。', '復活しました！本戦に戻ります。', '。ここで敗退です。お疲れ様でした。',
-      'で本戦に復帰できました。', '優勝です！おめでとうございます！', '。おめでとうございます！', 'で準優勝です。', 'で3位です。', 'で3位でした。',
-      '最終試合終了です。お疲れ様でした。', 'これで全ての競技が終了しました。この後表彰式を行います。ロビーに戻り日時と場所を確認して移動してください。',
+      'で本戦に復帰できました。', '。おめでとうございます！', 'で優勝です。', 'で準優勝です。', 'で3位です。', 'で3位でした。', 'です。',
+      'これで全ての競技が終了しました。この後表彰式を行います。ロビーに戻り日時と場所を確認して移動してください。',
       '敗者復活戦', '終了です。',
     ].forEach(t => items.push(djSeg(t)));
     for (let i = 1; i <= 9; i++) { items.push(djSeg(`${i}万`)); items.push(djSeg(i === 1 ? '千' : `${i}千`)); items.push(djSeg(i === 1 ? '百' : `${i}百`)); }

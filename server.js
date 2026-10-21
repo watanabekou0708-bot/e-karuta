@@ -1735,11 +1735,8 @@ function canParticipate(id) {
   return !gs.eliminatedPlayers.has(id);                                       // 本戦: 敗退者は取れない
 }
 
-// ── Socket.io ─────────────────────────────────────────────
-io.on('connection', socket => {
-  const color = COLORS[colorIdx++ % COLORS.length];
-  gs.players[socket.id] = { name: `プレイヤー${Object.keys(gs.players).filter(id => !gs.players[id].isBot).length + 1}`, color, score: 0, bonus: 0, cards: 0, misses: 0, joined: false };
-
+// 接続時・再接続（大会モードの復帰）時に送る、画面を正しく組み立てるための状態一式。
+function sendInitTo(socket) {
   socket.emit('init', {
     voice:             voiceSummary(),
     layout:            gs.phase === 'memorizing' ? gs.layout : null,
@@ -1795,6 +1792,37 @@ io.on('connection', socket => {
     socket.emit('event_stage_ready', eventStageReadySnapshot());
     if (gs.event.lastResult) socket.emit('event_round_finished', gs.event.lastResult);
   }
+}
+
+// 大会モード進行中に切断された参加者が、同じ名前（学年・コースのタグ込み）で再接続してきたら、
+// 元の参加者として自動的に復帰させる（得点・参加者としての立場を引き継ぐ）。ログイン継続の
+// 仕組みがないため、名前の完全一致だけを手がかりにする簡易な対応（新規参加者には影響しない）。
+function reclaimDisconnectedEventPlayer(newId, composedName) {
+  if (!gs.event.active) return false;
+  const oldId = Object.keys(gs.players).find(id =>
+    id !== newId && !gs.players[id].isBot && gs.players[id].joined === false &&
+    gs.players[id].name === composedName &&
+    (gs.event.participantIds.has(id) || gs.event.mainPool.has(id) || gs.event.revivalCandidates.has(id))
+  );
+  if (!oldId) return false;
+  const old = gs.players[oldId];
+  delete gs.players[oldId];
+  gs.players[newId] = { ...old, joined: true };
+  const swap = set => { if (set.has(oldId)) { set.delete(oldId); set.add(newId); } };
+  swap(gs.event.participantIds);
+  swap(gs.event.mainPool);
+  swap(gs.event.revivalCandidates);
+  if (gs.ready.active) swap(gs.ready.need);
+  logEvent('event_reclaim', { oldId, newId, name: composedName });
+  return true;
+}
+
+// ── Socket.io ─────────────────────────────────────────────
+io.on('connection', socket => {
+  const color = COLORS[colorIdx++ % COLORS.length];
+  gs.players[socket.id] = { name: `プレイヤー${Object.keys(gs.players).filter(id => !gs.players[id].isBot).length + 1}`, color, score: 0, bonus: 0, cards: 0, misses: 0, joined: false };
+
+  sendInitTo(socket);
 
   socket.broadcast.emit('player_joined', { id: socket.id, player: gs.players[socket.id], players: gs.players });
 
@@ -1841,21 +1869,30 @@ io.on('connection', socket => {
     const n = String(rawName).trim().slice(0, 15);
     if (n && gs.players[socket.id]) {
       const me = gs.players[socket.id];
-      me.joined = true;
       if (isObj) {
         if (payload.grade)  me.grade  = String(payload.grade);
         if (payload.course) me.course = String(payload.course);
       }
       const tag = gradeCourseTag(me.grade, me.course);
-      me.rawName = n;
-      me.tag     = tag;
-      me.name    = tag ? tag + '　' + n : n;   // 画面にはこの名前（学年・コース付き）を出す
+      const composedName = tag ? tag + '　' + n : n;   // 画面にはこの名前（学年・コース付き）を出す
+      // 大会モード中、間違えてページを閉じた・ブラウザバックした等で切断していた参加者が
+      // 同じ名前で再接続してきたら、観戦者としてではなく元の参加者として復帰させる。
+      const reclaimed = reclaimDisconnectedEventPlayer(socket.id, composedName);
+      if (!reclaimed) {
+        me.joined  = true;
+        me.rawName = n;
+        me.tag     = tag;
+        me.name    = composedName;
+      }
       voiceEngine.request('zunda', VD.nameSeg(n).text, 'dj');   // DJ が呼ぶ「○○さん」の音声を先に作っておく
-      logEvent('join', { id: socket.id, name: gs.players[socket.id].name, grade: gs.players[socket.id].grade || null, course: gs.players[socket.id].course || null });
+      logEvent('join', { id: socket.id, name: gs.players[socket.id].name, grade: gs.players[socket.id].grade || null, course: gs.players[socket.id].course || null, reclaimed });
       const becameHost = !gs.hostId && isHostEligible(socket);
       if (becameHost) gs.hostId = socket.id;
       io.emit('players_updated', gs.players);
       if (becameHost) io.emit('host_changed', { hostId: gs.hostId });
+      // 復帰できた場合、大会モードの参加者状態が変わっているので、この接続にだけ最新状態を
+      // 送り直す（観戦者扱いのままにならないようにする）。
+      if (reclaimed) sendInitTo(socket);
     }
   });
 
@@ -2657,7 +2694,17 @@ io.on('connection', socket => {
       if (gs.ready.done.size >= gs.ready.need.size) setTimeout(() => releaseReadyBarrier('all_ready'), 0);
     }
     const wasHost = socket.id === gs.hostId;
-    delete gs.players[socket.id];
+    // 大会モード進行中、今の大会に関わりがある人（今の試合の参加者・本戦待機中・敗者復活戦待機中）
+    // は完全には削除せず、未接続のまま残す（得点を保持する）。同じ名前で再接続してきたとき、
+    // reclaimDisconnectedEventPlayer で元の参加者として復帰できるようにするため。
+    const hasEventStake = gs.event.active && gs.players[socket.id] && !gs.players[socket.id].isBot && (
+      gs.event.participantIds.has(socket.id) || gs.event.mainPool.has(socket.id) || gs.event.revivalCandidates.has(socket.id)
+    );
+    if (hasEventStake) {
+      gs.players[socket.id].joined = false;
+    } else {
+      delete gs.players[socket.id];
+    }
     io.emit('player_left', { id: socket.id, players: gs.players });
 
     if (wasHost) {
@@ -2680,7 +2727,9 @@ io.on('connection', socket => {
 
     const humanIds = Object.keys(gs.players)
       .filter(id => !gs.players[id].isBot && gs.players[id].joined);
-    if (!humanIds.length) {
+    // 大会モード進行中は、全員が一時的に切断しただけ（通信の瞬断など）で大会状態が
+    // 消えてしまわないよう、自動リセットしない（再接続すれば復帰できる）。
+    if (!humanIds.length && !gs.event.active) {
       clearAllTimers();
       removeCpuPlayers();
       gs.phase = 'lobby'; gs.currentCard = null;
