@@ -870,6 +870,10 @@ function scheduleCpuGrabs(card) {
                  : gs.cpuDifficulty === 'easy' ? 1.55 : 1.0;
   CPU_IDS.forEach((cpuId, cpuIdx) => {
     if (!gs.players[cpuId]) return;
+    // 大会モードでは「今の試合の参加者」以外のCPU（本戦待機中・まだ敗者復活戦の対象外など）は
+    // 札を取らせない。ここで絞らないと、無関係なCPUが札を取ってしまい、本来の参加者の得点に
+    // 反映されない（＝参加者を絞ったランキング表示には出てこない）ように見えてしまう。
+    if (!canParticipate(cpuId)) return;
     const tierKey = cpuIdx < CPU_PER_TIER ? 'top' : cpuIdx < CPU_PER_TIER * 2 ? 'middle' : 'bottom';
     const base = CPU_TIER_SETTINGS[tierKey];
     const minMs = base.minMs * lobbyMod;

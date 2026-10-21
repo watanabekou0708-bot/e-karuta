@@ -915,12 +915,14 @@ function renderLobbyEventSection() {
       if (mainBtn) {
         mainBtn.classList.toggle('hidden', !ready.mainReady);
         mainBtn.disabled = !ready.mainReady;
-        mainBtn.textContent = `本戦 第${ready.nextMainRoundNumber}試合 を行う（対象:${ready.mainPoolSize}人）`;
+        const waiting = connectedCount(ready.mainPoolIds);
+        mainBtn.textContent = `本戦 第${ready.nextMainRoundNumber}試合 を行う（対象:${waiting}/${ready.mainPoolSize}人）`;
       }
       if (revivalBtn) {
         revivalBtn.classList.toggle('hidden', !ready.revivalReady);
         revivalBtn.disabled = !ready.revivalReady;
-        revivalBtn.textContent = `敗者復活戦 第${ready.nextRevivalRoundNumber}試合 を行う（対象:${ready.revivalPoolSize}人）`;
+        const waiting = connectedCount(ready.revivalCandidateIds);
+        revivalBtn.textContent = `敗者復活戦 第${ready.nextRevivalRoundNumber}試合 を行う（対象:${waiting}/${ready.revivalPoolSize}人）`;
       }
     }
   } else {
@@ -944,6 +946,12 @@ function renderLobbyEventSection() {
 
 function lobbyParticipantCount() {
   return Object.values(livePlayers || {}).filter(p => !p.isBot && p.joined).length;
+}
+
+// 対象者（本戦プール／敗者復活戦候補）のうち、今実際に接続している（CPUは常に・人は
+// joined の）人数。ホストが「対象:接続中/対象全体」をひと目で確認できるようにする。
+function connectedCount(ids) {
+  return (ids || []).filter(id => livePlayers[id] && (livePlayers[id].isBot || livePlayers[id].joined)).length;
 }
 
 // 大会モードのラウンド間（ホーム）に戻る。サーバーの大会状態はそのまま維持したまま、
@@ -3046,20 +3054,25 @@ function speakEventRoundResultDj(data) {
     const ranking = data.finalRanking || [];
     const idx = ranking.indexOf(myId);
     if (idx === 0)      segs = VD.eventChampionSegments(name);
-    else if (idx === 1) segs = VD.eventRunnerUpSegments(name);
-    else if (idx === 2) segs = VD.eventThirdPlaceSegments(name);
+    else if (idx === 1) segs = VD.eventRunnerUpSegments(name, scoreOf(myId));
+    else if (idx === 2) segs = VD.eventThirdPlaceSegments(name, scoreOf(myId));
     else if (idx !== -1) {
       const closeToThird = ranking.length > 2 && idx >= 3 && idx < 3 + DJ_EVENT_CLOSE_RANK_WINDOW;
       segs = closeToThird
         ? VD.eventFinalCloseSegments(name, Math.max(0, scoreOf(ranking[2]) - scoreOf(myId)))
-        : VD.eventRankedSegments(name, scoreOf(myId), idx + 1);
+        : VD.eventRankedSegments();
     }
-    // 最終試合は、自分の結果（対象者のみ）に続けて、全員へ締めの案内を流す
-    // （queueDj は順番に再生されるキューなので、続けて呼ぶだけで両方流れる）。
+    // 最終試合は、自分の結果（対象者のみ）に続けて、全員へ締めの案内を流す。
+    // 1つの queueDj にまとめ、自分の結果の最後の部品に gapAfter を付けて
+    // 締めの案内の前に1.5秒の間を取る（対象外の人は締めの案内だけを流す）。
     setTimeout(() => {
-      if (segs) queueDj(segs.map(s => s.text).join(''), segs);
       const closing = VD.eventCeremonyClosingSegments();
-      queueDj(closing.map(s => s.text).join(''), closing);
+      if (segs && segs.length) {
+        const combined = segs.slice(0, -1).concat({ ...segs[segs.length - 1], gapAfter: 1500 }, closing);
+        queueDj(combined.map(s => s.text).join(''), combined);
+      } else {
+        queueDj(closing.map(s => s.text).join(''), closing);
+      }
     }, 300);
     return;
   }
