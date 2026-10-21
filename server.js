@@ -1797,14 +1797,8 @@ function sendInitTo(socket) {
 // 大会モード進行中に切断された参加者が、同じ名前（学年・コースのタグ込み）で再接続してきたら、
 // 元の参加者として自動的に復帰させる（得点・参加者としての立場を引き継ぐ）。ログイン継続の
 // 仕組みがないため、名前の完全一致だけを手がかりにする簡易な対応（新規参加者には影響しない）。
-function reclaimDisconnectedEventPlayer(newId, composedName) {
-  if (!gs.event.active) return false;
-  const oldId = Object.keys(gs.players).find(id =>
-    id !== newId && !gs.players[id].isBot && gs.players[id].joined === false &&
-    gs.players[id].name === composedName &&
-    (gs.event.participantIds.has(id) || gs.event.mainPool.has(id) || gs.event.revivalCandidates.has(id))
-  );
-  if (!oldId) return false;
+// 切断していた参加者（oldId）の情報を newId に引き継ぐ（得点・大会内の立場も含む）。
+function transferEventIdentity(oldId, newId) {
   const old = gs.players[oldId];
   delete gs.players[oldId];
   gs.players[newId] = { ...old, joined: true };
@@ -1813,7 +1807,33 @@ function reclaimDisconnectedEventPlayer(newId, composedName) {
   swap(gs.event.mainPool);
   swap(gs.event.revivalCandidates);
   if (gs.ready.active) swap(gs.ready.need);
+}
+// 大会に関わりがある（今の試合の参加者・本戦待機中・敗者復活戦待機中）、今は未接続の
+// 参加者の中から、predicate に一致する人を探す。
+function findDisconnectedEventPlayer(predicate, excludeId) {
+  if (!gs.event.active) return null;
+  return Object.keys(gs.players).find(id =>
+    id !== excludeId && !gs.players[id].isBot && gs.players[id].joined === false &&
+    predicate(gs.players[id]) &&
+    (gs.event.participantIds.has(id) || gs.event.mainPool.has(id) || gs.event.revivalCandidates.has(id))
+  ) || null;
+}
+// 同じ名前（学年・コースのタグ込み）で再接続してきた場合の簡易な復帰（ブラウザにトークンが
+// 保存されていない場合のフォールバック。set_name から呼ばれる）。
+function reclaimDisconnectedEventPlayer(newId, composedName) {
+  const oldId = findDisconnectedEventPlayer(p => p.name === composedName, newId);
+  if (!oldId) return false;
+  transferEventIdentity(oldId, newId);
   logEvent('event_reclaim', { oldId, newId, name: composedName });
+  return true;
+}
+// ブラウザに保存されたトークンが一致する場合の自動復帰（rejoin_token から呼ばれる）。
+// 名前の入力すら不要で、ページを開き直すだけで元の参加者に戻れる。
+function reclaimDisconnectedEventPlayerByToken(newId, token) {
+  const oldId = findDisconnectedEventPlayer(p => p.sessionToken && p.sessionToken === token, newId);
+  if (!oldId) return false;
+  transferEventIdentity(oldId, newId);
+  logEvent('event_reclaim_token', { oldId, newId, name: gs.players[newId].name });
   return true;
 }
 
@@ -1875,8 +1895,11 @@ io.on('connection', socket => {
       }
       const tag = gradeCourseTag(me.grade, me.course);
       const composedName = tag ? tag + '　' + n : n;   // 画面にはこの名前（学年・コース付き）を出す
+      const token = isObj && typeof payload.token === 'string' ? payload.token.slice(0, 100) : null;
       // 大会モード中、間違えてページを閉じた・ブラウザバックした等で切断していた参加者が
-      // 同じ名前で再接続してきたら、観戦者としてではなく元の参加者として復帰させる。
+      // 同じ名前で再接続してきたら、観戦者としてではなく元の参加者として復帰させる
+      // （保存されたトークンでの自動復帰は rejoin_token が先に試みるため、ここは
+      // トークンがない・一致しない場合のフォールバック）。
       const reclaimed = reclaimDisconnectedEventPlayer(socket.id, composedName);
       if (!reclaimed) {
         me.joined  = true;
@@ -1884,6 +1907,8 @@ io.on('connection', socket => {
         me.tag     = tag;
         me.name    = composedName;
       }
+      // 次回はトークンだけで自動復帰できるよう、今のブラウザのトークンを紐付けておく
+      if (token) gs.players[socket.id].sessionToken = token;
       voiceEngine.request('zunda', VD.nameSeg(n).text, 'dj');   // DJ が呼ぶ「○○さん」の音声を先に作っておく
       logEvent('join', { id: socket.id, name: gs.players[socket.id].name, grade: gs.players[socket.id].grade || null, course: gs.players[socket.id].course || null, reclaimed });
       const becameHost = !gs.hostId && isHostEligible(socket);
@@ -1894,6 +1919,22 @@ io.on('connection', socket => {
       // 送り直す（観戦者扱いのままにならないようにする）。
       if (reclaimed) sendInitTo(socket);
     }
+  });
+
+  // ── ブラウザに保存されたトークンでの自動復帰（名前入力の前に試す）──────
+  // ページを開き直しただけで、同じブラウザなら名前を入力し直さずに元の参加者へ戻れる。
+  // 一致しなければ ack({success:false}) を返し、クライアントは通常の名前入力画面に進む。
+  socket.on('rejoin_token', (payload, ack) => {
+    const token = payload && typeof payload.token === 'string' ? payload.token.slice(0, 100) : null;
+    if (typeof ack !== 'function') return;
+    if (!token) { ack({ success: false }); return; }
+    const reclaimed = reclaimDisconnectedEventPlayerByToken(socket.id, token);
+    if (!reclaimed) { ack({ success: false }); return; }
+    voiceEngine.request('zunda', VD.nameSeg(gs.players[socket.id].rawName || '').text, 'dj');
+    logEvent('join', { id: socket.id, name: gs.players[socket.id].name, reclaimed: true, viaToken: true });
+    io.emit('players_updated', gs.players);
+    sendInitTo(socket);
+    ack({ success: true });
   });
 
   // ── ハウス編成（サーバーPCのみ・大会モード）─────────────────

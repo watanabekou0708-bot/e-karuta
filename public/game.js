@@ -500,6 +500,24 @@ function renderTop3(players) {
 // それだとサーバーPC自身で参加者としてテストできなかったため、明示的な印に変更した）。
 const HOST_PARAM = new URLSearchParams(location.search).has('host');
 const socket    = io({ query: { host: HOST_PARAM ? '1' : '' } });
+
+// このブラウザ専用の参加者トークン（ページを開き直しても localStorage に残る）。
+// 大会モード中に切断（誤ってページを閉じた・ブラウザバックしたなど）した後、同じ
+// ブラウザでページを開き直したときに、名前を入力し直さなくても自動で元の参加者に
+// 戻れるようにするためのもの（rejoin_token）。ログイン機能ではなく、この端末の
+// ブラウザだけで完結する簡易な仕組み。
+function getOrCreatePlayerToken() {
+  try {
+    const key = 'karutaPlayerToken';
+    let t = localStorage.getItem(key);
+    if (!t) {
+      t = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36));
+      localStorage.setItem(key, t);
+    }
+    return t;
+  } catch (e) { return null; }   // プライベートブラウジング等でlocalStorageが使えない場合は諦める
+}
+const PLAYER_TOKEN = getOrCreatePlayerToken();
 // 管理画面・投影画面へのリンクも ?host 付きで開けるよう引き継ぐ（そのページ自身のHTTPリクエストが
 // ホスト判定を行うため。isHostRequest() 参照）。
 if (HOST_PARAM) {
@@ -509,6 +527,13 @@ if (HOST_PARAM) {
     if (adminLink)     adminLink.href     = 'admin.html?host';
     if (projectorLink) projectorLink.href = 'projector.html?host';
   });
+}
+// ロビーに表示する「他のパソコンはこのURLへ」の接続先。?host が付いたままだと、
+// それを見た他の人がアクセスしたときにホスト扱いになってしまうため取り除く。
+function guestConnectUrl() {
+  const u = new URL(window.location.href);
+  u.searchParams.delete('host');
+  return u.toString();
 }
 let myId        = null;
 let myIsHost    = false;
@@ -971,7 +996,7 @@ function showEventHome() {
   clearSpectatorChat();
   renderLobbyList(livePlayers || {});
   hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oCeremony');
-  $('lobbyUrl').textContent = window.location.href;
+  $('lobbyUrl').textContent = guestConnectUrl();
   show('oLobby');
   updateLobbyUI();
   updateHostNotice();
@@ -1356,13 +1381,13 @@ function doJoin() {
   if (!name) { $('nameInput').focus(); return; }
   const gradeSel  = $('gradeSelect');
   const courseSel = $('courseSelect');
-  const grade  = (!PRACTICE_LINK && gradeSel)  ? gradeSel.value  : null;
-  const course = (!PRACTICE_LINK && courseSel) ? courseSel.value : null;
+  const grade  = (!PRACTICE_LINK && !HOST_PARAM && gradeSel)  ? gradeSel.value  : null;
+  const course = (!PRACTICE_LINK && !HOST_PARAM && courseSel) ? courseSel.value : null;
   unlockTts();
   getAudioCtx();
   playWarmupBlip();   // 参加操作（＝本物のクリック）直後に一瞬だけ鳴らし、本編の音声が
                        // 立ち上がり時のフェードを受けずに最初から本来の音量で鳴るようにする
-  socket.emit('set_name', { name, grade, course });
+  socket.emit('set_name', { name, grade, course, token: PLAYER_TOKEN });
   hide('oName');
   nameEntered = true;
   if (liveData) applyInit(liveData);
@@ -1371,6 +1396,17 @@ function doJoin() {
 document.getElementById('nameInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') doJoin();
 });
+
+// ?host を付けて開いたPC（進行役）は、学年・コースはもちろん名前の入力も不要にする
+// （進行役は大会モードで札を取らず、学年・コースによるハンデも適用されないため）。
+// 名前欄は固定で「ホスト」として自動的に参加する。
+(function applyHostAutoJoin() {
+  if (!HOST_PARAM || BOT_LINK) return;
+  document.addEventListener('DOMContentLoaded', () => {
+    $('nameInput').value = 'ホスト';
+    doJoin();
+  });
+})();
 
 // ── Apply init state ──────────────────────────────────────
 function applyInit(d) {
@@ -1521,7 +1557,7 @@ function openLobby(players) {
     show('oBotWait');
     return;
   }
-  $('lobbyUrl').textContent = window.location.href;
+  $('lobbyUrl').textContent = guestConnectUrl();
   show('oLobby');
   updateLobbyUI();
   updateHostNotice();
@@ -2618,6 +2654,7 @@ function showGameOver(players) {
 }
 
 // ── Socket events ─────────────────────────────────────────
+let rejoinAttempted = false;   // ページ内で一度だけ、保存トークンでの自動復帰を試す
 socket.on('init', data => {
   myId       = data.myId;
   isServerPc = !!data.isServerPc;
@@ -2627,7 +2664,20 @@ socket.on('init', data => {
   syncClock();
   preloadAudio();
   // doJoin 済みの場合（init 遅延で applyInit が後回しになったケース）
-  if (nameEntered) applyInit(liveData);
+  if (nameEntered) { applyInit(liveData); return; }
+  // まだ参加前（名前未入力）なら、保存してあるトークンで自動復帰を試す。
+  // ?host・?bot リンクは別の自動参加フローを持つのでここでは対象外。
+  if (!rejoinAttempted && PLAYER_TOKEN && !HOST_PARAM && !BOT_LINK) {
+    rejoinAttempted = true;
+    socket.emit('rejoin_token', { token: PLAYER_TOKEN }, (res) => {
+      if (res && res.success) {
+        hide('oName');
+        nameEntered = true;
+        if (liveData) applyInit(liveData);
+      }
+      // 一致しなければ何もしない（#oName はそのまま表示され、通常の参加フローに進む）
+    });
+  }
 });
 
 // ロビー相当の画面（通常のロビー、またはボット専用の待機画面）が表示中か
