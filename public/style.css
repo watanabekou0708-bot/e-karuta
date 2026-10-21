@@ -773,6 +773,7 @@ body.vcursor-on, body.vcursor-on * { cursor: none !important; }
 @keyframes reactUp {
   0%   { transform: translateY(0) scale(.6); opacity: 0; }
   12%  { opacity: 1; transform: translateY(-30px) scale(1.1); }
+  85%  { opacity: 1; }
   100% { transform: translateY(-380px) scale(1); opacity: 0; }
 }
 

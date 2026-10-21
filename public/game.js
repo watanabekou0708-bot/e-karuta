@@ -935,7 +935,7 @@ function renderLobbyEventSection() {
         } else if ((ready.revivalCandidateIds || []).includes(myId)) {
           guestMsg.textContent = 'あなたは敗者復活戦に参加してください。ホストが開始するまでお待ちください。';
         } else {
-          guestMsg.textContent = '本日の対局への参加は以上です。お疲れ様でした！';
+          guestMsg.textContent = '本日の対局への参加は以上です。お疲れ様でした！観戦画面で他の参加者を応援しましょう！';
         }
       }
     }
@@ -3032,30 +3032,74 @@ const DJ_CLOSE_MAX_DIFF  = 500;
 const rawName = p => (p && (p.rawName || p.name)) || '';
 
 // 大会モードの結果画面のDJ音声（各端末で、その端末のユーザー自身の結果に合わせて読み上げる）。
+// 通過・復活・（最終試合の）3位のボーダーから何位以内なら「惜しい」扱いにするか
+const DJ_EVENT_CLOSE_RANK_WINDOW = 5;
+
 function speakEventRoundResultDj(data) {
   const players = data.players || {};
   const me = players[myId];
-  if (!me) return;
-  const name = rawName(me);
+  const name = me ? rawName(me) : '';
+  const scoreOf = id => (players[id] || {}).score || 0;
   let segs = null;
+
   if (data.isFinal) {
     const ranking = data.finalRanking || [];
     const idx = ranking.indexOf(myId);
     if (idx === 0)      segs = VD.eventChampionSegments(name);
     else if (idx === 1) segs = VD.eventRunnerUpSegments(name);
     else if (idx === 2) segs = VD.eventThirdPlaceSegments(name);
-    else if (idx >= 0)  segs = VD.eventRankedSegments(name, idx + 1);
-  } else if (data.stage === 'main') {
-    if ((data.passers || []).includes(myId))      segs = VD.eventPassedSegments(name);
-    else if ((data.losers || []).includes(myId))  segs = VD.eventEliminatedSegments(name);
-  } else if (data.stage === 'revival') {
-    if ((data.revived || []).includes(myId))      segs = VD.eventRevivedSegments(name);
-    else if ((data.stillOut || []).includes(myId)) segs = VD.eventStillOutSegments(name);
+    else if (idx !== -1) {
+      const closeToThird = ranking.length > 2 && idx >= 3 && idx < 3 + DJ_EVENT_CLOSE_RANK_WINDOW;
+      segs = closeToThird
+        ? VD.eventFinalCloseSegments(name, Math.max(0, scoreOf(ranking[2]) - scoreOf(myId)))
+        : VD.eventRankedSegments(name, scoreOf(myId), idx + 1);
+    }
+    // 最終試合は、自分の結果（対象者のみ）に続けて、全員へ締めの案内を流す
+    // （queueDj は順番に再生されるキューなので、続けて呼ぶだけで両方流れる）。
+    setTimeout(() => {
+      if (segs) queueDj(segs.map(s => s.text).join(''), segs);
+      const closing = VD.eventCeremonyClosingSegments();
+      queueDj(closing.map(s => s.text).join(''), closing);
+    }, 300);
+    return;
   }
-  if (!segs) return;
-  const text = segs.map(s => s.text).join('');
+
+  if (data.stage === 'main') {
+    const passers = data.passers || [], losers = data.losers || [];
+    if (passers.includes(myId)) {
+      segs = VD.eventPassedSegments(name, data.roundNumber);
+    } else {
+      const closeIdx = losers.indexOf(myId);
+      if (closeIdx !== -1 && closeIdx < DJ_EVENT_CLOSE_RANK_WINDOW && passers.length) {
+        segs = VD.eventMainCloseSegments(name, Math.max(0, scoreOf(passers[passers.length - 1]) - scoreOf(myId)));
+      } else if (closeIdx !== -1) {
+        segs = VD.eventEliminatedSegments(name);
+      }
+    }
+  } else if (data.stage === 'revival') {
+    const revived = data.revived || [], stillOut = data.stillOut || [];
+    if (revived.includes(myId)) {
+      segs = VD.eventRevivedSegments(name);
+    } else {
+      const closeIdx = stillOut.indexOf(myId);
+      if (closeIdx !== -1 && closeIdx < DJ_EVENT_CLOSE_RANK_WINDOW && revived.length) {
+        segs = VD.eventRevivalCloseSegments(name, Math.max(0, scoreOf(revived[revived.length - 1]) - scoreOf(myId)));
+      } else if (closeIdx !== -1) {
+        segs = VD.eventStillOutSegments(name);
+      }
+    }
+  }
+
   // showEventHome() 内の stopAllAudio() 直後に話し始めると取りこぼすことがあるため少し待つ
-  setTimeout(() => queueDj(text, segs), 300);
+  if (segs) {
+    const text = segs.map(s => s.text).join('');
+    setTimeout(() => queueDj(text, segs), 300);
+    return;
+  }
+  // 自分がこの試合の対象外（観戦者）なら、ラウンド終了だけ簡潔に案内する
+  const stageLabel = data.stage === 'revival' ? '敗者復活戦' : '本戦';
+  const specSegs = VD.eventSpectatorRoundEndSegments(stageLabel, data.roundNumber);
+  setTimeout(() => queueDj(specSegs.map(s => s.text).join(''), specSegs), 300);
 }
 
 // 試合結果画面のDJ音声（各端末で、その端末のユーザー自身の順位に合わせて読み上げる）。

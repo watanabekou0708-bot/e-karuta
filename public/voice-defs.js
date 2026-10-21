@@ -83,14 +83,34 @@
   }
 
   // ── 大会モードの結果画面のDJ（各自の端末で、各自の結果に応じて組み立てる）──
-  const eventPassedSegments     = name => [nameSeg(name), djSeg('本戦を突破しました！')];
-  const eventEliminatedSegments = name => [nameSeg(name), djSeg('敗退です。敗者復活戦のチャンスがあります。')];
-  const eventRevivedSegments    = name => [nameSeg(name), djSeg('復活しました！本戦に戻ります。')];
-  const eventStillOutSegments   = name => [nameSeg(name), djSeg('敗退です。')];
-  const eventChampionSegments   = name => [djSeg('優勝です！'), nameSeg(name), djSeg('おめでとうございます！')];
+  const matchNumSegment = n => djSeg(`第${n}試合`);
+  const eventPassedSegments = (name, roundNumber) =>
+    [nameSeg(name), djSeg('本戦'), matchNumSegment(roundNumber), djSeg('を突破しました！')];
+  const eventEliminatedSegments = name =>
+    [djSeg('残念！'), nameSeg(name), djSeg('。敗退です。でも、まだ敗者復活のチャンスがあります。')];
+  // 本戦：通過まであと一歩だった人（ボーダーから順位5以内）
+  const eventMainCloseSegments = (name, diff) =>
+    [djSeg('惜しい！'), nameSeg(name), djSeg('、あと'), ...pointsSegments(diff), djSeg('で勝ち残りでした。')];
+  const eventRevivedSegments = name => [nameSeg(name), djSeg('復活しました！本戦に戻ります。')];
+  const eventStillOutSegments = name =>
+    [djSeg('残念！'), nameSeg(name), djSeg('。ここで敗退です。お疲れ様でした。')];
+  // 敗者復活戦：復帰まであと一歩だった人（ボーダーから順位5以内）
+  const eventRevivalCloseSegments = (name, diff) =>
+    [djSeg('惜しい！'), nameSeg(name), djSeg('、あと'), ...pointsSegments(diff), djSeg('で本戦に復帰できました。')];
+  const eventChampionSegments   = name => [nameSeg(name), djSeg('優勝です！おめでとうございます！')];
   const eventRunnerUpSegments   = name => [nameSeg(name), djSeg('準優勝です！')];
   const eventThirdPlaceSegments = name => [nameSeg(name), djSeg('3位入賞です！')];
-  const eventRankedSegments     = (name, rank) => [nameSeg(name), rankSegment(rank), djSeg('でした。')];
+  // 最終試合：3位まであと一歩だった人（3位から順位5以内）
+  const eventFinalCloseSegments = (name, diff) =>
+    [djSeg('惜しい！'), nameSeg(name), djSeg('、あと'), ...pointsSegments(diff), djSeg('で3位でした。')];
+  const eventRankedSegments = (name, score, rank) =>
+    [djSeg('最終試合終了です。'), nameSeg(name), djSeg('、'), ...pointsSegments(score), djSeg('で'), rankSegment(rank), djSeg('でした。')];
+  // 最終試合後、全員の個人結果のあとに流す締めの案内（固定文）
+  const eventCeremonyClosingSegments = () =>
+    [djSeg('これで全ての競技が終了しました。この後表彰式を行います。ロビーに戻り日時と場所を確認して移動してください。')];
+  // 観戦者（今の試合の対象外の人）向けの、ラウンド終了の案内
+  const eventSpectatorRoundEndSegments = (stageLabel, roundNumber) =>
+    [djSeg(stageLabel), matchNumSegment(roundNumber), djSeg('終了です。')];
 
   // ── 札を取ったときのDJ（サーバーで組み立てる）。名前の部品は「名前＋さん」1つだけ。すべてずんだもん ──
   const nameSeg = name => djSeg(`${name}さん`);
@@ -119,12 +139,16 @@
       'ナイスマウスさばき', 'あと少しで1位です！', 'おめでとうございます。あなたは', 'で', 'です。', '惜しい。あと', 'でした。', 'マイナス', '点',
       '惜しい。', 'あと', 'で優勝でした。',
       // 大会モードの結果画面のDJ用
-      '本戦を突破しました！', '敗退です。敗者復活戦のチャンスがあります。', '復活しました！本戦に戻ります。', '敗退です。',
-      '優勝です！', 'おめでとうございます！', '準優勝です！', '3位入賞です！',
+      '残念！', '。敗退です。でも、まだ敗者復活のチャンスがあります。', '本戦', 'を突破しました！',
+      '惜しい！', '、あと', 'で勝ち残りでした。', '復活しました！本戦に戻ります。', '。ここで敗退です。お疲れ様でした。',
+      'で本戦に復帰できました。', '優勝です！おめでとうございます！', '準優勝です！', '3位入賞です！', '、', 'で3位でした。',
+      '最終試合終了です。', 'これで全ての競技が終了しました。この後表彰式を行います。ロビーに戻り日時と場所を確認して移動してください。',
+      '敗者復活戦', '終了です。',
     ].forEach(t => items.push(djSeg(t)));
     for (let i = 1; i <= 9; i++) { items.push(djSeg(`${i}万`)); items.push(djSeg(i === 1 ? '千' : `${i}千`)); items.push(djSeg(i === 1 ? '百' : `${i}百`)); }
     for (let i = 0; i <= 99; i++) items.push(djSeg(`${i}点`));
     for (let r = 1; r <= 99; r++) items.push(rankSegment(r));
+    for (let n = 1; n <= 20; n++) items.push(matchNumSegment(n));
     // CPU の名前（強CPU01〜弱CPU30）もDJが呼ぶので、「名前＋さん」を事前に作る
     ['強', '中', '弱'].forEach(t => { for (let i = 1; i <= 30; i++) items.push(nameSeg(`${t}CPU${String(i).padStart(2, '0')}`)); });
     for (let n = 1; n <= 9; n++) items.push(...roundEndSegments(n));
@@ -136,7 +160,9 @@
     VOICES, CACHE_VERSION, FIXED, hash, voiceDir, voiceKey, voiceUrl, seg, djSeg,
     pointsSegments, rankSegment, roundEndSegments, resultCongratsSegments, resultCloseSegments, resultNearWinSegments,
     nameSeg, DJ_TAKE, djBonusSegments, djMouseSegments, djNearSegments, answerSegments, warmupItems,
-    eventPassedSegments, eventEliminatedSegments, eventRevivedSegments, eventStillOutSegments,
-    eventChampionSegments, eventRunnerUpSegments, eventThirdPlaceSegments, eventRankedSegments,
+    matchNumSegment,
+    eventPassedSegments, eventEliminatedSegments, eventMainCloseSegments, eventRevivedSegments, eventStillOutSegments,
+    eventRevivalCloseSegments, eventChampionSegments, eventRunnerUpSegments, eventThirdPlaceSegments,
+    eventFinalCloseSegments, eventRankedSegments, eventCeremonyClosingSegments, eventSpectatorRoundEndSegments,
   };
 });
