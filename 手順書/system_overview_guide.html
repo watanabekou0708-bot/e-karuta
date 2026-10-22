@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Webかるた システム構成資料</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .cover { background: linear-gradient(160deg, #141432 0%, #2d3a8c 100%); color: #fff; padding: 0; }
+  .cover .inner { padding: 28mm 20mm 0; }
+  .cover .club { font-size: 14pt; letter-spacing: .15em; color: #c7d0ff; }
+  .cover h1 { font-size: 34pt; line-height: 1.3; margin: 10mm 0 4mm; }
+  .cover .sub { font-size: 14.5pt; color: #dbe1ff; }
+  .cover .card { background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.35); border-radius: 4mm; padding: 6mm 8mm; margin-top: 10mm; }
+  .cover .card h2 { margin: 0 0 3mm; font-size: 15pt; color: #ffd66b; }
+  .cover .card li { font-size: 12.5pt; margin: 1.5mm 0; }
+  .cover .footer { color: #c7d0ff; border-top-color: rgba(255,255,255,.3); }
+  h2.step { background: linear-gradient(90deg, #2d3a8c, #5a6fe0); }
+  h2.step .tag { color: #2d3a8c; }
+  h3 { color: #22297a; border-left-color: #5a6fe0; }
+  th { background: #eceeff; }
+  .diagram { border: 1.5px solid #c3c9f5; border-radius: 3mm; background: #f6f7ff; padding: 5mm; margin: 3mm 0; }
+  .diagram .row { display: flex; align-items: center; justify-content: center; gap: 4mm; margin: 2mm 0; flex-wrap: wrap; }
+  .diagram .box { border: 2px solid #4a58c7; border-radius: 2.5mm; background: #fff; padding: 2.5mm 4mm; font-size: 10.5pt; text-align: center; min-width: 34mm; }
+  .diagram .box.srv { border-color: #d6480f; background: #fff3ec; font-weight: 700; }
+  .diagram .box.ext { border-color: #0f8a4a; background: #eafff2; }
+  .diagram .arrow { font-size: 9.5pt; color: #4a58c7; text-align: center; white-space: nowrap; }
+  .diagram .arrow.v { writing-mode: vertical-rl; }
+  .badge { display: inline-block; font-size: 9pt; padding: 0.5mm 2mm; border-radius: 1.5mm; margin-left: 1.5mm; }
+  .badge.lan { background: #fff4e0; color: #8a5a00; border: 1px solid #ffc267; }
+  .badge.local { background: #eafaf0; color: #0f6e3a; border: 1px solid #8fdcaa; }
+  table.sm td, table.sm th { font-size: 9.5pt; padding: 1.5mm 2.5mm; }
+</style>
+</head>
+<body>
+
+<!-- ===== 表紙 ===== -->
+<section class="page cover">
+  <div class="inner">
+    <div class="club">Webデザインサークル</div>
+    <h1>Webかるた<br>システム構成資料</h1>
+    <div class="sub">自宅からの練習用公開（DMZ掲載など）を検討するための資料</div>
+
+    <div class="card">
+      <h2>このガイドでわかること</h2>
+      <ul>
+        <li>システムの全体像（P.2）</li>
+        <li>使用している言語・フレームワーク・技術の一覧（P.3）</li>
+        <li>自宅・学外へ公開するときに特に注意が必要な点（P.4）</li>
+        <li>ご検討中の3つの方法の整理と、他に考えられる選択肢（P.5）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>先に結論だけ知りたい方へ</h2>
+      <li>このシステムは、音声読み上げのために<b>学内LAN上の別PC（音声合成エンジン）</b>に依存しています（P.4）。</li>
+      <li>DMZに置く場合、学内LANと遮断されるのが通常のため、<b>この依存関係が最大の論点</b>になります。</li>
+      <li>認証・暗号化の仕組みは今のところ無いため、学外公開には別途対策が必要です（P.4）。</li>
+    </div>
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた システム構成資料</span></div>
+</section>
+
+<!-- ===== 全体像 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 1</span>システムの全体像</h2>
+  <p>Webかるたは、<b>1台のサーバーPC（教卓PC）だけ</b>がプログラムを動かし、参加者・投影・管理画面はすべて「ブラウザでそのPCにアクセスするだけ」の、追加インストール不要な構成です。ゲームの進行（誰が参加しているか・得点など）は、すべてサーバーPCの<b>メモリ上</b>で管理しており、データベースは使用していません（サーバーを再起動すると内容は失われます）。</p>
+
+  <div class="diagram">
+    <div class="row">
+      <div class="box">参加者のブラウザ<br>（タブレット・PC　複数台）</div>
+      <div class="box">投影用PC<br>のブラウザ</div>
+      <div class="box">管理画面PC<br>のブラウザ</div>
+    </div>
+    <div class="arrow">↑↓　WebSocket / HTTP（同一Wi-Fi・LAN内）</div>
+    <div class="row">
+      <div class="box srv">サーバーPC（教卓PC）<br>Node.js + Express + Socket.io<br>ポート 3000</div>
+    </div>
+    <div class="arrow">↑↓　HTTP（音声の生成を依頼）<span class="badge lan">学内LAN必須</span></div>
+    <div class="row">
+      <div class="box ext">音声合成エンジン（VOICEVOX）<br>学内LAN上の別PC<br>（固定アドレス・ポート50021）</div>
+    </div>
+  </div>
+
+  <h3>役割ごとの機器</h3>
+  <table class="sm">
+    <tr><th style="width:26%">機器</th><th>役割</th></tr>
+    <tr><td>サーバーPC（教卓PC）</td><td>Node.jsのプログラムを実行し続ける中心。これが止まると全体が止まる。</td></tr>
+    <tr><td>参加者の端末</td><td><code>index.html</code>（参加者用画面）を開くだけ。アプリのインストールは不要。</td></tr>
+    <tr><td>投影用PC</td><td><code>projector.html</code>（会場のスクリーンに映す一覧表示用画面）を開く。</td></tr>
+    <tr><td>管理画面PC</td><td><code>admin.html</code>（大会設定・ログ確認用画面）を開く。通常は教卓PCと同じでも別でも可。</td></tr>
+    <tr><td>音声合成エンジン（VOICEVOX）</td><td>読み上げ音声（WAVファイル）を作る専用ソフトが動いている<b>別のPC</b>（学内LAN上・固定IPアドレス）。サーバーPCはここに音声データを依頼し、出来上がった音声を各参加者に配る。</td></tr>
+  </table>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた システム構成資料　P.2</span></div>
+</section>
+
+<!-- ===== 使用技術 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 2</span>使用している言語・技術の一覧</h2>
+
+  <table>
+    <tr><th style="width:26%">分類</th><th>使用技術</th></tr>
+    <tr><td>プログラミング言語</td><td>JavaScript（サーバー側・ブラウザ側とも同じ言語で統一）</td></tr>
+    <tr><td>サーバーの実行環境</td><td>Node.js（確認時バージョン：v24系。概ねv18以降で動作）</td></tr>
+    <tr><td>Webサーバー／フレームワーク</td><td>Express（HTTP配信・静的ファイル配布・簡易API）</td></tr>
+    <tr><td>リアルタイム通信</td><td>Socket.io（WebSocketを使い、全員の画面をリアルタイムに同期。WebSocketが使えない通信環境では自動的にHTTPポーリングに切り替わる）</td></tr>
+    <tr><td>画面（クライアント）</td><td>素のHTML／CSS／JavaScript。React等のフレームワークやビルド工程は使用していない（ブラウザがファイルをそのまま読み込むだけ）</td></tr>
+    <tr><td>音声合成</td><td>VOICEVOX（別PCで稼働、HTTP経由で音声データを取得）。生成した音声はサーバーPC内の<code>voice-cache</code>フォルダにファイルとして保存し、以後は再利用（キャッシュ）する。<br>補助的に、各ブラウザに内蔵されている読み上げ機能（Web Speech API）も使える作りになっている。</td></tr>
+    <tr><td>データの保存先</td><td>データベースは使用せず、進行中のデータはサーバーPCの<b>メモリ上のみ</b>。記録（ログ）はテキストファイル（1行1件のjsonl形式）としてサーバーPC上の<code>logs</code>フォルダに保存。</td></tr>
+    <tr><td>外部インターネットへの依存</td><td>無し。CDN等、外部サイトから読み込むファイルは一切使用しておらず、必要なファイルはすべてサーバーPC自身が配布している。</td></tr>
+    <tr><td>対応ブラウザ側の仕組み</td><td>最近のChrome／Edge等のモダンブラウザを想定（特別なプラグインは不要）。</td></tr>
+  </table>
+
+  <div class="box info"><b class="t">補足</b>サーバー・クライアントとも特殊なOS機能（Windows専用の処理など）には依存しておらず、プログラム自体はWindows以外（Linuxサーバー等）でも動作します。</div>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた システム構成資料　P.3</span></div>
+</section>
+
+<!-- ===== 公開時の注意点 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 3</span>学外・自宅へ公開するときの注意点</h2>
+
+  <h3>① 音声合成エンジンが学内LANの別PCに依存している（最重要）</h3>
+  <p>サーバーPCは、読み上げ音声を作るたびに学内LAN上にある<b>別PC（固定IPアドレス、ポート50021）</b>へ問い合わせています。これは「サーバーPCと音声合成エンジンが同じLANにいる」ことが前提の作りです。</p>
+  <div class="box warn"><b class="t">DMZに置く場合の論点</b>DMZは本来、学内LAN（内部ネットワーク）と遮断し、公開サーバーが乗っ取られても内部に影響しないようにする仕組みです。サーバーPCをDMZに置くと、この音声合成エンジンに届かなくなる可能性が高く、<b>読み上げ機能が使えなくなる</b>おそれがあります。</div>
+  <p><b>考えられる対応策：</b></p>
+  <ul>
+    <li>音声合成エンジンも一緒にDMZへ移す（ただし、DMZに置く機器が増え、管理・セキュリティ上の負担も増える）</li>
+    <li>自宅練習用に限り、音声合成エンジンを使わず、各生徒のブラウザに内蔵されている読み上げ機能（既にプログラム内にその仕組みがある）に切り替える</li>
+    <li>自宅練習専用に、学内LANとは無関係な場所（後述のクラウド等）に、音声合成エンジンを使わない版を別途用意する</li>
+  </ul>
+
+  <h3>② 通信が暗号化されていない（HTTPS未対応）</h3>
+  <p>現在はHTTP（暗号化なし）で動作しています。学内LAN限定の利用では大きな問題になりませんが、インターネットに公開する場合、ブラウザが警告を表示したり、通信内容が暗号化されない状態になります。公開する場合は、リバースプロキシ等によるHTTPS化が望ましいです。</p>
+
+  <h3>③ 利用者の認証が無い</h3>
+  <p>名前を入力するだけで誰でも参加でき、参加用アドレスの末尾に<code>?host</code>を付けるだけで進行役の操作もできてしまう作りです。学内LAN限定なら実害は小さいですが、学外に公開すると、URLを知っている人なら誰でもアクセス・操作できてしまいます。合言葉や学校アカウントでのログインなど、別途アクセス制限を用意することをおすすめします。</p>
+
+  <h3>④ 判定のタイミングは通信の速さに影響される</h3>
+  <p>「どちらが早く札を取ったか」の判定は、サーバーとブラウザの通信時間（往復時間）に依存しています。自宅のインターネット回線は学内LANより遅く・不安定になりがちなため、対局の判定精度は学内より下がる可能性があります。<b>大会本番ではなく「自宅での練習」用途</b>であれば、大きな問題にはならないと考えられます。</p>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた システム構成資料　P.4</span></div>
+</section>
+
+<!-- ===== 方法の整理 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 4</span>ご検討中の3つの方法と、他の選択肢</h2>
+
+  <table class="sm">
+    <tr><th style="width:17%">方法</th><th style="width:43%">概要</th><th>このシステムとの関係</th></tr>
+    <tr><td><b>①一時URL発行</b><br>（トンネル系ツール）</td><td>サーバーPCから外部へ一時的な通り道を作り、発行されたURLでインターネットから直接アクセスできるようにする。PCがスリープ・終了すると無効になる。</td><td>手軽・無料。サーバーPC＝今のPCのままなら音声合成エンジンにも届く。長時間の安定提供には不向き。</td></tr>
+    <tr><td><b>②ドメイン取得＋<br>サーバー契約</b></td><td>レンタルサーバーやクラウド（VPS等）を契約し、独自ドメインで公開する本格的な方法。</td><td>費用・契約・管理の手間がかかる。学内LANの外に置くため、音声合成エンジン問題は別途対応が必要（③と同じ論点）。</td></tr>
+    <tr><td><b>③DMZに設置</b></td><td>学校が既に持っている公開用の区域（DMZ）に、このサーバーPCを置く。</td><td>学校の既存インフラを使える点は魅力。ただし①の「音声合成エンジンとの接続」が最大の課題（P.4参照）。</td></tr>
+    <tr><td>④<b>VPN</b><span class="badge local">追加案</span></td><td>生徒の自宅PCを、学校の内部ネットワークに一時的に参加させる方式。学校のルーター等にVPN機能があれば利用できる。</td><td>学内LANの一部として扱われるため、音声合成エンジンへの接続という制約が<b>一切発生しない</b>。生徒側にVPN設定の手間がかかる／学校側にVPN機能の用意が必要。</td></tr>
+    <tr><td>⑤<b>常時起動の無料トンネル</b><span class="badge local">追加案</span></td><td>Cloudflare Tunnel等、無料で使える常設タイプの通り道。ポート開放やDMZ設定が不要で、HTTPS付きの固定URLを得られる。</td><td>①の「スリープで切れる」欠点を改善できる。サーバーPCは今のPCのままで良いので音声合成エンジンにも届く。PCを常時起動しておく必要がある点は①と同じ。</td></tr>
+    <tr><td>⑥<b>練習専用の別コピーを<br>クラウドに常設</b><span class="badge local">追加案</span></td><td>本番の大会用サーバー・学内LANには一切手を加えず、「自宅練習専用のコピー」をクラウド（レンタルサーバー等）に別途常設する。</td><td>音声合成エンジンへの依存を外し、ブラウザ内蔵の読み上げ機能に切り替えれば実現しやすい。<b>本番環境を一切変更しない</b>ため最も安全。</td></tr>
+  </table>
+
+  <div class="box ok"><b class="t">整理すると</b>
+    <ul style="margin-top:1mm">
+      <li>本番の大会用サーバー・学内ネットワークに<b>影響を与えたくない</b>場合　→　⑥（練習専用の別コピーをクラウドに常設）</li>
+      <li>学校の設備をそのまま活かしたい場合　→　④（VPN）が、音声合成エンジンの制約を回避できる点で有力</li>
+      <li>③（DMZに本番サーバーをそのまま置く）は、学校の既存インフラを使える利点はあるものの、音声合成エンジンとの接続という技術的な課題が残る</li>
+    </ul>
+  </div>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた システム構成資料　P.5</span></div>
+</section>
+
+</body>
+</html>

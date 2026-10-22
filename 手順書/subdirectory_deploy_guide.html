@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Webかるた サブディレクトリ公開 要件・影響資料</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .cover { background: linear-gradient(160deg, #2b1608 0%, #a04a12 100%); color: #fff; padding: 0; }
+  .cover .inner { padding: 24mm 20mm 0; }
+  .cover .club { font-size: 14pt; letter-spacing: .15em; color: #ffd9b3; }
+  .cover h1 { font-size: 30pt; line-height: 1.3; margin: 8mm 0 3mm; }
+  .cover .sub { font-size: 13.5pt; color: #ffe8d1; word-break: break-all; }
+  .cover .card { background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.35); border-radius: 4mm; padding: 5.5mm 7mm; margin-top: 7mm; }
+  .cover .card h2 { margin: 0 0 3mm; font-size: 14.5pt; color: #ffd66b; }
+  .cover .card li { font-size: 11.5pt; margin: 1.3mm 0; }
+  .cover .footer { color: #ffd9b3; border-top-color: rgba(255,255,255,.3); }
+  h2.step { background: linear-gradient(90deg, #a04a12, #e07a2e); }
+  h2.step .tag { color: #a04a12; }
+  h3 { color: #7a3509; border-left-color: #e07a2e; }
+  th { background: #fff1e3; }
+  .diagram { border: 1.5px solid #f0c49a; border-radius: 3mm; background: #fff8f1; padding: 4.5mm; margin: 2.5mm 0; }
+  .diagram .row { display: flex; align-items: center; justify-content: center; gap: 3.5mm; margin: 1.8mm 0; flex-wrap: wrap; }
+  .diagram .box { border: 2px solid #c75f10; border-radius: 2.5mm; background: #fff; padding: 2mm 3.5mm; font-size: 9.8pt; text-align: center; min-width: 30mm; }
+  .diagram .box.srv { border-color: #0f6e5c; background: #eafff6; font-weight: 700; }
+  .diagram .box.ext { border-color: #2d5bd6; background: #eaf1ff; }
+  .diagram .arrow { font-size: 9pt; color: #c75f10; text-align: center; }
+  .badge { display: inline-block; font-size: 8.7pt; padding: 0.4mm 1.8mm; border-radius: 1.5mm; margin-left: 1.3mm; }
+  .badge.need { background: #ffecec; color: #a30000; border: 1px solid #ff9a9a; }
+  .badge.ok { background: #eafaf0; color: #0f6e3a; border: 1px solid #8fdcaa; }
+  table.sm td, table.sm th { font-size: 9.3pt; padding: 1.4mm 2.3mm; }
+  .qbox { border: 1.5px dashed #c75f10; border-radius: 2.5mm; padding: 2.5mm 4mm; margin: 2mm 0; background: #fffaf4; font-size: 10pt; }
+</style>
+</head>
+<body>
+
+<!-- ===== 表紙 ===== -->
+<section class="page cover">
+  <div class="inner">
+    <div class="club">Webデザインサークル</div>
+    <h1>Webかるた<br>サブディレクトリ公開<br>要件・影響資料</h1>
+    <div class="sub">https://ycc.aa1.netvolante.jp/ 配下への実装に向けて</div>
+
+    <div class="card">
+      <h2>今回わかっていること</h2>
+      <ul>
+        <li>音声合成エンジン（VOICEVOX）も同じDMZ内にあるとのことなので、前回資料で挙げた音声面の懸念は小さくなりました。</li>
+        <li>一方で、動いているWebサーバーソフトは未確認、かつ <b>ycc.aa1.netvolante.jp では既に別のサイトが公開されている</b>ため、影響の検討が必要です。</li>
+        <li>かるたをどちらのPCで動かすか（既存PCに同居／新しいPCを追加）はまだ未定とのことなので、本資料では両方のパターンを整理します。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>このガイドでわかること</h2>
+      <ul>
+        <li>サブディレクトリ化のために必要なプログラム側の変更（P.3）</li>
+        <li>Webサーバー側で必要になる設定（P.4）</li>
+        <li>既存サイト・ネットワークへの影響（P.5）</li>
+        <li>公開前に確認しておきたいことチェックリスト（P.6）</li>
+      </ul>
+      <p style="font-size:10.5pt;color:#ffe8d1;margin-top:2mm">※DNS・DDNSのしくみ（初学者向け解説）は別ファイル「Webかるた_DNSとDDNSのしくみ.pdf」にまとめています。</p>
+    </div>
+  </div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた サブディレクトリ公開 要件・影響資料</span></div>
+</section>
+
+<!-- ===== 前提整理 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 1</span>前提の整理</h2>
+  <p>「サブディレクトリとして実装する」とは、<code>https://ycc.aa1.netvolante.jp/</code>というトップページはそのままに、その下に<code>https://ycc.aa1.netvolante.jp/karuta/</code>（名前は一例）という新しい道を1つ追加し、そこだけをWebかるたに繋ぐ、というイメージです。</p>
+
+  <div class="diagram">
+    <div class="row"><div class="box ext">https://ycc.aa1.netvolante.jp/<br>（既存のトップページ）</div></div>
+    <div class="arrow">│</div>
+    <div class="row"><div class="box ext">https://ycc.aa1.netvolante.jp/karuta/<br>（新しく追加する道）</div></div>
+    <div class="arrow">↓　Webサーバーが「この道だけは」とかるたへ転送</div>
+    <div class="row"><div class="box srv">Webかるた（Node.js）<br>新しいポート番号で待機</div></div>
+  </div>
+
+  <h3>確認状況の整理</h3>
+  <table class="sm">
+    <tr><th style="width:30%">項目</th><th style="width:20%">状況</th><th>対応</th></tr>
+    <tr><td>音声合成エンジン（VOICEVOX）との接続</td><td><span class="badge ok">見込みあり</span></td><td>同じDMZ内とのことなので基本的には問題なさそう。ただし実際に通信できるかは別途確認が必要（P.6）。</td></tr>
+    <tr><td>Webサーバーソフトの種類</td><td><span class="badge need">要確認</span></td><td>Apache／Nginx／IISなどソフトによって設定の書き方が変わる。管理者に確認が必要（P.4・P.6）。</td></tr>
+    <tr><td>既存サイトとの共存</td><td><span class="badge need">要確認</span></td><td>既に別サイトが公開されているとのことなので、パスの重複やリソース共有の影響を検討（P.5）。</td></tr>
+    <tr><td>動かすPC（同居／新規）</td><td><span class="badge need">未定</span></td><td>両パターンのメリット・デメリットを整理（P.5）。</td></tr>
+  </table>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた サブディレクトリ公開 要件・影響資料　P.2</span></div>
+</section>
+
+<!-- ===== プログラム側の変更 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 2</span>プログラム側で必要になる変更</h2>
+  <p>現在のWebかるたは、「アドレスの一番上（<code>/</code>）で動く」ことを前提に作られています。画面を作っているファイルの読み込みや、サーバーとの通信（リアルタイム通信・API）は、すべて<code>/</code>から始まる書き方になっています。</p>
+  <div class="box warn"><b class="t">そのままでは動かない</b>何も変更せずに<code>/karuta/</code>のようなサブディレクトリに置くと、画面の見た目が崩れたり（CSS等が読み込めない）、リアルタイム通信がつながらなかったりします。<b>サブディレクトリに対応するための改修が必要</b>です（こちらで対応いたします）。</div>
+
+  <h3>具体的に直す必要がある箇所</h3>
+  <table class="sm">
+    <tr><th style="width:36%">箇所</th><th>内容</th></tr>
+    <tr><td>画面のファイル（HTML/CSS/JS）の読み込み</td><td>「どのサブディレクトリに置かれても正しく読み込める」書き方に直す。</td></tr>
+    <tr><td>リアルタイム通信（Socket.io）の道筋</td><td>Socket.io側にも「サブディレクトリの下で待ち受ける」設定を追加する。</td></tr>
+    <tr><td>音声ファイル・APIのアドレス</td><td><code>/voice/...</code>や<code>/api/...</code>など、サーバーに直接問い合わせている箇所をサブディレクトリ対応にする。</td></tr>
+  </table>
+
+  <h3>新しいポート番号で動かす</h3>
+  <p>Webかるたのプログラム（Node.js）自体は、既存のWebサーバーとは別の「裏方のポート番号」（例：3001など、他で使われていない番号）で動かし、既存のWebサーバーから「このサブディレクトリへのアクセスだけ、裏の3001番に回してね」と転送してもらう形にします（次ページ）。これにより、既存サイトの設定にはほぼ手を加えずに追加できます。</p>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた サブディレクトリ公開 要件・影響資料　P.3</span></div>
+</section>
+
+<!-- ===== Webサーバー側の設定 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 3</span>Webサーバー側で必要になる設定</h2>
+  <p>既存のWebサーバー（<code>ycc.aa1.netvolante.jp</code>を今動かしているソフト）に、「<code>/karuta/</code>宛のアクセスだけ、裏で動いているWebかるた（ポート3001など）に転送する」設定（<b>リバースプロキシ</b>と呼ばれる仕組み）を追加してもらう必要があります。</p>
+
+  <div class="diagram">
+    <div class="row">
+      <div class="box">自宅・学内のブラウザ</div>
+    </div>
+    <div class="arrow">↓　https://ycc.aa1.netvolante.jp/karuta/ へアクセス</div>
+    <div class="row">
+      <div class="box ext">既存のWebサーバー<br>（Apache／Nginx／IISなど）</div>
+    </div>
+    <div class="arrow">↓　「/karuta/ だけ」を転送（リバースプロキシ）</div>
+    <div class="row">
+      <div class="box srv">Webかるた（Node.js）<br>ポート3001（例）</div>
+    </div>
+  </div>
+
+  <h3>ソフトごとの設定の考え方（どれが使われているか未確認のため、代表的な3つを記載）</h3>
+  <table class="sm">
+    <tr><th style="width:18%">ソフト</th><th>設定の考え方</th></tr>
+    <tr><td>Apache</td><td><code>mod_proxy</code>と<code>mod_proxy_wstunnel</code>を有効にし、<code>ProxyPass</code>で<code>/karuta/</code>を転送する設定を追加。</td></tr>
+    <tr><td>Nginx</td><td><code>location /karuta/ { proxy_pass ...; }</code>に、WebSocket用の<code>Upgrade</code>ヘッダーの転送設定を追加。</td></tr>
+    <tr><td>IIS（Windows）</td><td>「URL Rewrite」と「Application Request Routing（ARR）」を導入し、WebSocketプロトコルのサポートを有効にして転送設定を追加。</td></tr>
+  </table>
+
+  <div class="box warn"><b class="t">特に見落としやすい注意点</b>Webかるたは「リアルタイム通信（WebSocket）」でカードの読み上げや早取り判定をやり取りしています。リバースプロキシの設定で<b>WebSocket（Upgradeヘッダー）の転送</b>を有効にし忘れると、画面は表示されるのに「対局が始まらない」「カードが反応しない」といった不具合になります。設定時はこの点を管理者の方に必ずお伝えください。</div>
+
+  <div class="box ok"><b class="t">良いニュース</b>暗号化（HTTPS）は既存のWebサーバー側で既に対応済み（<code>https://ycc.aa1.netvolante.jp/</code>）なので、Webかるた自身に証明書を新たに用意する必要はありません。前回の資料で挙げた「HTTPS未対応」の懸念は、この構成であれば解消されます。</div>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた サブディレクトリ公開 要件・影響資料　P.4</span></div>
+</section>
+
+<!-- ===== 他への影響 ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 4</span>既存サイト・ネットワークへの影響</h2>
+
+  <h3>① URLの重複に注意</h3>
+  <p>既に別のサイトが公開されているとのことなので、追加しようとしている道（例：<code>/karuta/</code>）が、<b>既存サイトで既に使われている名前と被っていないか</b>事前の確認が必要です。管理者の方に、現在公開されているURLの一覧を確認してもらうことをおすすめします。</p>
+
+  <h3>② 同じPCに同居させる場合／別PCを追加する場合の比較</h3>
+  <table class="sm">
+    <tr><th style="width:18%"></th><th>同じPCに同居</th><th>別の新しいPCを追加</th></tr>
+    <tr><td><b>準備の手間</b></td><td>少ない（新しい機器の設置は不要）</td><td>多い（機器の用意・DMZへの接続設定が別途必要）</td></tr>
+    <tr><td><b>既存サイトへの影響</b></td><td>かるたで大人数が同時アクセスすると、CPU・メモリ・回線を共有しているため既存サイトの応答が遅くなる可能性がある</td><td>機器が分かれているため、既存サイトへの影響は小さい</td></tr>
+    <tr><td><b>トラブル時の切り分け</b></td><td>プログラム自体は別プロセスなので、かるたが落ちても既存サイトが連鎖して止まることは基本的にない。ただしPC自体に問題が起きた場合は両方止まる</td><td>機器が分かれているため、問題の切り分けがしやすい</td></tr>
+  </table>
+  <div class="box info"><b class="t">判断の目安</b>「まず試してみたい」段階であれば同居、本番として長く安定運用したいなら別PCの追加が望ましい、という考え方が一般的です。最終的には管理者の方とご相談のうえ決めることをおすすめします。</div>
+
+  <h3>③ 同時アクセスによる負荷</h3>
+  <p>Webかるたには、本番前に大人数の同時アクセスを想定した<b>負荷テスト機能</b>（参加用アドレスに<code>?mode=test</code>を付けて実施）が既に用意されています。同居させる場合は特に、本番の少人数構成でこの負荷テストを一度試しておくと、既存サイトへの影響の目安がつかめます（詳細は「Webかるた_負荷テスト手順書.pdf」を参照）。</p>
+
+  <h3>④ ルーター（netvolante）側の設定について</h3>
+  <p>サブディレクトリとして追加するだけであれば、ルーター側で新しくポートを開ける作業は<b>基本的に不要</b>です（既に443番がそのサーバーに転送されている前提のため）。ただし、別の新しいPCをDMZに追加する場合は、そのPCをネットワークに接続するための設定（スイッチのポート割り当て等）が別途必要になります。</p>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた サブディレクトリ公開 要件・影響資料　P.5</span></div>
+</section>
+
+<!-- ===== チェックリスト ===== -->
+<section class="page">
+  <h2 class="step"><span class="tag">STEP 5</span>公開前に確認しておきたいことチェックリスト</h2>
+  <p>以下は、管理者の先生に確認・相談していただきたい項目です。印刷してそのままお持ちいただいても構いません。</p>
+
+  <div class="qbox">□　ycc.aa1.netvolante.jp は今、何のWebサーバーソフト（Apache／Nginx／IIS等）で動いていますか？</div>
+  <div class="qbox">□　現在そのサーバーで公開されているURLの一覧を教えてください（<code>/karuta/</code>という名前が既存のものと被っていないか確認するため）。</div>
+  <div class="qbox">□　Webかるたは、今のサーバーに同居させてよいですか？　それとも別のPCを新規にDMZへ追加する想定ですか？</div>
+  <div class="qbox">□　（同居の場合）そのPCにNode.jsをインストールし、Webかるたのプログラムを常時起動させておくことは可能ですか？　PCの再起動時に自動で立ち上がる仕組み（サービス化等）も含めてご相談したいです。</div>
+  <div class="qbox">□　VOICEVOX（音声合成エンジン）が動いているPCのIPアドレス・ポート番号（50021）に、Webかるたを動かすPCから実際に通信できますか？（同じDMZ内でも、機器同士の通信が制限されている場合があります）</div>
+  <div class="qbox">□　学外から誰でもアクセスできるようになるため、参加に合言葉を設ける等のアクセス制限を検討する必要はありますか？</div>
+
+  <h3>おすすめの進め方</h3>
+  <div class="flowv" style="display:flex;flex-direction:column;gap:2mm;margin:3mm 0">
+    <div class="st" style="border:2px solid #e07a2e;border-radius:3mm;padding:2.2mm 5mm;background:#fff8f1;font-size:11pt"><b style="color:#7a3509">① 完了</b>　お渡しした「動作確認用フォルダ」を別PCで単体起動し、正常に動くことを確認（本資料作成にあわせて実施・確認済みです）</div>
+    <div class="st" style="border:2px solid #e07a2e;border-radius:3mm;padding:2.2mm 5mm;background:#fff8f1;font-size:11pt"><b style="color:#7a3509">②</b>　上記チェックリストを管理者の先生と確認</div>
+    <div class="st" style="border:2px solid #e07a2e;border-radius:3mm;padding:2.2mm 5mm;background:#fff8f1;font-size:11pt"><b style="color:#7a3509">③</b>　サブディレクトリ対応のプログラム改修を行い、DMZ内の新しいポートでいったん起動（この時点ではまだ学外に公開しない）</div>
+    <div class="st" style="border:2px solid #e07a2e;border-radius:3mm;padding:2.2mm 5mm;background:#fff8f1;font-size:11pt"><b style="color:#7a3509">④</b>　管理者とリバースプロキシ設定を追加し、<code>/karuta/</code>経由で学内から動作確認</div>
+    <div class="st" style="border:2px solid #e07a2e;border-radius:3mm;padding:2.2mm 5mm;background:#fff8f1;font-size:11pt"><b style="color:#7a3509">⑤</b>　自宅（学外）から実際にアクセスできることを確認して完了</div>
+  </div>
+
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた サブディレクトリ公開 要件・影響資料　P.6</span></div>
+</section>
+
+</body>
+</html>
