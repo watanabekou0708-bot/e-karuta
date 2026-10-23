@@ -30,6 +30,10 @@
   <p>多くの家庭・学校のインターネット回線は、「固定IPアドレス」という契約をしない限り、プロバイダ側の都合で<b>IPアドレスが時々変わってしまう</b>（動的IPアドレス）ようになっています。もしドメイン名が最初のIPアドレスのまま変わらなければ、IPアドレスが変わった瞬間にアクセスできなくなってしまいます。</p>
   <p>DDNSは、学校のルーターが定期的に「今のうちのIPアドレスはこれです」とDDNSサービス（netvolante）に自動で知らせ続けることで、たとえ実際のIPアドレスが変わっても、ドメイン名（<code>ycc.aa1.netvolante.jp</code>）は変えずにアクセスし続けられるようにする仕組みです。</p>
 
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた DNS・DDNSのしくみ　P.1</span></div>
+</section>
+
+<section class="page">
   <h3>学内からと学外（自宅）からで、経路が違う理由</h3>
   <p>ご認識のとおり、学内には学外へは公開していない「内部専用のDNS」があり、学内のPCが<code>ycc.aa1.netvolante.jp</code>にアクセスするときは、わざわざインターネットへ出て学校のルーターを経由して戻ってくる遠回りをせず、学内のDNSが直接「学内LAN上のそのPCのアドレス」を教えてくれるため、速く・直接アクセスできます。これは<b>スプリットDNS（分割DNS）</b>と呼ばれる、学校・企業でよく使われる構成です。</p>
 
@@ -48,7 +52,7 @@
 
   <div class="box info"><b class="t">内部向けの名前が公開されていないのは意図的</b>学内の構成（どんな名前のサーバーがどこにあるか）を外部に知らせないための、セキュリティ上の工夫です。自宅から使うときは、学内専用の名前ではなく、外部公開用のドメイン（<code>ycc.aa1.netvolante.jp</code>）を使う、という使い分けになります。</div>
 
-  <div class="footer"><span>Webデザインサークル</span><span>Webかるた DNS・DDNSのしくみ</span></div>
+  <div class="footer"><span>Webデザインサークル</span><span>Webかるた DNS・DDNSのしくみ　P.2</span></div>
 </section>
 
 </body>
