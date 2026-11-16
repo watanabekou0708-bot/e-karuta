@@ -2529,12 +2529,26 @@ io.on('connection', socket => {
   socket.on('join_admin', () => {
     socket.emit('admin_init', {
       isHost:      isHostEligible(socket),
+      supervised:  process.env.KARUTA_SUPERVISED === '1',
       phase:       gs.phase,
       eventActive: gs.event.active,
       eventConfig: gs.eventConfig,
       schedule:    gs.schedule,
       scheduleLog: gs.scheduleLog,
     });
+  });
+
+  // ── 管理画面：サーバーの停止・再起動（教卓PCのみ）──
+  // launcher.js（起動.bat）から起動している場合だけ、停止後に画面から起動し直せる／再起動できる。
+  // 進行中の試合・大会の状態はメモリ上にあるため、停止・再起動で失われる。
+  socket.on('server_control', (action) => {
+    if (!isHostEligible(socket)) return;
+    if (action !== 'stop' && action !== 'restart') return;
+    const supervised = process.env.KARUTA_SUPERVISED === '1';
+    if (action === 'restart' && !supervised) { socket.emit('server_control_result', { ok: false, msg: '再起動は「起動.bat」から起動している場合のみ使えます。' }); return; }
+    logEvent('server_control', { action, supervised });
+    io.emit('server_going_down', { action });
+    setTimeout(() => process.exit(action === 'restart' ? 75 : 0), 400);
   });
 
   // ── 管理画面：大会モードの通過比率・復活戦ラウンド数の設定（教卓PCのみ・ロビー中のみ）──

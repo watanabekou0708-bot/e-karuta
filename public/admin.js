@@ -14,7 +14,7 @@ function pct(ratio) { return Math.round(ratio * 100); }
 
 function applyLockState() {
   const locked = !isHost;
-  ['cfgMainCutRatio', 'cfgMainMaxRounds', 'cfgRevivalMaxRounds', 'cfgRevivalCutRatio', 'cfgTestCpuFill', 'cfgSaveBtn'].forEach(id => {
+  ['cfgMainCutRatio', 'cfgMainMaxRounds', 'cfgRevivalMaxRounds', 'cfgRevivalCutRatio', 'cfgTestCpuFill', 'cfgSaveBtn', 'srvRestartBtn', 'srvStopBtn'].forEach(id => {
     const el = $(id);
     if (el) el.disabled = locked;
   });
@@ -144,4 +144,27 @@ socket.on('schedule_updated', (d) => {
   schedule = d.schedule || [];
   scheduleLog = d.scheduleLog || {};
   renderSchedule();
+});
+
+// ── サーバーの停止・再起動 ──
+let supervised = false;
+function serverControl(action) {
+  if (!isHost) return;
+  if (action === 'restart' && !supervised) { alert('再起動は「起動.bat」から起動している場合のみ使えます。'); return; }
+  const again = supervised ? 'この画面（教卓PC）の「起動」ボタンを使います。' : 'コマンドで node server.js を実行します。';
+  const msg = action === 'stop'
+    ? 'サーバーを停止します。進行中の試合・大会の状態は失われ、全員の接続が切れます。\n再び起動するには' + again + '\nよろしいですか？'
+    : 'サーバーを再起動します。進行中の試合・大会の状態は失われ、全員の接続が切れます。\nよろしいですか？';
+  if (!confirm(msg)) return;
+  socket.emit('server_control', action);
+}
+socket.on('server_control_result', (r) => { if (r && !r.ok) alert(r.msg); });
+socket.on('server_going_down', (d) => {
+  $('srvCtlNote').textContent = d.action === 'restart'
+    ? '再起動中です…数秒後に自動で再接続します。'
+    : 'サーバーを停止しました。' + (supervised ? '教卓PCで http://localhost:' + location.port + '/ を開くと「起動」ボタンが出ます。' : '');
+});
+socket.on('admin_init', (d) => {
+  supervised = !!d.supervised;
+  $('srvCtlNote').textContent = supervised ? '' : '※「起動.bat」から起動していないため、再起動と、停止後の画面からの起動はできません（停止のみ可能）。';
 });

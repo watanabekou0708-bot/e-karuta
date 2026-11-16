@@ -46,6 +46,14 @@
     <span id="cfgSaved" class="admin-saved hidden">✓ 保存しました</span>
   </div>
 
+  <div class="admin-card" id="serverCtlCard">
+    <h2 class="admin-h2">🖥 サーバーの操作</h2>
+    <p class="ov-sub">進行中の試合・大会の状態は失われます。参加者の接続も切れます。</p>
+    <button id="srvRestartBtn" class="btn btn-blue" onclick="serverControl('restart')">🔄 再起動</button>
+    <button id="srvStopBtn" class="btn btn-blue" onclick="serverControl('stop')">⏹ 停止</button>
+    <p class="ov-sub" id="srvCtlNote"></p>
+  </div>
+
   <div class="admin-card">
     <h2 class="admin-h2">当日の進行スケジュール</h2>
     <p class="ov-sub">予定時刻を記録し、実際にその試合目を始めたら「開始」を押して記録します。</p>
