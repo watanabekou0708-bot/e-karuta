@@ -179,6 +179,7 @@
 
     <p id="rrGuestWait" class="ov-sub hidden">ホストが次の試合を開始するまでお待ちください</p>
     <button id="rrLobbyBtn" class="btn btn-blue hidden" onclick="requestLobby()">ロビーに戻る</button>
+    <button class="btn btn-leave" onclick="leaveLobby()" style="margin-top:.6rem">🚪 退室する</button>
   </div>
 </div>
 
@@ -203,7 +204,14 @@
     <div class="ov-title">🎉 ゲーム終了！</div>
     <div class="rankings" id="rankings"></div>
     <button class="btn btn-blue" onclick="requestLobby()">ロビーに戻る</button>
+    <button class="btn btn-leave" onclick="leaveLobby()" style="margin-top:.6rem">🚪 退室する</button>
   </div>
+</div>
+
+<!-- ── 緊急停止のお知らせ ───────────────────────────── -->
+<div id="oPause" class="overlay pause-overlay hidden">
+  <div class="pause-title" id="pauseMsg"></div>
+  <div class="pause-count" id="pauseCount"></div>
 </div>
 
 <!-- ── Game UI ────────────────────────────────────────── -->

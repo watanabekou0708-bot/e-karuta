@@ -470,6 +470,29 @@ let readTimeoutTimer  = null;
 let announceAdvanceTimer   = null;   // ホストの announce_finished を待つ保険タイマー
 let pendingAnnounceAdvance = null;   // announce_finished（または保険タイマー）で実行する処理
 
+// ── 緊急停止（管理画面から）──────────────────────────────
+// 押された時点で「停止要求」を立て、いま鳴っている読み上げ・DJなどの一連の音声が終わって
+// 次の札を読み上げようとする（read_next）段階でゲームを一時中断する。
+// 再開ボタンを押すと、まず「まもなく再開します」を表示し、30秒後に次の札から再開する。
+const PAUSE_RESUME_DELAY_MS = 30 * 1000;
+const pauseState = { requested: false, active: false, resumeAt: 0, timer: null };
+function pauseSnapshot() {
+  return { requested: pauseState.requested, active: pauseState.active, resumeAt: pauseState.resumeAt };
+}
+function broadcastPause() { io.emit('pause_state', pauseSnapshot()); }
+function activatePause() {
+  if (pauseState.active) return;
+  pauseState.requested = false;
+  pauseState.active = true;
+  pauseState.resumeAt = 0;
+  logEvent('pause_active', { phase: gs.phase });
+  broadcastPause();
+}
+function resetPause() {
+  if (pauseState.timer) { clearTimeout(pauseState.timer); pauseState.timer = null; }
+  pauseState.requested = false; pauseState.active = false; pauseState.resumeAt = 0;
+}
+
 // 結果発表の音声（そこまで→DJ→答え合わせ等）がホスト端末で終わるのを待ってから fn を実行する。
 // ホストから announce_finished が届くか、ANNOUNCE_FALLBACK_MS 経っても届かなければ保険で実行する。
 function armAnnounceAdvance(fn) {
@@ -1785,6 +1808,7 @@ function sendInitTo(socket) {
     eventPassCount:      gs.event.passCount,
     eventParticipantIds: [...gs.event.participantIds],
     eventGamesPlayed:    gs.event.gamesPlayed,
+    pause:               pauseSnapshot(),
   });
   // 大会モードのラウンド間（ホームで次のアクションを待っている状態）に接続・再接続した人にも、
   // ホームの表示に必要な最新情報を届ける（直近の結果そのものは lastResult 経由）。
@@ -1839,6 +1863,7 @@ function reclaimDisconnectedEventPlayerByToken(newId, token) {
 
 // ── Socket.io ─────────────────────────────────────────────
 io.on('connection', socket => {
+  socket.emit('pause_state', pauseSnapshot());
   const color = COLORS[colorIdx++ % COLORS.length];
   gs.players[socket.id] = { name: `プレイヤー${Object.keys(gs.players).filter(id => !gs.players[id].isBot).length + 1}`, color, score: 0, bonus: 0, cards: 0, misses: 0, joined: false };
 
@@ -2026,9 +2051,7 @@ io.on('connection', socket => {
   // ── Skip memorization（ホストのみ・デバッグ用）───────────
   socket.on('skip_memorize', () => {
     if (gs.phase !== 'memorizing' || !canUseDebug(socket)) return;
-    // 練習モードは、音声ファイルが用意できてからでないと盤面整理をスキップできない
-    // （生成自体が失敗して揃わなかった場合は、待っても増えないのでスキップを許可する）
-    if (!gs.event.active && gs.voice && !gs.voice.ready && !gs.voice.finalFailed) { socket.emit('skip_denied', { done: gs.voice.done, total: gs.voice.total }); return; }
+    // 練習モードも大会モードと同じく、音声の準備を待たずにスキップできる（足りない音声は再生時に各端末が取得する）
     doStartPlaying();
   });
 
@@ -2036,6 +2059,9 @@ io.on('connection', socket => {
   socket.on('read_next', () => {
     if (gs.phase !== 'waiting' || socket.id !== gs.hostId || !gs.currentCard) return;
     if (gs.ready.active) return;   // 全員の仮想カーソルの準備待ち（ready_release で再開される）
+    // 緊急停止：次の札を読み上げようとするこの段階（直前の音声が全部終わった後）で中断する
+    if (pauseState.active) return;
+    if (pauseState.requested) { activatePause(); return; }
     // 最後の1枚になったら、本物の札を読む前に最低でもレベルに応じた回数（A=3〜D=6）ダミー読みを連発する
     if (gs.remaining.size === 1) {
       if (gs.finalDecoyLeft === null) gs.finalDecoyLeft = FINAL_DECOYS[LEVELS[gs.matchLevel]] || 3;
@@ -2530,6 +2556,7 @@ io.on('connection', socket => {
     socket.emit('admin_init', {
       isHost:      isHostEligible(socket),
       supervised:  process.env.KARUTA_SUPERVISED === '1',
+      pause:       pauseSnapshot(),
       phase:       gs.phase,
       eventActive: gs.event.active,
       eventConfig: gs.eventConfig,
@@ -2549,6 +2576,40 @@ io.on('connection', socket => {
     logEvent('server_control', { action, supervised });
     io.emit('server_going_down', { action });
     setTimeout(() => process.exit(action === 'restart' ? 75 : 0), 400);
+  });
+
+  // ── 管理画面：緊急停止・再開（教卓PCのみ）──
+  socket.on('admin_pause', () => {
+    if (!isHostEligible(socket)) return;
+    if (pauseState.active || pauseState.requested) return;
+    if (pauseState.timer) { clearTimeout(pauseState.timer); pauseState.timer = null; }
+    logEvent('pause_request', { phase: gs.phase });
+    // 音声が鳴っていない場面（ロビー・試合結果）はすぐ止める。進行中の試合は、音声が終わって
+    // 次の札を読もうとした時点（read_next）で止まる。
+    if (gs.phase === 'lobby' || gs.phase === 'round_finished') { pauseState.requested = true; activatePause(); return; }
+    pauseState.requested = true;
+    broadcastPause();
+  });
+  socket.on('admin_resume', () => {
+    if (!isHostEligible(socket)) return;
+    if (pauseState.requested && !pauseState.active) { pauseState.requested = false; broadcastPause(); return; }   // まだ止まる前なら取り消すだけ
+    if (!pauseState.active || pauseState.resumeAt) return;
+    pauseState.resumeAt = Date.now() + PAUSE_RESUME_DELAY_MS;
+    logEvent('pause_resume_countdown', { resumeAt: pauseState.resumeAt });
+    broadcastPause();
+    pauseState.timer = setTimeout(() => {
+      pauseState.timer = null;
+      pauseState.active = false; pauseState.requested = false; pauseState.resumeAt = 0;
+      logEvent('pause_resumed', { phase: gs.phase });
+      broadcastPause();
+      // 止めたとき読み上げ前で待っていた場合は、次の札の読み上げ待ちを出し直して再開させる
+      if (gs.phase === 'waiting' && gs.currentCard) {
+        io.emit('game_waiting', {
+          remaining: [...gs.remaining], players: gs.players, hostId: gs.hostId, difficulty: gs.difficulty,
+          round: gs.round, totalCards: gs.cardOrder.length || 10, isRevival: gs.isRevival,
+        });
+      }
+    }, PAUSE_RESUME_DELAY_MS);
   });
 
   // ── 管理画面：大会モードの通過比率・復活戦ラウンド数の設定（教卓PCのみ・ロビー中のみ）──

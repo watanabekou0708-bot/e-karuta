@@ -97,3 +97,22 @@ socket.on('event_round_finished', (d) => {
   const label = d.isFinal ? '🏆 本戦 最終結果' : `🏁 ${{ main: '本戦', revival: '敗者復活戦' }[d.stage] || d.stage}の結果`;
   showResult(label, d.players);
 });
+
+// 緊急停止のお知らせ（投影画面にも出す）
+let pjPause = { active: false, resumeAt: 0 };
+let pjPauseTick = null;
+function pjRenderPause() {
+  const ov = document.getElementById('oPause');
+  if (!ov) return;
+  if (pjPauseTick) { clearInterval(pjPauseTick); pjPauseTick = null; }
+  if (!pjPause.active) { ov.classList.add('hidden'); return; }
+  document.getElementById('pauseMsg').textContent = pjPause.resumeAt
+    ? 'まもなくゲームを再開します。席について待っていてください。'
+    : '現在トラブル対応中です。ゲーム再開までしばらくお待ちください。';
+  ov.classList.remove('hidden');
+  const cnt = document.getElementById('pauseCount');
+  const upd = () => { cnt.textContent = pjPause.resumeAt ? Math.max(0, Math.ceil((pjPause.resumeAt - Date.now()) / 1000)) + '秒' : ''; };
+  upd();
+  if (pjPause.resumeAt) pjPauseTick = setInterval(upd, 250);
+}
+socket.on('pause_state', (st) => { pjPause = st || { active: false, resumeAt: 0 }; pjRenderPause(); });

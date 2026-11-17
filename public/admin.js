@@ -14,7 +14,7 @@ function pct(ratio) { return Math.round(ratio * 100); }
 
 function applyLockState() {
   const locked = !isHost;
-  ['cfgMainCutRatio', 'cfgMainMaxRounds', 'cfgRevivalMaxRounds', 'cfgRevivalCutRatio', 'cfgTestCpuFill', 'cfgSaveBtn', 'srvRestartBtn', 'srvStopBtn'].forEach(id => {
+  ['cfgMainCutRatio', 'cfgMainMaxRounds', 'cfgRevivalMaxRounds', 'cfgRevivalCutRatio', 'cfgTestCpuFill', 'cfgSaveBtn', 'srvRestartBtn', 'srvStopBtn', 'pauseBtn', 'resumeBtn'].forEach(id => {
     const el = $(id);
     if (el) el.disabled = locked;
   });
@@ -168,3 +168,25 @@ socket.on('admin_init', (d) => {
   supervised = !!d.supervised;
   $('srvCtlNote').textContent = supervised ? '' : '※「起動.bat」から起動していないため、再起動と、停止後の画面からの起動はできません（停止のみ可能）。';
 });
+
+// ── 緊急停止・再開 ──
+function pauseGame() { if (isHost && confirm('緊急停止します。音声が終わった段階でゲームが一時中断し、全員の画面にお知らせが出ます。よろしいですか？')) socket.emit('admin_pause'); }
+function resumeGame() { if (isHost && confirm('再開します。「まもなく再開します」と表示され、30秒後に次の札から再開します。よろしいですか？')) socket.emit('admin_resume'); }
+let pauseCountdown = null;
+function renderPauseStatus(st) {
+  st = st || {};
+  const status = $('pauseStatus');
+  if (pauseCountdown) { clearInterval(pauseCountdown); pauseCountdown = null; }
+  const pb = $('pauseBtn'), rb = $('resumeBtn');
+  if (pb) pb.disabled = !isHost || !!st.active || !!st.requested;
+  if (rb) rb.disabled = !isHost || !(st.active || st.requested) || !!st.resumeAt;
+  if (!status) return;
+  if (st.active && st.resumeAt) {
+    const upd = () => { status.textContent = '再開まであと ' + Math.max(0, Math.ceil((st.resumeAt - Date.now()) / 1000)) + ' 秒…'; };
+    upd(); pauseCountdown = setInterval(upd, 250);
+  } else if (st.active) status.textContent = '⏸ 停止中です。再開するには「再開」を押してください。';
+  else if (st.requested) status.textContent = '音声が終わるのを待っています。終わり次第、一時中断します。';
+  else status.textContent = '';
+}
+socket.on('pause_state', renderPauseStatus);
+socket.on('admin_init', (d) => renderPauseStatus(d.pause));

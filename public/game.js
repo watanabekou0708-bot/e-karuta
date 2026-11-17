@@ -207,6 +207,21 @@ let curDjVoice = null;    // DJ の再生ハンドル
 function stopVoice() { if (curVoice) { curVoice.stop(); curVoice = null; } }
 function playVoiceItems(items, playAt, gen, onDone, onItemStart) {
   stopVoice();
+  // 音声がまだ手元に揃っていない（先読みが間に合っていない・取得に失敗していた）まま鳴らすと、
+  // その部分が無音になる（1枚目の読み上げが鳴らない原因）。足りない分を取得（サーバーに無ければ
+  // 生成を依頼）してから鳴らす。揃っていれば従来どおり予約時刻ぴったりに鳴らす。
+  if (!Voice.hasAll(items)) {
+    Voice.preload(items, { ensure: true }).then(r => {
+      if (gen !== audioGeneration) return;
+      if (r && r.failed) console.warn('[voice] 一部の音声が取得できませんでした', r);
+      startVoiceItems(items, playAt, gen, onDone, onItemStart);
+    });
+    return true;
+  }
+  return startVoiceItems(items, playAt, gen, onDone, onItemStart);
+}
+function startVoiceItems(items, playAt, gen, onDone, onItemStart) {
+  stopVoice();
   curVoice = Voice.play(items, { at: playAt, gapMs: 150, onItemStart, onDone: () => { if (gen === audioGeneration && onDone) onDone(); } });
   if (!curVoice && onDone) setTimeout(() => { if (gen === audioGeneration) onDone(); }, 0);
   return !!curVoice;
@@ -787,7 +802,9 @@ function updateLobbyUI() {
   const canEvent = isServerPc;
   // 大会モードが実際に始まっている間（ラウンド間でホームに戻ってきた状態）は、
   // 誰であっても強制的に大会モード表示にする（モード選択に戻って抜けることはできない）。
-  if (eventStarted) lobbyMode = 'event';
+  // ただしホスト（教卓PC）が退出していて進行できない間は強制せず、モード選択へ戻れる／退室できるようにする。
+  const hostGone = !liveHostId;
+  if (eventStarted && !hostGone) lobbyMode = 'event';
 
   if (modeSelect)      modeSelect.style.display      = !lobbyMode ? '' : 'none';
   // 練習ゲームは参加登録済みの誰でも難易度を選んで開始できる（先に押した人の設定が全員に適用される）
@@ -795,9 +812,9 @@ function updateLobbyUI() {
   if (eventSection)      eventSection.style.display      = (canEvent  && lobbyMode === 'event') ? '' : 'none';
   if (eventGuestSection) eventGuestSection.style.display  = (!canEvent && lobbyMode === 'event') ? '' : 'none';
   const evBackBtn = $('lobbyEventBackBtn');
-  if (evBackBtn) evBackBtn.style.display = eventStarted ? 'none' : '';
+  if (evBackBtn) evBackBtn.style.display = (eventStarted && !hostGone) ? 'none' : '';
   const evGuestBackBtn = $('lobbyEventGuestBackBtn');
-  if (evGuestBackBtn) evGuestBackBtn.style.display = eventStarted ? 'none' : '';
+  if (evGuestBackBtn) evGuestBackBtn.style.display = (eventStarted && !hostGone) ? 'none' : '';
 
   if (startBtn) {
     startBtn.disabled = false;
@@ -921,12 +938,16 @@ function renderLobbyEventSection() {
   const topInfo = $('lobbyTopInfo');
   const leaveBtn = $('lobbyLeaveBtn');
   if (topInfo)  topInfo.classList.toggle('hidden', showResult);
-  if (leaveBtn) leaveBtn.classList.toggle('hidden', showResult);
+  if (leaveBtn) leaveBtn.classList.remove('hidden');   // 退室するボタンは常に使えるようにする
 
   // ── 表彰式の案内（最終試合後、ホームに戻ったら表示。ホスト・非ホスト共通）────
   if (stageDone && data && data.ceremony && ceremonyBox && eventShowingHub) {
     ceremonyBox.classList.remove('hidden');
-    if (ceremonyMsg) ceremonyMsg.textContent = `${data.ceremony.time}から表彰式を行います。${data.ceremony.location}に集合してください。`;
+    if (ceremonyMsg) ceremonyMsg.textContent = `${data.ceremony.time}から表彰式を行います。${data.ceremony.location}に集合してください。`
+      // 1行に収まるよう、はみ出す間は文字を小さくする
+      ceremonyMsg.style.whiteSpace = 'nowrap';
+      ceremonyMsg.style.fontSize = '1.05rem';
+      for (let fs = 1.05; fs > 0.5 && ceremonyMsg.scrollWidth > ceremonyMsg.clientWidth + 1; fs -= 0.05) ceremonyMsg.style.fontSize = fs.toFixed(2) + 'rem';
   } else if (ceremonyBox) {
     ceremonyBox.classList.add('hidden');
   }
@@ -2349,7 +2370,11 @@ let voiceState = { total: 0, done: 0, ready: false, loaded: false, loading: fals
 async function preloadMatchVoice() {
   if (voiceState.loading || voiceState.loaded) return;
   voiceState.loading = true; refreshDebugButtons();
-  try { await Voice.preload(voiceState.items, { concurrency: 6 }); } catch (e) {}
+  try {
+    let r = await Voice.preload(voiceState.items, { concurrency: 6 });
+    // 取得できなかった分は、サーバーに生成を依頼してもう一度取りに行く（試合中に無音になるのを防ぐ）
+    if (r && r.failed) r = await Voice.preload(voiceState.items, { concurrency: 4, ensure: true });
+  } catch (e) {}
   voiceState.loading = false; voiceState.loaded = true; refreshDebugButtons();
 }
 function applyVoiceSummary(v) {
@@ -2369,7 +2394,7 @@ function refreshDebugButtons() {
   const btn = $('debugEndBtn');
   if (!btn) return;
   if (isArranging) {
-    const gated = !isEventMode && !voiceReadyForSkip();
+    const gated = false;   // 練習モードも大会モードと同様、音声の準備を待たずにスキップできる
     btn.disabled = gated;
     btn.textContent = gated
       ? (voiceState.ready ? '🔊 音声を読み込み中…' : `🔊 音声を準備中 ${voiceState.done}/${voiceState.total}`)
@@ -3321,4 +3346,38 @@ socket.on('spectator_reaction', ({ emoji, name, color }) => {
 
 socket.on('connect_error', () => {
   $('readingText').textContent = 'サーバーに接続できません。ページを更新してください。';
+});
+
+// ── 緊急停止（管理画面から）──────────────────────────────
+// 停止要求があっても、いま鳴っている読み上げ・DJなどの音声が終わるまでは画面を変えない。
+// サーバーが「停止中」にした時点で、自分の音声が終わっていれば（終わるのを待って）お知らせを出す。
+const PAUSE_MSG_STOP   = '現在トラブル対応中です。ゲーム再開までしばらくお待ちください。';
+const PAUSE_MSG_RESUME = 'まもなくゲームを再開します。席について待っていてください。';
+let pauseInfo = { requested: false, active: false, resumeAt: 0 };
+let pauseTick = null;
+function renderPauseOverlay() {
+  const ov = $('oPause');
+  if (!ov) return;
+  if (!pauseInfo.active) { ov.classList.add('hidden'); if (pauseTick) { clearInterval(pauseTick); pauseTick = null; } return; }
+  $('pauseMsg').textContent = pauseInfo.resumeAt ? PAUSE_MSG_RESUME : PAUSE_MSG_STOP;
+  ov.classList.remove('hidden');
+  if (pauseTick) { clearInterval(pauseTick); pauseTick = null; }
+  const cnt = $('pauseCount');
+  const upd = () => {
+    if (!pauseInfo.resumeAt) { cnt.textContent = ''; return; }
+    cnt.textContent = Math.max(0, Math.ceil((pauseInfo.resumeAt - (hiResNow() + serverOffset)) / 1000)) + '秒';
+  };
+  upd();
+  if (pauseInfo.resumeAt) pauseTick = setInterval(upd, 250);
+}
+socket.on('pause_state', (st) => {
+  const wasActive = pauseInfo.active;
+  pauseInfo = st || { requested: false, active: false, resumeAt: 0 };
+  dropIdleWaiters('pause');
+  if (pauseInfo.active && !wasActive) {
+    // 自分の端末の音声（読み上げ・正解発表・DJ）が終わってから表示する
+    whenAudioIdle(renderPauseOverlay, 'pause', 25000);
+  } else {
+    renderPauseOverlay();
+  }
 });
