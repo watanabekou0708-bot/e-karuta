@@ -1300,13 +1300,27 @@ function playWarmupBlip() {
 
   // ⑤ 札を取る（人がクリックする操作の代わり）。本番と同じく、読み上げ中にランダムな
   //    タイミング・精度で「正しい札だと思ってクリックする」動作を模擬する。
+  // サーバーは「読み上げます」の発声が始まる前のクリックを無視する（grab_too_early）。
+  // read_card 受信の0.3〜3秒後では発声開始（約4.7秒後）より前になり、全クリックが弾かれて
+  // 誰も札を取れなかったため、発声が始まった（introStarted）時点を起点にランダムに待つ。
+  let botReadSeq = 0;
   const botOnRead = (d, isDecoy) => {
-    if (Math.random() < 0.6) {
-      const cardId = isDecoy ? d.id : d.card.id;
-      setTimeout(() => {
-        socket.emit('grab_card', { cardId, t: hiResNow() + serverOffset, offsetMm: rand(0, 20), distMm: rand(10, 290) });
-      }, rand(300, 3000));
-    }
+    const seq = ++botReadSeq;
+    if (Math.random() >= 0.6) return;
+    const cardId = isDecoy ? d.id : d.card.id;
+    // 通常のread_card処理（introStarted=false）が先に走るよう、1tick後から発声開始を待つ
+    setTimeout(() => {
+      const startedAt = hiResNow();
+      const iv = setInterval(() => {
+        if (seq !== botReadSeq || hiResNow() - startedAt > 20000) { clearInterval(iv); return; }
+        if (!introStarted) return;
+        clearInterval(iv);
+        setTimeout(() => {
+          if (seq !== botReadSeq) return;
+          socket.emit('grab_card', { cardId, t: hiResNow() + serverOffset, offsetMm: rand(0, 20), distMm: rand(10, 290) });
+        }, rand(300, 3000));
+      }, 30);
+    }, 0);
   };
   socket.on('read_card', d => botOnRead(d, false));
   socket.on('decoy_read', d => botOnRead(d, true));
