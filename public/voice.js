@@ -10,7 +10,9 @@ window.Voice = (() => {
   let getCtx = null;
   let nowServer = () => Date.now();
 
-  const urlOf = it => D.voiceUrl(it.voice, it.text);
+  // it.url があればそれを使う（テスト音など、サーバーのファイルではなく端末内で作った音を置くため）
+  const urlOf = it => it.url || D.voiceUrl(it.voice, it.text);
+  let latencySec = () => 0;   // この端末の出力遅延（秒）。予約再生の開始を、その分だけ前倒しして聞こえる時刻を揃える
 
   // 取得〜デコードにかかった時間（ミリ秒）の直近20件。ボット通信診断でネットワークが
   // 遅いのか端末の処理が遅いのかを切り分けるために使う（?bot=N/?bot=host のみ参照）。
@@ -96,7 +98,7 @@ window.Voice = (() => {
     if (!items.length) return null;
     const ctx = getCtx();
     const gapDefault = opts.gapMs ?? 150;
-    const delay = opts.at ? Math.max(0.03, (opts.at - nowServer()) / 1000) : 0.03;
+    const delay = opts.at ? Math.max(0.03, (opts.at - nowServer()) / 1000 - latencySec()) : 0.03;
     let t = ctx.currentTime + delay;
     const sources = [], timers = [];
     let stopped = false;
@@ -125,7 +127,10 @@ window.Voice = (() => {
   }
 
   return {
-    init(o) { getCtx = o.getCtx; if (o.nowServer) nowServer = o.nowServer; },
+    init(o) { getCtx = o.getCtx; if (o.nowServer) nowServer = o.nowServer; if (o.latencySec) latencySec = o.latencySec; },
+    put(url, buf) { cache.set(url, buf); },
+    durationOf(it) { const b = cache.get(urlOf(it)); return b ? b.duration : 0; },
+    latency: () => latencySec(),
     preload, has, hasAll, play, urlOf, cacheSize: () => cache.size, missing, avgFetchTime,
   };
 })();

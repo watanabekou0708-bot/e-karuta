@@ -172,6 +172,7 @@ let curIntro      = null;
 
 // 世代カウンタ（古い onended コールバックを無効化するため）
 let audioGeneration = 0;
+let pendingTaken = null;   // card_taken を受けて announce_go を待っている音声（そこまで→DJ→答え合わせ）
 
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -201,7 +202,9 @@ const WARN_PAUSE_MS = 1500;
 const ANNOUNCE_PAUSE_MS = 1500;
 let voiceEndedAt = 0;   // 直前の音声（DJ・正解発表）が終わった時刻（サーバー時計）。次の読み上げはここから VOICE_PAUSE_MS あける
 function markVoiceEnd() { voiceEndedAt = hiResNow() + serverOffset; }
-Voice.init({ getCtx: () => getAudioCtx(), nowServer: () => hiResNow() + serverOffset });
+Voice.init({ getCtx: () => getAudioCtx(), nowServer: () => hiResNow() + serverOffset,
+  // この端末の出力遅延（Bluetooth等で遅い機器ほど大きい）。予約再生を前倒しして、聞こえる時刻を全端末で揃える（近似）
+  latencySec: () => { const c = audioCtx; return c && typeof c.outputLatency === 'number' && isFinite(c.outputLatency) ? Math.min(0.5, Math.max(0, c.outputLatency)) : 0; } });
 let curVoice = null;      // 読み上げ・正解発表の再生ハンドル
 let curDjVoice = null;    // DJ の再生ハンドル
 function stopVoice() { if (curVoice) { curVoice.stop(); curVoice = null; } }
@@ -231,9 +234,9 @@ function playVoiceRead(yomi, playAt, gen, onDone) {
   const items = [{ ...VD.seg(VD.FIXED.warn), gapAfter: WARN_PAUSE_MS }, { ...VD.seg(VD.FIXED.intro), gapAfter: VOICE_PAUSE_MS }, VD.seg(yomi)];
   const ok = playVoiceItems(items, playAt, gen, onDone, i => {
     if (i === 1) armFlying();          // 「読み上げます」の発声開始：カーソルを定位置へ・フライング監視開始
-    else if (i === 2) disarmFlying();  // 上の句の1文字目：監視終了
+    else if (i === 2) { disarmFlying(); hideScorePanel(); }  // 上の句の1文字目：監視終了。前の札の判定内訳は「読み上げます」が終わるここまで表示しておく
   });
-  if (ok) setTimeout(() => { if (gen === audioGeneration && !introStarted) { introStarted = true; syncGrabAvailability(); } }, 9000);
+  if (ok) setTimeout(() => { if (gen === audioGeneration && !introStarted) { introStarted = true; hideScorePanel(); syncGrabAvailability(); } }, 9000);
   return ok;
 }
 // 時間切れ（誰も取れなかった）のときの正解発表：そこまで → 上の句 → 下の句（答え合わせ＝青山龍星）。
@@ -1115,11 +1118,67 @@ function updateReadBtnAvailability() {
 // read_next は waiting フェーズでのみ有効なため、二重に届いてもサーバー側で
 // 無視される（安全策として autoReadPending でも連打を防ぐ）。
 function maybeAutoReadNext() {
-  if (!myIsHost || !canReadNext || isAnnouncing || autoReadPending) return;
+  if (!myIsHost || !canReadNext || isAnnouncing || autoReadPending || soundCheckRunning) return;
   if (djSpeaking || djQueue.length) return;
+  // 試合の最初の読み上げの前に、全員で1回だけテスト音声を流す（端末ごとの音のずれを聞いて確かめられる）
+  if (soundCheckPending && !(readyState && readyState.active)) {   // 全員の準備待ち(ready_wait)が終わってから
+    soundCheckPending = false;
+    soundCheckRunning = true;
+    socket.emit('sound_check_start');
+    clearTimeout(soundCheckTimer);
+    soundCheckTimer = setTimeout(() => { if (soundCheckRunning) { soundCheckRunning = false; maybeAutoReadNext(); } }, 20000);   // 保険：テスト音声が始まらなくても止まらない
+    return;
+  }
   autoReadPending = true;
   socket.emit('read_next');
 }
+
+// ── 試合開始時のテスト音声 ──
+// 「今からテスト音声を流します。」→ テスト音（3回のビープ）→「テスト音声は終了です。では、ゲームを始めます。」
+// → 3秒後に最初の「マウスを定位置に戻します」へ。全員に同じ開始時刻(playAt)が配られ、端末の出力遅延も補正して鳴らす。
+let soundCheckPending = false;   // 試合が始まるたびに true（最初の読み上げの前に1回だけ実施）
+let soundCheckRunning = false;
+let soundCheckTimer = null;
+// サーバーが断った（全員の準備待ち中など）：次の機会（ready_release）にやり直す
+socket.on('sound_check_denied', () => { clearTimeout(soundCheckTimer); soundCheckRunning = false; soundCheckPending = true; });
+const SOUND_CHECK_TONE = { url: 'local:soundcheck-tone' };
+function ensureSoundCheckTone() {
+  if (Voice.has(SOUND_CHECK_TONE)) return;
+  const ctx = getAudioCtx();
+  const sr = ctx.sampleRate;
+  const buf = ctx.createBuffer(1, Math.round(sr * 3), sr);
+  const ch = buf.getChannelData(0);
+  for (let b = 0; b < 3; b++) {            // 1秒ごとに0.25秒のビープ（1000Hz）を3回
+    const start = Math.round(sr * b), len = Math.round(sr * 0.25);
+    for (let i = 0; i < len; i++) {
+      const env = Math.min(1, i / (sr * 0.01), (len - i) / (sr * 0.01));
+      ch[start + i] = 0.35 * env * Math.sin(2 * Math.PI * 1000 * i / sr);
+    }
+  }
+  Voice.put(Voice.urlOf(SOUND_CHECK_TONE), buf);
+}
+socket.on('sound_check', ({ playAt }) => {
+  dropIdleWaiters('read');
+  stopAllAudio();
+  const gen = audioGeneration;
+  setCurrentPhase('announcing');
+  isAnnouncing = true;
+  $('readingText').textContent = '🔊 テスト音声を再生中…';
+  ensureSoundCheckTone();
+  const items = [
+    { ...VD.seg(VD.FIXED.testIntro), gapAfter: 500 },
+    { ...SOUND_CHECK_TONE, gapAfter: 500 },
+    VD.seg(VD.FIXED.testOutro),
+  ];
+  const done = () => {
+    if (gen !== audioGeneration) return;
+    isAnnouncing = false;
+    markVoiceEnd();
+    $('readingText').textContent = '— 準備中 —';
+    if (myIsHost) { clearTimeout(soundCheckTimer); setTimeout(() => { soundCheckRunning = false; maybeAutoReadNext(); }, 3000); }   // 終了の案内から3秒後に開始
+  };
+  if (!playVoiceItems(items, playAt, gen, done)) done();
+});
 
 function showReadBtn() {
   canReadNext = true;
@@ -1283,15 +1342,10 @@ function playWarmupBlip() {
     //    それ以外の番号付きボットは参加して待つだけで、自分からは開始しない。
   });
 
-  // ③ 盤面整理：自分の音声の先読みが終わり次第スキップする（人が「スキップ」ボタンを
-  //    押す操作の代わり。練習モードは誰か1人がスキップすれば全員分進む仕組みなので、
-  //    全ボットが同じことを試みて問題ない）。
-  socket.on('memorize_start', () => {
-    const iv = setInterval(() => {
-      if (voiceReadyForSkip()) { clearInterval(iv); skipMemorize(); }
-    }, 500);
-    setTimeout(() => clearInterval(iv), 60000);   // 保険：いつまでも回り続けないようにする
-  });
+  // ③ 盤面整理：スキップしない。本番と同じく、盤面整理の時間（MEMO_SECONDS）が経つまで待つ。
+  //    以前は「自分の音声の先読みが終わり次第スキップ」させていたが、誰か1台がスキップすると
+  //    全員分が進むため、先読みが終わっていない他の端末では1枚目の読み上げ音声が遅れて
+  //    ずれていた（本番では盤面整理の間に全端末が先読みを終えている）。
 
   // ④ 仮想カーソル(Pointer Lock)の準備待ち（人が仮想カーソルに移る操作の代わり）。
   //    Pointer Lockは自動再生と同様に人の操作なしでは有効化できない可能性があるため、
@@ -1304,9 +1358,24 @@ function playWarmupBlip() {
   // read_card 受信の0.3〜3秒後では発声開始（約4.7秒後）より前になり、全クリックが弾かれて
   // 誰も札を取れなかったため、発声が始まった（introStarted）時点を起点にランダムに待つ。
   let botReadSeq = 0;
+  // クリック方式：ホストPC(?bot=host)の通信診断パネルで切り替える（ランダム／同時）
+  let botClick = { mode: 'random', delayMs: 1500, spreadMs: 50 };
+  const clickModeEl = $('botClickMode'), clickDelayEl = $('botClickDelay'), clickSpreadEl = $('botClickSpread');
+  socket.on('bot_click', c => {
+    botClick = c;
+    clickModeEl.value = c.mode; clickDelayEl.value = c.delayMs; clickSpreadEl.value = c.spreadMs;
+    $('botClickSyncOpts').classList.toggle('hidden', c.mode !== 'sync');
+  });
+  if (BOT_IS_HOST) {
+    show('botClickCtl');
+    const sendClick = () => socket.emit('set_bot_click', { mode: clickModeEl.value, delayMs: +clickDelayEl.value, spreadMs: +clickSpreadEl.value });
+    [clickModeEl, clickDelayEl, clickSpreadEl].forEach(el => el.addEventListener('change', sendClick));
+  }
   const botOnRead = (d, isDecoy) => {
     const seq = ++botReadSeq;
-    if (Math.random() >= 0.6) return;
+    const sync = botClick.mode === 'sync';
+    if (!sync && Math.random() >= 0.6) return;   // 同時モードは全員がクリックする
+    const clickWait = sync ? botClick.delayMs + rand(0, botClick.spreadMs) : rand(300, 3000);
     const cardId = isDecoy ? d.id : d.card.id;
     // 通常のread_card処理（introStarted=false）が先に走るよう、1tick後から発声開始を待つ
     setTimeout(() => {
@@ -1318,7 +1387,7 @@ function playWarmupBlip() {
         setTimeout(() => {
           if (seq !== botReadSeq) return;
           socket.emit('grab_card', { cardId, t: hiResNow() + serverOffset, offsetMm: rand(0, 20), distMm: rand(10, 290) });
-        }, rand(300, 3000));
+        }, clickWait);
       }, 30);
     }, 0);
   };
@@ -2581,10 +2650,26 @@ function showScorePanel(by, r, contenders) {
           <span class="n">${c.win ? '◎ ' : ''}${escHtml(c.name)}</span><span>${(c.speedMs / 1000).toFixed(2)}秒</span><span>${mmStr(c.offsetMm)}</span><span>${fmtPts(c.key)}</span></div>`).join('')}
       </div>`
     : '';
+  // 速度・精度・距離を横並びにして、札を取った人と自分を比べる（取ったのが自分なら1行だけ）
+  const win = { speedMs: r.speedMs, offsetMm: r.offsetMm, distMm: r.distMm, sp: r.speedPts, ap: r.accPts, cp: r.ctrlPts };
+  const mc = (contenders || []).find(c => c.id === myId);
+  const iWon = by.id === myId;
+  const cell = (val, pts, cls) => `<span class="v${cls ? ' ' + cls : ''}">${val}<small>+${fmtPts(pts)}点</small></span>`;
+  let cmp = `<div class="sp-cmp">
+      <span></span><span class="c">⚡ 速度<small>短いほど有利</small></span><span class="c">🎯 精度<small>短いほど有利</small></span><span class="c">🖱 距離<small>長いほど加点（取る判定には無関係）</small></span>
+      <span class="rl">${iWon ? 'あなた' : '取った人'}</span>${cell(secStr(win.speedMs), win.sp, iWon ? 'me' : '')}${cell(mmStr(win.offsetMm), win.ap, iWon ? 'me' : '')}${cell(mmStr(win.distMm), win.cp, iWon ? 'me' : '')}`;
+  if (mc && !iWon) {
+    const mine = { sp: speedPts(mc.speedMs), ap: accPts(mc.offsetMm), cp: ctrlPts(mc.distMm) };
+    const diff = (txt, d) => `<span class="v ${d > 0 ? 'good' : d < 0 ? 'bad' : ''}">${txt}<small>${d > 0 ? '+' : ''}${fmtPts(d)}点</small></span>`;
+    const sgn = n => (n > 0 ? '+' : n < 0 ? '−' : '±');
+    cmp += `<span class="rl">あなた</span>${cell(secStr(mc.speedMs), mine.sp, 'me')}${cell(mmStr(mc.offsetMm), mine.ap, 'me')}${cell(mmStr(mc.distMm), mine.cp, 'me')}
+      <span class="rl">差</span>${diff(sgn(mc.speedMs - win.speedMs) + (Math.abs(mc.speedMs - win.speedMs) / 1000).toFixed(2) + '秒', mine.sp - win.sp)}${diff(sgn(mc.offsetMm - win.offsetMm) + mmStr(Math.abs(mc.offsetMm - win.offsetMm)), mine.ap - win.ap)}${diff(sgn(mc.distMm - win.distMm) + mmStr(Math.abs(mc.distMm - win.distMm)), mine.cp - win.cp)}`;
+  } else if (!mc && !iWon) {
+    cmp += `<span class="rl">あなた</span><span class="v nc">この札はクリックしていません</span>`;
+  }
+  cmp += '</div>';
   el.innerHTML = `<div class="sp-title"><span class="tn-dot" style="background:${by.color || '#4a9eff'}"></span>${escHtml(by.name)} <span style="color:var(--dim);font-weight:400;font-size:.75rem">が獲得</span></div>
-    ${spRow('⚡ 速度', secStr(r.speedMs), '読み上げ開始から', fmtPts(r.speedPts))}
-    ${spRow('🎯 精度', mmStr(r.offsetMm), '札の中心からの距離', fmtPts(r.accPts))}
-    ${spRow('🖱 距離', mmStr(r.distMm), '定位置から札の中心まで', fmtPts(r.ctrlPts))}
+    ${cmp}
     ${hc}
     ${r.bonus ? `<div class="sp-row"><span class="sp-label">🎁 精度ボーナス</span><span class="sp-detail">精度${ACC_BONUS_THRESHOLD}点以上${r.handicap !== 1 ? `（${fmtPts(r.bonusBase)}×${r.handicap}）` : '（別枠）'}</span><span class="sp-pts">+${fmtPts(r.bonus)}</span></div>` : ''}
     <div class="sp-total"><span>獲得ポイント</span><span class="sp-big">+${fmtPts(r.awarded + (r.bonus || 0))}</span></div>
@@ -2762,6 +2847,7 @@ socket.on('host_changed', ({ hostId }) => {
 });
 
 socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRounds: mr, survivorCount: sc, isRevival: ir, revivalCount: rc, revivalRound: rRound, revivalMaxRounds: rMax, revivalSurvivorCount: rSurv, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, humanGroups: hg, groupRound: gRound, groupMaxRounds: gMax, groupSurvivorCount: gSurv, groupHumanCount: ghc, humanCount: hc, cpuCount: cc, totalCount: tc, layout: lay }) => {
+  soundCheckPending = true; soundCheckRunning = false;   // 試合が始まるたびに、最初の読み上げの前にテスト音声を1回流す
   matchHeadcount = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   if (round)            currentRound  = round;
   if (mr)               maxRounds     = mr;
@@ -2806,6 +2892,7 @@ socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRoun
 
 // ── 大会モード：試合開始（暗記フェーズ）───────────────────
 socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, stageLabel, roundNumber, isFinalMainRound, passCount, participantIds, gamesPlayed, humanCount: hc, cpuCount: cc, totalCount: tc, layout: lay }) => {
+  soundCheckPending = true; soundCheckRunning = false;
   matchHeadcount      = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   isEventMode         = true;
   eventStarted        = true;
@@ -2863,7 +2950,7 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
 socket.on('read_card', ({ card, remaining, playAt }) => {
   currentReadPlayAt = playAt;
   introStarted = false;   // 「読み上げます」が始まるまでは取れない
-  hideScorePanel();       // 前の札の判定内訳は、次の札が読まれ始めたら消す
+  // 前の札の判定内訳は、次の札の「読み上げます」が終わる（上の句が始まる）まで表示し続ける（playVoiceReadで消す）
   setGrabLocked(false);   // 次の札が読み上げられ始めたので、お手付きのロックを解除
   myClickedThisRead = false;
   setCurrentPhase('reading');
@@ -2896,7 +2983,6 @@ socket.on('layout', ({ layout, by }) => {
 socket.on('decoy_read', ({ id, yomi, playAt }) => {
   currentReadPlayAt = playAt;
   introStarted = false;
-  hideScorePanel();
   setGrabLocked(false);
   myClickedThisRead = false;
   setCurrentPhase('decoy');
@@ -2955,7 +3041,7 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
 // 獲得ポイント・取った人の表示は「そこまで」が鳴り終わったタイミング（DJの実況とほぼ同時）まで隠す。
 // DJ・答え合わせの音声は、クライアントにまだ無ければ再生前に取得してから鳴らす
 // （無いまま鳴らすと、その部分だけ無音になり「途中で切れた」ように聞こえるため）。
-socket.on('card_taken', ({ cardId, by, players, result, contenders, djText, djSegs, playAt }) => {
+socket.on('card_taken', ({ cardId, by, players, result, contenders, djText, djSegs, seq }) => {
   dropIdleWaiters('read');   // まだ始められていない詠み上げは取り消す
   stopAllAudio();   // ここで世代カウンタをインクリメントする
   const gen = audioGeneration;
@@ -2965,48 +3051,22 @@ socket.on('card_taken', ({ cardId, by, players, result, contenders, djText, djSe
   isAnnouncing = true;
   updateReadBtnAvailability();
 
-  const tStart = hiResNow();
-  const dur = { sokomadeMs: null, djGapMs: null, djMs: null, answerGapMs: null, answerMs: null };
   const finishAll = () => {
     if (gen !== audioGeneration) return;
     markVoiceEnd();
     isAnnouncing = false;
     updateReadBtnAvailability();
     tryPlayDjQueue();
-    if (myIsHost) socket.emit('announce_finished', { durations: dur });
+    if (myIsHost) socket.emit('announce_finished', { durations: { totalMs: Math.round(hiResNow() - t0) } });
   };
   const card = KMAP[cardId];
-  const playAnswer = () => {
-    const tAnswerStart = hiResNow();
-    if (!card) { finishAll(); return; }
-    const segs = VD.answerSegments(card.yomi, card.tori);
-    Voice.preload(segs, { ensure: true }).then(() => {
-      if (gen !== audioGeneration) return;
-      const onDone = () => { dur.answerMs = Math.round(hiResNow() - tAnswerStart); finishAll(); };
-      if (!playVoiceItems(segs, null, gen, onDone)) onDone();
-    });
-  };
-  const scheduleAnswer = (tFromMs) => {
-    setTimeout(() => {
-      if (gen !== audioGeneration) return;
-      dur.answerGapMs = Math.round(hiResNow() - tFromMs);
-      playAnswer();
-    }, ANNOUNCE_PAUSE_MS);
-  };
-  const playDj = () => {
-    const tDjGapFrom = hiResNow();
-    if (!djSegs || !djSegs.length) { dur.djGapMs = 0; scheduleAnswer(tDjGapFrom); return; }
-    Voice.preload(djSegs, { ensure: true }).then(() => {
-      if (gen !== audioGeneration) return;
-      const tDjStart = hiResNow();
-      dur.djGapMs = Math.round(tDjStart - tDjGapFrom);
-      const onDjDone = () => { dur.djMs = Math.round(hiResNow() - tDjStart); scheduleAnswer(hiResNow()); };
-      if (!playVoiceItems(djSegs, null, gen, onDjDone)) onDjDone();
-    });
-  };
+  const timeupSeg = VD.seg(VD.FIXED.timeup);
+  const answerSegs = card ? VD.answerSegments(card.yomi, card.tori) : [];
+  const hasDjOrig = !!(djSegs && djSegs.length);
+  const t0 = hiResNow();
+
   const reveal = () => {
     if (gen !== audioGeneration) return;
-    dur.sokomadeMs = Math.round(hiResNow() - tStart);
     // ここで初めて「○○が獲得！」・獲得ポイント・札の演出を表示する（DJの実況とほぼ同時にするため）
     showTakenNotif(by.name, by.color || '#4a9eff');
     showScorePanel(by, result, contenders);
@@ -3029,9 +3089,41 @@ socket.on('card_taken', ({ cardId, by, players, result, contenders, djText, djSe
         el.classList.add('removed');
       }, 680);
     }
-    playDj();
   };
-  if (!playVoiceItems([VD.seg(VD.FIXED.timeup)], playAt, gen, reveal)) reveal();
+
+  // 「そこまで」→（間を空けずDJの実況があれば）→ 1.5秒 → 答え合わせ（上の句の再読み上げ・下の句）を
+  // 1本の時間軸にまとめ、全員が同じ開始時刻(announce_go の playAt)から鳴らす。音声の長さは全端末で同じなので、
+  // 開始さえ揃えばDJも答え合わせも完全に同時になる。
+  const preloadAll = Voice.preload([timeupSeg, ...(hasDjOrig ? djSegs : []), ...answerSegs], { ensure: true }).then(() => {
+    if (gen !== audioGeneration) return;
+    socket.emit('announce_ready', { seq });   // 準備完了（全員分が揃うとサーバーが announce_go を配る）
+  });
+  pendingTaken = {
+    seq, gen, t0,
+    run: (playAt) => {
+      if (gen !== audioGeneration) return;
+      // 先読みが間に合わなかった端末は、そのDJだけ省略する（他の端末の進行は止めない）
+      const useDj = hasDjOrig && Voice.hasAll(djSegs);
+      const items = [{ ...timeupSeg, gapAfter: useDj ? 0 : ANNOUNCE_PAUSE_MS }];
+      if (useDj) djSegs.forEach((sg, i) => items.push(i === djSegs.length - 1 ? { ...sg, gapAfter: ANNOUNCE_PAUSE_MS } : sg));
+      items.push(...answerSegs);
+      let revealed = false;
+      const doReveal = () => { if (!revealed) { revealed = true; reveal(); } };
+      const started = playVoiceItems(items, playAt, gen, finishAll, i => {
+        // 「そこまで」が鳴り始めたら、その長さ分だけ待って（＝鳴り終わりと同時に）獲得表示を出す
+        if (i === 0) setTimeout(doReveal, Math.max(0, Voice.durationOf(timeupSeg) * 1000));
+      });
+      if (!started) { doReveal(); finishAll(); }
+    },
+    ready: preloadAll,
+  };
+});
+// 全員の先読みが揃った（または待ち時間切れ）ので、共通の開始時刻から鳴らす
+socket.on('announce_go', ({ seq, playAt }) => {
+  const p = pendingTaken;
+  if (!p || p.seq !== seq) return;
+  pendingTaken = null;
+  p.ready.then(() => p.run(playAt));
 });
 
 // フライング（上の句の1文字目が読まれる前に定位置の円から出た）

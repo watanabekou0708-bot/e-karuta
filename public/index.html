@@ -313,6 +313,11 @@
 <div id="botMetricsPanel" class="bot-metrics-panel hidden">
   <div class="bmp-header" id="bmpHeader">📡 通信診断　<span id="bmpSummary"></span>　<span id="bmpToggle">▲</span></div>
   <div id="bmpBody" class="bmp-body">
+    <div id="botClickCtl" class="hidden" style="padding:6px 8px;font-size:12px;border-bottom:1px solid #555">
+      クリック方式：
+      <select id="botClickMode"><option value="random">ランダム</option><option value="sync">同時</option></select>
+      <span id="botClickSyncOpts" class="hidden">　読み上げ開始から<input id="botClickDelay" type="number" min="0" max="9000" step="100" value="1500" style="width:4.5em">ms後、ばらつき0〜<input id="botClickSpread" type="number" min="0" max="2000" step="10" value="50" style="width:4em">ms</span>
+    </div>
     <table class="bmp-table">
       <thead><tr><th>端末</th><th>往復</th><th>方式</th><th>再接</th><th>CPU</th><th>メモリ</th><th>音声</th></tr></thead>
       <tbody id="bmpTbody"></tbody>
@@ -329,5 +334,6 @@
 <script src="voice.js"></script>
 <script src="cursor.js"></script>
 <script src="game.js"></script>
+<script src="a11y.js"></script>
 </body>
 </html>

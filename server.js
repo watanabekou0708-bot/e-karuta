@@ -279,6 +279,8 @@ function botMetricsLog(type, data = {}) {
   }
   botMetricsLogStream.write(JSON.stringify({ at: new Date().toISOString(), t: Math.round(hiResNow()), type, ...data }) + '\n');
 }
+// 実機ボットのクリック方式。random=従来のランダム、sync=発声開始からdelayMs+0〜spreadMsで全員が同時にクリック
+let botClick = { mode: 'random', delayMs: 1500, spreadMs: 50 };
 const botMetrics = new Map();   // socket.id -> 最新の自己申告データ
 let botMetricsDirty = false;
 setInterval(() => {
@@ -469,6 +471,13 @@ let decoyTimeoutTimer = null;
 let readTimeoutTimer  = null;
 let announceAdvanceTimer   = null;   // ホストの announce_finished を待つ保険タイマー
 let pendingAnnounceAdvance = null;   // announce_finished（または保険タイマー）で実行する処理
+
+// このサーバーの動かし方：launcher.js（起動.bat）／systemd（Linuxのサービス）／単独（node server.js）
+function serverRunMode() {
+  if (process.env.KARUTA_SUPERVISED === '1') return 'launcher';
+  if (process.env.INVOCATION_ID) return 'systemd';
+  return 'standalone';
+}
 
 // ── 緊急停止（管理画面から）──────────────────────────────
 // 押された時点で「停止要求」を立て、いま鳴っている読み上げ・DJなどの一連の音声が終わって
@@ -849,8 +858,13 @@ async function processCorrectGrab(grabberId, card, scored, contenders) {
     result,
     contenders: sortedContenders.map(c => ({ id: c.id, name: c.name, color: c.color, speedMs: c.speedMs, offsetMm: c.offsetMm, distMm: c.distMm, key: c.key, base: c.base, win: c.id === grabberId })),
     djText, djSegs,
-    playAt: hiResNow() + 250,
+    seq: announceSeq + 1,
   });
+  // 「そこまで→DJ→答え合わせ」を全員が完全に同時に鳴らすため、全員の音声の先読みが終わる
+  // （announce_ready）のを待ってから、共通の開始時刻 playAt を配る（間に合わない端末がいても最大 ANNOUNCE_READY_WAIT_MS で打ち切る）。
+  const announceResult = await waitAnnounceReady(++announceSeq, ANNOUNCE_READY_WAIT_MS);
+  logEvent('announce_go', { seq: announceSeq, result: announceResult });
+  io.emit('announce_go', { seq: announceSeq, playAt: hiResNow() + 300 });
 
   const nextCard  = gs.currentCard;
   const remaining = [...gs.remaining];
@@ -866,6 +880,21 @@ async function processCorrectGrab(grabberId, card, scored, contenders) {
     } else {
       endRound();
     }
+  });
+}
+
+// 札を取ったあとの音声（そこまで→DJ→答え合わせ）を全員同時に始めるための待ち合わせ。
+const ANNOUNCE_READY_WAIT_MS = 3000;
+let announceSeq = 0;
+let announceWait = null;
+function waitAnnounceReady(seq, timeoutMs) {
+  return new Promise(resolve => {
+    const need = new Set(Object.keys(gs.players).filter(id => isJoinedHuman(id) && io.sockets.sockets.get(id)));
+    if (!need.size) { resolve('none'); return; }
+    const w = { seq, need };
+    w.timer = setTimeout(() => { announceWait = null; resolve('timeout:' + need.size); }, timeoutMs);
+    w.check = () => { if (!w.need.size) { clearTimeout(w.timer); announceWait = null; resolve('all'); } };
+    announceWait = w;
   });
 }
 
@@ -2027,6 +2056,32 @@ io.on('connection', socket => {
     armMemorize();
   });
 
+  // 札を取ったあとの音声の先読みが終わった端末からの報告（全員分が揃うと announce_go を配る）
+  socket.on('announce_ready', ({ seq } = {}) => {
+    if (!announceWait || announceWait.seq !== seq) return;
+    announceWait.need.delete(socket.id);
+    announceWait.check();
+  });
+  // 試合開始時のテスト音声（今からテスト音声を流します → テスト音 → 終了です。ゲームを始めます）。
+  // 進行役（ホスト）が最初の読み上げの前に1回だけ要求し、全員に同じ開始時刻を配る。
+  socket.on('sound_check_start', () => {
+    if (socket.id !== gs.hostId || gs.phase !== 'waiting' || gs.ready.active) { socket.emit('sound_check_denied'); return; }   // 準備待ち中など：後(ready_release)でやり直してもらう
+    io.emit('sound_check', { playAt: hiResNow() + 1500 });
+  });
+
+  // ── 実機ボットのクリック方式（ランダム／同時）。?bot=host の画面から切り替える ──
+  socket.emit('bot_click', botClick);
+  socket.on('set_bot_click', cfg => {
+    if (!cfg || typeof cfg !== 'object' || !isJoinedHuman(socket.id)) return;
+    const n = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v)) ? Math.max(lo, Math.min(hi, Math.round(v))) : d;
+    botClick = {
+      mode:     cfg.mode === 'sync' ? 'sync' : 'random',
+      delayMs:  n(cfg.delayMs, 0, 9000, botClick.delayMs),
+      spreadMs: n(cfg.spreadMs, 0, 2000, botClick.spreadMs),
+    };
+    io.emit('bot_click', botClick);
+  });
+
   // ── 実機ボットテストの通信・スペック自己申告（?bot=N/?bot=host のみ送信）────
   socket.on('bot_metrics', data => {
     if (!data || typeof data !== 'object') return;
@@ -2556,6 +2611,7 @@ io.on('connection', socket => {
     socket.emit('admin_init', {
       isHost:      isHostEligible(socket),
       supervised:  process.env.KARUTA_SUPERVISED === '1',
+      runMode:     serverRunMode(),
       pause:       pauseSnapshot(),
       phase:       gs.phase,
       eventActive: gs.event.active,
@@ -2571,16 +2627,28 @@ io.on('connection', socket => {
   socket.on('server_control', (action) => {
     if (!isHostEligible(socket)) return;
     if (action !== 'stop' && action !== 'restart') return;
-    const supervised = process.env.KARUTA_SUPERVISED === '1';
-    if (action === 'restart' && !supervised) { socket.emit('server_control_result', { ok: false, msg: '再起動は「起動.bat」から起動している場合のみ使えます。' }); return; }
-    logEvent('server_control', { action, supervised });
-    io.emit('server_going_down', { action });
-    setTimeout(() => process.exit(action === 'restart' ? 75 : 0), 400);
+    const mode = serverRunMode();
+    logEvent('server_control', { action, mode });
+    io.emit('server_going_down', { action, mode });
+    setTimeout(() => {
+      if (action === 'stop') process.exit(0);
+      // 再起動：launcher・systemd は終了コード75で再起動してもらう。単独起動（node server.js）は
+      // 自分で新しいプロセスを起動し直す（新プロセスは、ポートが空くまで待つ）。
+      if (mode === 'standalone') {
+        try {
+          require('child_process').spawn(process.execPath, [path.join(__dirname, 'server.js')], {
+            cwd: __dirname, detached: true, stdio: 'ignore', env: { ...process.env, KARUTA_RESPAWN: '1' },
+          }).unref();
+        } catch (e) { logEvent('server_respawn_fail', { error: String(e && e.message) }); }
+        process.exit(0);
+      }
+      process.exit(75);
+    }, 400);
   });
 
   // ── 管理画面：緊急停止・再開（教卓PCのみ）──
   socket.on('admin_pause', () => {
-    if (!isHostEligible(socket)) return;
+    if (!isHostEligible(socket)) { logEvent('admin_pause_denied', { id: socket.id }); socket.emit('server_control_result', { ok: false, msg: '教卓PC（アドレスに ?host を付けて開いたブラウザ）からのみ操作できます。' }); return; }
     if (pauseState.active || pauseState.requested) return;
     if (pauseState.timer) { clearTimeout(pauseState.timer); pauseState.timer = null; }
     logEvent('pause_request', { phase: gs.phase });
@@ -2591,7 +2659,7 @@ io.on('connection', socket => {
     broadcastPause();
   });
   socket.on('admin_resume', () => {
-    if (!isHostEligible(socket)) return;
+    if (!isHostEligible(socket)) { logEvent('admin_resume_denied', { id: socket.id }); socket.emit('server_control_result', { ok: false, msg: '教卓PC（アドレスに ?host を付けて開いたブラウザ）からのみ操作できます。' }); return; }
     if (pauseState.requested && !pauseState.active) { pauseState.requested = false; broadcastPause(); return; }   // まだ止まる前なら取り消すだけ
     if (!pauseState.active || pauseState.resumeAt) return;
     pauseState.resumeAt = Date.now() + PAUSE_RESUME_DELAY_MS;
@@ -2929,6 +2997,14 @@ setTimeout(async () => {
   if (r.failed) setTimeout(() => voiceEngine.ensure(items, { prio: 'bg' }).then(r2 => logEvent('voice_warmup_retry', r2)), 60000);
 }, 1500);
 
+// 管理画面の「再起動」で自分自身が起動し直されたときは、古いプロセスがポートを手放すまで待つ
+if (process.env.KARUTA_RESPAWN === '1') {
+  let tries = 0;
+  srv.on('error', (e) => {
+    if (e.code === 'EADDRINUSE' && ++tries < 60) setTimeout(() => srv.listen(PORT, '0.0.0.0'), 500);
+    else throw e;
+  });
+}
 srv.listen(PORT, '0.0.0.0', () => {
   const ips = localIPs();
   console.log('\n====================================');

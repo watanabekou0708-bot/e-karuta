@@ -26,3 +26,15 @@
 
 ## 基準となるGit commit
 1f35d91（未コミットの変更あり）
+
+## 追記 2026-11-18
+- 判定内訳パネルを「読み上げます」終了(上の句開始)まで表示（game.js playVoiceRead）。全モード共通。
+- ボットの盤面整理自動スキップを廃止し、本番同様にMEMO_SECONDS経過まで待つ（1枚目の音声ずれ対策）。未コミット・未検証。
+- 未着手（確定済み）: 7)ホストPCでのランダム/同時クリック切替 1)比較パネル案A+C(距離は「長いほど加点／取る判定に影響しない」表記) 3)DJ・答え合わせの完全同期 4)テスト音声(固定セリフ追加の生成確認が必要) 6)キーボード操作(別作業)
+- 7) 実装済み(未検証・未コミット): ?bot=host の通信診断パネルでボットのクリック方式(ランダム/同時)・遅延ms・ばらつきmsを切替。server.js(botClick, set_bot_click, bot_click)・index.html(botClickCtl)・game.js(botOnRead)。サーバー再起動が必要。
+- 1) 比較パネル(案A+C)実装済み(未検証・未コミット): game.js showScorePanel の .sp-cmp、style.css。取った人/あなた/差を速度・精度・距離で横並び表示。
+- 3・4) 実装済み(ローカル2タブで announce_go/sound_check の配信は確認。音声そのものはVOICEVOX無しで未確認・未コミット):
+  3: card_taken を「そこまで→DJ→答え合わせ」1本の時間軸にし、全員の先読み完了(announce_ready)後にサーバーが announce_go(playAt) を配る(待ち最大3秒)。先読み不足の端末はDJのみ省略。
+  4: 試合開始時にホストが sound_check_start → 全員に sound_check(playAt)。「今からテスト音声を流します。」→3回ビープ→「テスト音声は終了です。では、ゲームを始めます。」→3秒後に最初の読み上げ。固定セリフ2つを voice-defs.js FIXED に追加(初回はVOICEVOXで生成)。
+  Voice.play の予約開始を AudioContext.outputLatency 分だけ前倒し(近似)。
+- 6) キーボード操作(第1段階)実装済み・未コミット: public/a11y.js 新規(index.htmlで読込)＋style.cssに:focus-visible。画面(overlay)に role=dialog、状況表示に aria-live、画面表示時に主ボタンへフォーカス、フォーカス無しでEnter=主操作/読み上げボタン、Esc=表彰式スキップ。札取りのキーボード化は競技性のため対象外(要相談)。確認済み: 名前入力→Enter→ロビーでモードボタンにフォーカス。未確認: 大会の各画面・スクリーンリーダー実機。
