@@ -1002,12 +1002,23 @@ body.vcursor-on, body.vcursor-on * { cursor: none !important; }
 .sp-cmp .v { text-align: center; padding: .3rem .15rem; border-radius: 8px; background: rgba(255, 255, 255, .06); font-weight: 700; font-variant-numeric: tabular-nums; font-size: .82rem; }
 .sp-cmp .v small { display: block; font-weight: 400; font-size: .66rem; color: var(--dim); }
 .sp-cmp .v.me { background: rgba(74, 158, 255, .22); outline: 1px solid rgba(74, 158, 255, .6); }
-.sp-cmp .v.good, .sp-cmp .v.good small { color: var(--green); }
-.sp-cmp .v.bad,  .sp-cmp .v.bad small  { color: var(--danger); }
+.sp-cmp .rl.you { background: #2f7fe8; color: #fff; font-weight: 800; font-size: .86rem; text-align: center; padding: .35rem .2rem; border-radius: 999px; box-shadow: 0 0 0 2px rgba(47, 127, 232, .35); }
+/* 差の行：緑＝自分が有利（加点が多い）／赤＝自分が不利。背景を塗って文字も太く・濃くする */
+.sp-cmp .v.diff { font-size: .92rem; font-weight: 800; }
+.sp-cmp .v.diff small { font-size: .74rem; font-weight: 800; }
+.sp-cmp .v.good, .sp-cmp .v.good small { color: #5dffc4; }
+.sp-cmp .v.good { background: rgba(0, 200, 130, .28); outline: 1px solid rgba(0, 229, 160, .7); }
+.sp-cmp .v.bad,  .sp-cmp .v.bad small  { color: #ff9a9a; }
+.sp-cmp .v.bad  { background: rgba(255, 70, 70, .28); outline: 1px solid rgba(255, 110, 110, .7); }
 .sp-cmp .v.nc { grid-column: span 3; font-weight: 400; font-size: .74rem; color: var(--dim); }
 body.in-game .sp-cmp .v { background: rgba(0, 0, 0, .06); }
 body.in-game .sp-cmp .v.me { background: rgba(40, 110, 200, .16); outline-color: rgba(40, 110, 200, .6); }
-body.in-game .sp-cmp .c, body.in-game .sp-cmp .rl, body.in-game .sp-cmp .v small { color: #6b5b45; }
+body.in-game .sp-cmp .v.good, body.in-game .sp-cmp .v.good small { color: #006b43; }
+body.in-game .sp-cmp .v.good { background: rgba(0, 170, 110, .22); outline-color: #00905a; }
+body.in-game .sp-cmp .v.bad,  body.in-game .sp-cmp .v.bad small  { color: #b3001b; }
+body.in-game .sp-cmp .v.bad  { background: rgba(220, 40, 40, .18); outline-color: #c4202f; }
+body.in-game .sp-cmp .rl.you { color: #fff; }
+body.in-game .sp-cmp .c, body.in-game .sp-cmp .rl:not(.you), body.in-game .sp-cmp .v small { color: #6b5b45; }
 
 /* クリックした人の一覧（縦に1行ずつ。人数が多いときはスクロールで見る） */
 .sp-list-title { margin-top: .7rem; font-size: .75rem; font-weight: 700; color: var(--dim); }
@@ -1252,3 +1263,6 @@ body.admin-body { overflow-y: auto; padding: 1.5rem; }
 :focus-visible { outline: 3px solid #ffd34d; outline-offset: 3px; }
 .btn:focus-visible, .btn-mode:focus-visible, .btn-back:focus-visible, .diff-btn:focus-visible { box-shadow: 0 0 0 5px rgba(0, 0, 0, .55); }
 .name-input:focus-visible, .survivor-input:focus-visible { outline: 3px solid #ffd34d; outline-offset: 2px; }
+
+/* 盤面整理のスキップボタン：音声の準備中は薄く表示し、押しても反応しない */
+.btn-debug.btn-gated, .btn-debug:disabled { opacity: .4; color: rgba(255, 255, 255, .55); cursor: not-allowed; pointer-events: none; filter: none; transform: none; box-shadow: none; }

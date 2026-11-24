@@ -2,7 +2,9 @@
 // 大会設定の管理画面。?host を付けて開いたブラウザからのみ変更できる
 // （ロビーの「⚙️ 大会設定を開く」からは、ホストのときだけ ?host 付きのリンクが渡される）。
 const HOST_PARAM = new URLSearchParams(location.search).has('host');
-const socket = io({ query: { host: HOST_PARAM ? '1' : '' } });
+const HOST_VALUE = new URLSearchParams(location.search).get('host') || '1';
+const HOST_Q = HOST_PARAM ? encodeURIComponent(HOST_VALUE) : '';
+const socket = io({ query: { host: HOST_PARAM ? HOST_VALUE : '' } });
 const $ = id => document.getElementById(id);
 const escHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -98,7 +100,7 @@ function renderLtAdminStatus(st) {
 }
 async function fetchLoadtestLogs() {
   try {
-    const r = await fetch('/api/loadtest/logs?host=' + (HOST_PARAM ? '1' : ''));
+    const r = await fetch('/api/loadtest/logs?host=' + HOST_Q);
     const d = await r.json();
     renderLogList(d.files || []);
   } catch (e) { /* 取得できなければ一覧は変えない */ }
@@ -108,13 +110,13 @@ function renderLogList(files) {
     <div class="admin-sched-row" style="grid-template-columns:1fr auto auto">
       <span>${escHtml(f.name)}</span>
       <span class="admin-hint">${fmtBytes(f.sizeBytes)}</span>
-      <a class="btn-sched-start" href="/api/loadtest/logs/${encodeURIComponent(f.name)}?host=${HOST_PARAM ? '1' : ''}" download>⬇ ダウンロード</a>
+      <a class="btn-sched-start" href="/api/loadtest/logs/${encodeURIComponent(f.name)}?host=${HOST_Q}" download>⬇ ダウンロード</a>
     </div>`).join('') || '<p class="ov-sub">まだ負荷テストのログがありません。</p>';
 }
 
 async function fetchBottestLogs() {
   try {
-    const r = await fetch('/api/bottest/logs?host=' + (HOST_PARAM ? '1' : ''));
+    const r = await fetch('/api/bottest/logs?host=' + HOST_Q);
     const d = await r.json();
     renderBtLogList(d.files || []);
   } catch (e) { /* 取得できなければ一覧は変えない */ }
@@ -124,7 +126,7 @@ function renderBtLogList(files) {
     <div class="admin-sched-row" style="grid-template-columns:1fr auto auto">
       <span>${escHtml(f.name)}</span>
       <span class="admin-hint">${fmtBytes(f.sizeBytes)}</span>
-      <a class="btn-sched-start" href="/api/bottest/logs/${encodeURIComponent(f.name)}?host=${HOST_PARAM ? '1' : ''}" download>⬇ ダウンロード</a>
+      <a class="btn-sched-start" href="/api/bottest/logs/${encodeURIComponent(f.name)}?host=${HOST_Q}" download>⬇ ダウンロード</a>
     </div>`).join('') || '<p class="ov-sub">まだ実機ボットテストのログがありません。</p>';
 }
 setInterval(fetchBottestLogs, 15000);
@@ -148,10 +150,10 @@ socket.on('schedule_updated', (d) => {
 
 // ── サーバーの停止・再起動 ──
 let supervised = false;
+let runMode = 'standalone';
 function serverControl(action) {
   if (!isHost) return;
-  if (action === 'restart' && !supervised) { alert('再起動は「起動.bat」から起動している場合のみ使えます。'); return; }
-  const again = supervised ? 'この画面（教卓PC）の「起動」ボタンを使います。' : 'コマンドで node server.js を実行します。';
+  const again = supervised ? 'この画面（教卓PC）の「起動」ボタンを使います。' : runMode === 'systemd' ? 'サーバー上で sudo systemctl start ekaruta を実行します。' : 'コマンドで node server.js を実行します。';
   const msg = action === 'stop'
     ? 'サーバーを停止します。進行中の試合・大会の状態は失われ、全員の接続が切れます。\n再び起動するには' + again + '\nよろしいですか？'
     : 'サーバーを再起動します。進行中の試合・大会の状態は失われ、全員の接続が切れます。\nよろしいですか？';
@@ -166,7 +168,8 @@ socket.on('server_going_down', (d) => {
 });
 socket.on('admin_init', (d) => {
   supervised = !!d.supervised;
-  $('srvCtlNote').textContent = supervised ? '' : '※「起動.bat」から起動していないため、再起動と、停止後の画面からの起動はできません（停止のみ可能）。';
+  runMode = d.runMode || 'standalone';
+  $('srvCtlNote').textContent = runMode === 'systemd' ? '※サービス（systemd）で動いています。再起動はサービスの設定（Restart=）によって自動で立ち上がります。停止すると、サーバー上で起動し直すまで動きません。' : (supervised ? '' : '※「起動.bat」を使わず直接起動しています。再起動は自動で行えますが、停止後の画面からの起動はできません。');
 });
 
 // ── 緊急停止・再開 ──

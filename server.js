@@ -527,12 +527,18 @@ function localIPs() {
 // （以前はサーバーPC自身からの接続（IPアドレス）で自動判定していたが、それだと
 // サーバーPC自身で参加者としてのテストができなかったため、明示的な印に変更した）。
 // 管理画面・投影画面もリンクをたどる際に ?host を引き継ぐ（game.js参照）。
+// 教卓PC（ホスト）の判定は ?host=<値> の一致のみ。環境変数 KARUTA_HOST_KEY を設定すると、その値でないと
+// ホスト扱いにならない（未設定のときは従来どおり ?host=1）。公開サーバーでは必ず設定すること
+// （?host=1 は推測しやすく、知られると誰でもサーバー停止・大会操作・ログ取得ができてしまうため）。
+const HOST_KEY = process.env.KARUTA_HOST_KEY || '1';
+if (HOST_KEY === '1') console.warn('[security] KARUTA_HOST_KEY が未設定です。?host=1 で誰でも教卓PC（管理操作）になれます。公開時は KARUTA_HOST_KEY を設定してください。');
+function hostKeyMatches(v) { return typeof v === 'string' && v.length > 0 && v === HOST_KEY; }
 function isHostEligible(socket) {
-  return socket.handshake.query && socket.handshake.query.host === '1';
+  return !!(socket.handshake.query && hostKeyMatches(socket.handshake.query.host));
 }
 // 管理画面のダウンロードAPIなど、Socket.IOを介さない通常のHTTPリクエスト向けの同じ判定。
 function isHostRequest(req) {
-  return req.query && req.query.host === '1';
+  return !!(req.query && hostKeyMatches(req.query.host));
 }
 
 // 名前の先頭に付ける「学年＋コース略称」。選んだ学年・コースを他の人にも見えるようにして、偽った入力を防ぐ。
@@ -1587,6 +1593,7 @@ function armMemorize() {
   memorizeTimer = setTimeout(startPlayingWhenVoiceReady, MEMO_SECONDS * 1000);
 }
 function startPlayingWhenVoiceReady() {
+  if (memorizeTimer) clearTimeout(memorizeTimer);   // スキップ経由で呼ばれたとき、残っている盤面整理のタイマーを止める
   memorizeTimer = null;
   if (gs.phase !== 'memorizing') return;
   if (!gs.voice || gs.voice.ready || gs.voice.finalFailed) { doStartPlaying(); return; }
@@ -2064,7 +2071,8 @@ io.on('connection', socket => {
   });
   // 試合開始時のテスト音声（今からテスト音声を流します → テスト音 → 終了です。ゲームを始めます）。
   // 進行役（ホスト）が最初の読み上げの前に1回だけ要求し、全員に同じ開始時刻を配る。
-  socket.on('sound_check_start', () => {
+  socket.on('sound_check_start', (opt) => {
+    if (!gs.event.active && !(opt && opt.bot === true)) return;   // テスト音声は大会モードとボットモード(?bot)のみ（通常の練習モードでは流さない）
     if (socket.id !== gs.hostId || gs.phase !== 'waiting' || gs.ready.active) { socket.emit('sound_check_denied'); return; }   // 準備待ち中など：後(ready_release)でやり直してもらう
     io.emit('sound_check', { playAt: hiResNow() + 1500 });
   });
@@ -2107,7 +2115,7 @@ io.on('connection', socket => {
   socket.on('skip_memorize', () => {
     if (gs.phase !== 'memorizing' || !canUseDebug(socket)) return;
     // 練習モードも大会モードと同じく、音声の準備を待たずにスキップできる（足りない音声は再生時に各端末が取得する）
-    doStartPlaying();
+    startPlayingWhenVoiceReady();   // サーバー側の音声生成が済んでいなければ、その完了まで待ってから始める（無音のまま始めない）
   });
 
   // ── Read next card（ホストのみ）──────────────────────────
@@ -2762,7 +2770,10 @@ io.on('connection', socket => {
   // ── 大会モードを開始（ホストのみ）─────────────────────────
   // その時点で参加登録済み（joined）の人間プレイヤー全員を対象に第1試合を開始する。
   socket.on('start_event', () => {
-    if (!isHostEligible(socket) || !isJoinedHuman(socket.id) || gs.phase !== 'lobby') return;
+    // 断られた理由は必ず画面に返す（黙って無視すると、押したボタンが無効のまま残って「始まらない」ように見える）
+    if (!isHostEligible(socket)) { socket.emit('event_start_denied', { reason: 'not_host' }); return; }
+    if (!isJoinedHuman(socket.id)) { socket.emit('event_start_denied', { reason: 'not_joined' }); return; }
+    if (gs.phase !== 'lobby') { socket.emit('event_start_denied', { reason: 'not_lobby' }); return; }
     setHost(socket.id);   // 大会モードの進行役はサーバーPC。参加者はそれ以外のロビーにいる全員
     removeCpuPlayers();   // 前の練習モード等から残ったCPUがいれば一旦クリアする
     let participantIds = Object.entries(gs.players)
@@ -2778,7 +2789,7 @@ io.on('connection', socket => {
         .filter(([id, p]) => id !== gs.hostId && (p.isBot || p.joined))
         .map(([id]) => id);
     }
-    if (participantIds.length === 0) return;
+    if (participantIds.length === 0) { socket.emit('event_start_denied', { reason: 'no_participants' }); return; }
 
     gs.event.active            = true;
     gs.event.mainPool          = new Set(participantIds);

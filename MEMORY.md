@@ -38,3 +38,28 @@
   4: 試合開始時にホストが sound_check_start → 全員に sound_check(playAt)。「今からテスト音声を流します。」→3回ビープ→「テスト音声は終了です。では、ゲームを始めます。」→3秒後に最初の読み上げ。固定セリフ2つを voice-defs.js FIXED に追加(初回はVOICEVOXで生成)。
   Voice.play の予約開始を AudioContext.outputLatency 分だけ前倒し(近似)。
 - 6) キーボード操作(第1段階)実装済み・未コミット: public/a11y.js 新規(index.htmlで読込)＋style.cssに:focus-visible。画面(overlay)に role=dialog、状況表示に aria-live、画面表示時に主ボタンへフォーカス、フォーカス無しでEnter=主操作/読み上げボタン、Esc=表彰式スキップ。札取りのキーボード化は競技性のため対象外(要相談)。確認済み: 名前入力→Enter→ロビーでモードボタンにフォーカス。未確認: 大会の各画面・スクリーンリーダー実機。
+
+## 追記 2026-11-19
+- スキップ不能(最初の約20秒)の原因: game.js debugSmartSkip が練習モードで voiceReadyForSkip()（音声先読み完了）まで無言で無視していた。ゲート削除＋サーバーのskip_memorizeを startPlayingWhenVoiceReady() 経由に変更（サーバー側の音声生成完了を待ってから開始）。
+- テスト音声は大会モードのみ（練習・ボットは「マウスを定位置に戻します」から）。
+- セキュリティ: ?host=1 だけで管理者扱い(サーバー停止/大会操作/ログDL)になる問題。環境変数 KARUTA_HOST_KEY を設定すると ?host=<キー> のみ有効に（未設定は従来どおり＋起動時警告）。クライアントはURLの値をそのまま送る。npm audit fix で依存の高/重大の脆弱性を解消(qs moderate 2件残)。
+- 未対応リスク: /api/voice/ensure は無認証でVOICEVOX生成を依頼できる(DoSの余地)。Socketイベントにレート制限なし。HTTPS終端はトンネル/プロキシ側前提。
+- 本番で要対応: サーバー起動前に KARUTA_HOST_KEY を設定し、教卓PCのURLを ?host=<キー> に変更。未コミット。
+
+## 追記 2026-11-19（管理画面の操作・ポスター）
+- コミット済み・本番(CT111 /opt/e-karuta, systemd `ekaruta`)へ反映済み: 管理画面の停止/再起動(launcher.js・起動.bat)、緊急停止/再開(server.js pauseState: 音声終了後の read_next で中断・再開は30秒後)、1枚目音声無音の修正(playVoiceItems: 未取得なら取得してから再生)、表彰式文の1行化、ホスト退出後の退室ボタン追加、練習モードの音声準備ゲート撤廃。
+- 未コミット(2026-11-19時点): 再起動の起動方法非依存化(server.js serverRunMode: launcher/systemd=終了コード75、単独起動=自己再起動)、admin_pause/resume の権限拒否メッセージ。systemd の Restart= 設定が on-failure/always でないと管理画面の再起動後に自動で立ち上がらない(要 `systemctl cat ekaruta` 確認)。
+- 未解決: 本番で緊急停止を押しても止まらなかった件。手元の再現(大会モード・ボット)では read_next 直前で正しく停止。原因未特定。本番の `grep -h '"pause' /opt/e-karuta/logs/*.jsonl` で pause_request / pause_active の有無を確認する。
+- 本番サーバーは独自3コミット(?host制限・bot-load)が GitHub に無かったため merge で統合済み。サーバーから push して手元と揃える必要あり。
+- ポスター(A3)のモックアップは Artifact「かるた大会ポスター案」(https://claude.ai/artifact/HkMMxL8ibSg3mL5Aj2sNsC)。A〜C: 第1案、D〜F: 和テイスト版(イヤホン必須・ミニプラグ・Bluetooth不可・貸出の注意書きと試合画面イメージつき)。QRは枠のみ。
+
+## 追記 2026-11-24
+- スキップボタン: 練習/ボットは音声準備完了まで薄く表示(btn-gated: 透明度.4・文字薄く・pointer-events:none)＋クリック無反応、準備完了で押せる。大会モードは従来どおり待たずに押せる。
+- 「大会モードを開始」が始まらない原因: 教卓PCの?host自動参加は読込時1回のみで、通信が切れて再接続するとサーバー上は未参加の新接続になり、start_eventが無言で無視されボタンが無効のまま残っていた(リロードで再参加→直る)。修正: 再接続(init 2回目以降)で同じ内容のset_nameを再送。さらにサーバーが断った理由(event_start_denied)を画面に表示しボタンを復帰。
+- テスト音声: 練習・ボットでは流さない(実装済み、再確認)。緊急停止からの再開時は大会モードのみテスト音声→3秒後に再開(pause_state遷移でsoundCheckPending)。
+- 未コミット。
+
+## 追記 2026-11-24（ボットのテスト音声・比較パネル）
+- ボットモード(?bot)は多数PCで音声の同時性を確かめる用途のため、本番同様にテスト音声を流す（開始時・緊急停止からの再開時）。通常の練習モードは流さない。game.js: memorize_start で soundCheckPending=!!BOT_LINK、pause_state再開時は (isEventMode||BOT_LINK)、sound_check_start に {bot:true} を付与。server.js は大会中または bot:true の時だけ受理（ホスト限定は従来どおり）。
+- 比較パネル: 差の緑/赤を背景塗り＋太字＋▲▼にして視認性向上（暗/明背景で別配色）、「あなた」を青いピル型バッジに。style.css .sp-cmp。
+- 未検証(実機・見た目の目視)。未コミット。

@@ -517,7 +517,8 @@ function renderTop3(players) {
 // 「ホスト」になる（以前はサーバーPC自身からの接続を自動的にホスト扱いしていたが、
 // それだとサーバーPC自身で参加者としてテストできなかったため、明示的な印に変更した）。
 const HOST_PARAM = new URLSearchParams(location.search).has('host');
-const socket    = io({ query: { host: HOST_PARAM ? '1' : '' } });
+const HOST_VALUE = new URLSearchParams(location.search).get('host') || '1';   // ?host=<キー>（キー未設定のサーバーでは ?host=1）
+const socket    = io({ query: { host: HOST_PARAM ? HOST_VALUE : '' } });
 
 // このブラウザ専用の参加者トークン（ページを開き直しても localStorage に残る）。
 // 大会モード中に切断（誤ってページを閉じた・ブラウザバックしたなど）した後、同じ
@@ -542,8 +543,8 @@ if (HOST_PARAM) {
   document.addEventListener('DOMContentLoaded', () => {
     const adminLink     = document.getElementById('adminLink');
     const projectorLink = document.getElementById('projectorLink');
-    if (adminLink)     adminLink.href     = 'admin.html?host';
-    if (projectorLink) projectorLink.href = 'projector.html?host';
+    if (adminLink)     adminLink.href     = 'admin.html?host=' + encodeURIComponent(HOST_VALUE);
+    if (projectorLink) projectorLink.href = 'projector.html?host=' + encodeURIComponent(HOST_VALUE);
   });
 }
 // ロビーに表示する「他のパソコンはこのURLへ」の接続先。?host が付いたままだと、
@@ -680,6 +681,19 @@ function startEvent() {
   if (btn) btn.disabled = true;
   socket.emit('start_event');
 }
+
+// サーバーが大会モードの開始を断ったとき：理由を表示し、ボタンを押せる状態に戻す
+socket.on('event_start_denied', ({ reason }) => {
+  const btn = $('lobbyEventStartBtn');
+  if (btn) btn.disabled = false;
+  const msg = {
+    not_host:        'この画面は教卓PCとして認識されていません。アドレスの ?host=… を確認して開き直してください。',
+    not_joined:      'このPCが参加登録されていません。ページを再読み込みしてから、もう一度押してください。',
+    not_lobby:       'ロビー以外の状態のため開始できません。ロビーに戻ってから押してください。',
+    no_participants: '参加者がいません。学生が参加してから押してください。',
+  }[reason] || '大会モードを開始できませんでした。';
+  alert(msg);
+});
 
 function advanceEvent(which) {
   ['evMainBtn', 'evRevivalBtn'].forEach(id => { const b = $(id); if (b) b.disabled = true; });
@@ -1124,7 +1138,7 @@ function maybeAutoReadNext() {
   if (soundCheckPending && !(readyState && readyState.active)) {   // 全員の準備待ち(ready_wait)が終わってから
     soundCheckPending = false;
     soundCheckRunning = true;
-    socket.emit('sound_check_start');
+    socket.emit('sound_check_start', { bot: !!BOT_LINK });
     clearTimeout(soundCheckTimer);
     soundCheckTimer = setTimeout(() => { if (soundCheckRunning) { soundCheckRunning = false; maybeAutoReadNext(); } }, 20000);   // 保険：テスト音声が始まらなくても止まらない
     return;
@@ -1480,6 +1494,8 @@ function stopLoadTestUI() {
   socket.emit('stop_load_test');
 }
 
+let lastJoinPayload = null;
+let initCount = 0;   // 再接続のたびに init が届く（2回目以降＝再接続）
 function doJoin() {
   const name = $('nameInput').value.trim();
   if (!name) { $('nameInput').focus(); return; }
@@ -1491,7 +1507,8 @@ function doJoin() {
   getAudioCtx();
   playWarmupBlip();   // 参加操作（＝本物のクリック）直後に一瞬だけ鳴らし、本編の音声が
                        // 立ち上がり時のフェードを受けずに最初から本来の音量で鳴るようにする
-  socket.emit('set_name', { name, grade, course, token: PLAYER_TOKEN });
+  lastJoinPayload = { name, grade, course, token: PLAYER_TOKEN };   // 通信が切れて再接続したとき、同じ内容で参加し直す
+  socket.emit('set_name', lastJoinPayload);
   hide('oName');
   nameEntered = true;
   if (liveData) applyInit(liveData);
@@ -1877,7 +1894,7 @@ function skipMemorize() { socket.emit('skip_memorize'); }
 function debugSmartSkip() {
   if (!(isServerPc || !isEventMode)) return;
   if (isArranging) {
-    if (!isEventMode && !voiceReadyForSkip()) return;   // 練習モードは音声が揃ってから
+    if (!isEventMode && !voiceReadyForSkip()) return;   // 準備中は反応しない（ボタンも薄く表示している）
     skipMemorize();
     return;
   }
@@ -2477,13 +2494,19 @@ function refreshDebugButtons() {
   const btn = $('debugEndBtn');
   if (!btn) return;
   if (isArranging) {
-    const gated = false;   // 練習モードも大会モードと同様、音声の準備を待たずにスキップできる
+    // 練習モード（ボットを含む）は、音声の準備が終わるまでスキップできない（押せない間は薄く表示し、押しても何も起きない）。
+    // 大会モード（教卓PCのみ）は準備を待たずにスキップできる。
+    const gated = !isEventMode && !voiceReadyForSkip();
     btn.disabled = gated;
+    btn.classList.toggle('btn-gated', gated);
+    btn.setAttribute('aria-disabled', gated ? 'true' : 'false');
     btn.textContent = gated
       ? (voiceState.ready ? '🔊 音声を読み込み中…' : `🔊 音声を準備中 ${voiceState.done}/${voiceState.total}`)
       : '⏭ 盤面整理をスキップ';
     btn.title = gated ? '音声ファイル(VOICEVOX)が用意できるとスキップできます' : '盤面整理を終えて試合を始める（デバッグ用）';
   } else {
+    btn.classList.remove('btn-gated');
+    btn.removeAttribute('aria-disabled');
     btn.disabled = false;
     btn.textContent = '⏹ 即終了（デバッグ）';
     btn.title = 'デバッグ用：即終了／盤面整理をスキップ';
@@ -2657,15 +2680,15 @@ function showScorePanel(by, r, contenders) {
   const cell = (val, pts, cls) => `<span class="v${cls ? ' ' + cls : ''}">${val}<small>+${fmtPts(pts)}点</small></span>`;
   let cmp = `<div class="sp-cmp">
       <span></span><span class="c">⚡ 速度<small>短いほど有利</small></span><span class="c">🎯 精度<small>短いほど有利</small></span><span class="c">🖱 距離<small>長いほど加点（取る判定には無関係）</small></span>
-      <span class="rl">${iWon ? 'あなた' : '取った人'}</span>${cell(secStr(win.speedMs), win.sp, iWon ? 'me' : '')}${cell(mmStr(win.offsetMm), win.ap, iWon ? 'me' : '')}${cell(mmStr(win.distMm), win.cp, iWon ? 'me' : '')}`;
+      <span class="rl${iWon ? ' you' : ''}">${iWon ? 'あなた' : '取った人'}</span>${cell(secStr(win.speedMs), win.sp, iWon ? 'me' : '')}${cell(mmStr(win.offsetMm), win.ap, iWon ? 'me' : '')}${cell(mmStr(win.distMm), win.cp, iWon ? 'me' : '')}`;
   if (mc && !iWon) {
     const mine = { sp: speedPts(mc.speedMs), ap: accPts(mc.offsetMm), cp: ctrlPts(mc.distMm) };
-    const diff = (txt, d) => `<span class="v ${d > 0 ? 'good' : d < 0 ? 'bad' : ''}">${txt}<small>${d > 0 ? '+' : ''}${fmtPts(d)}点</small></span>`;
+    const diff = (txt, d) => `<span class="v diff ${d > 0 ? 'good' : d < 0 ? 'bad' : ''}">${txt}<small>${d > 0 ? '▲ +' : d < 0 ? '▼ ' : ''}${fmtPts(d)}点</small></span>`;
     const sgn = n => (n > 0 ? '+' : n < 0 ? '−' : '±');
-    cmp += `<span class="rl">あなた</span>${cell(secStr(mc.speedMs), mine.sp, 'me')}${cell(mmStr(mc.offsetMm), mine.ap, 'me')}${cell(mmStr(mc.distMm), mine.cp, 'me')}
+    cmp += `<span class="rl you">あなた</span>${cell(secStr(mc.speedMs), mine.sp, 'me')}${cell(mmStr(mc.offsetMm), mine.ap, 'me')}${cell(mmStr(mc.distMm), mine.cp, 'me')}
       <span class="rl">差</span>${diff(sgn(mc.speedMs - win.speedMs) + (Math.abs(mc.speedMs - win.speedMs) / 1000).toFixed(2) + '秒', mine.sp - win.sp)}${diff(sgn(mc.offsetMm - win.offsetMm) + mmStr(Math.abs(mc.offsetMm - win.offsetMm)), mine.ap - win.ap)}${diff(sgn(mc.distMm - win.distMm) + mmStr(Math.abs(mc.distMm - win.distMm)), mine.cp - win.cp)}`;
   } else if (!mc && !iWon) {
-    cmp += `<span class="rl">あなた</span><span class="v nc">この札はクリックしていません</span>`;
+    cmp += `<span class="rl you">あなた</span><span class="v nc">この札はクリックしていません</span>`;
   }
   cmp += '</div>';
   el.innerHTML = `<div class="sp-title"><span class="tn-dot" style="background:${by.color || '#4a9eff'}"></span>${escHtml(by.name)} <span style="color:var(--dim);font-weight:400;font-size:.75rem">が獲得</span></div>
@@ -2780,6 +2803,10 @@ function showGameOver(players) {
 // ── Socket events ─────────────────────────────────────────
 let rejoinAttempted = false;   // ページ内で一度だけ、保存トークンでの自動復帰を試す
 socket.on('init', data => {
+  // 通信が切れて再接続すると、サーバーでは新しい「未参加」の接続になる（画面は参加済みのまま）。
+  // そのままだと「大会モードを開始」などの操作がサーバーに無視されるので、同じ内容で参加し直す。
+  initCount++;
+  if (initCount > 1 && nameEntered && lastJoinPayload) socket.emit('set_name', lastJoinPayload);
   myId       = data.myId;
   isServerPc = !!data.isServerPc;
   liveHostId = data.hostId;
@@ -2847,7 +2874,7 @@ socket.on('host_changed', ({ hostId }) => {
 });
 
 socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRounds: mr, survivorCount: sc, isRevival: ir, revivalCount: rc, revivalRound: rRound, revivalMaxRounds: rMax, revivalSurvivorCount: rSurv, isGroupMatch: ig, groupTier: gt, groupParticipantIds: gpi, humanGroups: hg, groupRound: gRound, groupMaxRounds: gMax, groupSurvivorCount: gSurv, groupHumanCount: ghc, humanCount: hc, cpuCount: cc, totalCount: tc, layout: lay }) => {
-  soundCheckPending = true; soundCheckRunning = false;   // 試合が始まるたびに、最初の読み上げの前にテスト音声を1回流す
+  soundCheckPending = !!BOT_LINK;   // 通常の練習モードではテスト音声なし。ボットモード（?bot）は多数のPCで音声の同時性を確かめるため、本番同様に流す
   matchHeadcount = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   if (round)            currentRound  = round;
   if (mr)               maxRounds     = mr;
@@ -2892,7 +2919,7 @@ socket.on('memorize_start', ({ cardOrder, cards, players, endsAt, round, maxRoun
 
 // ── 大会モード：試合開始（暗記フェーズ）───────────────────
 socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, stageLabel, roundNumber, isFinalMainRound, passCount, participantIds, gamesPlayed, humanCount: hc, cpuCount: cc, totalCount: tc, layout: lay }) => {
-  soundCheckPending = true; soundCheckRunning = false;
+  soundCheckPending = true; soundCheckRunning = false;   // 大会モードだけ、最初の読み上げの前にテスト音声を1回流す
   matchHeadcount      = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   isEventMode         = true;
   eventStarted        = true;
@@ -3479,6 +3506,9 @@ function renderPauseOverlay() {
 socket.on('pause_state', (st) => {
   const wasActive = pauseInfo.active;
   pauseInfo = st || { requested: false, active: false, resumeAt: 0 };
+  // 緊急停止から再開するときは、ゲーム開始時と同様に、次の読み上げの前にテスト音声を流して音を揃え直す
+  // （長く止めていた間に、端末ごとの音声のタイミングがずれるため）。大会モードのみ（練習モードは流さない）。
+  if (wasActive && !pauseInfo.active && (isEventMode || BOT_LINK)) { soundCheckPending = true; soundCheckRunning = false; }
   dropIdleWaiters('pause');
   if (pauseInfo.active && !wasActive) {
     // 自分の端末の音声（読み上げ・正解発表・DJ）が終わってから表示する
