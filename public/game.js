@@ -1114,15 +1114,20 @@ let isAnnouncing   = false;
 let autoReadPending = false;
 
 function updateReadBtnAvailability() {
+  refreshReadBtn();
+  maybeAutoReadNext();
+}
+function refreshReadBtn() {
   const btn = $('readBtn');
   if (btn) {
-    // 練習モードは自動で次の札へ進むため、手動の読み上げボタンは表示しない
-    const visible = myIsHost && canReadNext && isEventMode;
+    // 練習モードは自動で次の札へ進むため、手動の読み上げボタンは表示しない。
+    // 全員が仮想カーソルに切り替わるまで（準備待ち）と、テスト音声の間も表示しない
+    const waitingStart = (readyState && readyState.active) || soundCheckPending || soundCheckRunning;
+    const visible = myIsHost && canReadNext && isEventMode && !waitingStart;
     btn.classList.toggle('hidden', !visible);
     btn.disabled = isAnnouncing;
     btn.title = isAnnouncing ? '正解の読み上げ中はお待ちください' : '次の上の句を読み上げる';
   }
-  maybeAutoReadNext();
 }
 
 // 読み上げ可能になり、正解発表の音声も、DJ実況もすべて終わっていれば、
@@ -1132,12 +1137,14 @@ function updateReadBtnAvailability() {
 // read_next は waiting フェーズでのみ有効なため、二重に届いてもサーバー側で
 // 無視される（安全策として autoReadPending でも連打を防ぐ）。
 function maybeAutoReadNext() {
+  refreshReadBtn();
   if (!myIsHost || !canReadNext || isAnnouncing || autoReadPending || soundCheckRunning) return;
   if (djSpeaking || djQueue.length) return;
   // 試合の最初の読み上げの前に、全員で1回だけテスト音声を流す（端末ごとの音のずれを聞いて確かめられる）
   if (soundCheckPending && !(readyState && readyState.active)) {   // 全員の準備待ち(ready_wait)が終わってから
     soundCheckPending = false;
     soundCheckRunning = true;
+    refreshReadBtn();
     socket.emit('sound_check_start', { bot: !!BOT_LINK });
     clearTimeout(soundCheckTimer);
     soundCheckTimer = setTimeout(() => { if (soundCheckRunning) { soundCheckRunning = false; maybeAutoReadNext(); } }, 20000);   // 保険：テスト音声が始まらなくても止まらない
@@ -2555,6 +2562,7 @@ function reportReadyIfPossible() {
 }
 socket.on('ready_wait', d => {
   readyState = { active: d.active, total: d.total, ready: d.ready, deadline: d.deadline, handicap: d.handicap };
+  refreshReadBtn();
   if (readyTick) clearInterval(readyTick);
   readyTick = setInterval(renderStartExtras, 500);
   renderStartExtras();

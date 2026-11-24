@@ -299,6 +299,11 @@ const voiceEngine = new VoiceEngine({
 const VOICE_WAIT_MAX_MS = +process.env.KARUTA_VOICE_WAIT_MS || 60 * 1000;   // 盤面整理が終わっても音声が揃わないとき、最大これだけ待ってから始める
 
 const MEMO_SECONDS    = +process.env.KARUTA_MEMO_SECONDS || 60;   // 環境変数はテスト用   // 盤面整理タイム（暗記ではなく、取りやすい配置に並べ替える時間）
+// 敗者復活戦（大会モードの敗者復活戦・旧敗者復活モード）の盤面整理は30秒。それ以外は MEMO_SECONDS。
+const REVIVAL_MEMO_SECONDS = 30;
+function memoSeconds() {
+  return ((gs.event && gs.event.active && gs.event.stage === 'revival') || gs.isRevival) ? REVIVAL_MEMO_SECONDS : MEMO_SECONDS;
+}
 // 「読み上げ開始（上の句 / ダミーの読み始め）→そこまで」の合計時間を、文章の長さに関わらず
 // 全ての札で統一する（進行予定が計算しやすくなるため）。読み上げ自体が長い札ほど、その分
 // 読み終わった後の受付時間が短くなる（最長の札でも受付時間が0未満にならないよう
@@ -1418,7 +1423,7 @@ function startEventMatch(participantIds) {
   gs.currentCard    = null;
   gs.currentDecoy   = null;
   gs.phase          = 'memorizing';
-  gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
+  gs.memorizeEndsAt = Date.now() + memoSeconds() * 1000;
   gs.layout = LAYOUT.generateLayout(gs.cardOrder);
 
   const { humanCount, cpuCount, totalCount } = computeHeadcount({ participantIds: gs.event.participantIds });
@@ -1590,7 +1595,7 @@ function prepareMatchVoice() {
 function armMemorize() {
   prepareMatchVoice();
   if (memorizeTimer) clearTimeout(memorizeTimer);
-  memorizeTimer = setTimeout(startPlayingWhenVoiceReady, MEMO_SECONDS * 1000);
+  memorizeTimer = setTimeout(startPlayingWhenVoiceReady, memoSeconds() * 1000);
 }
 function startPlayingWhenVoiceReady() {
   if (memorizeTimer) clearTimeout(memorizeTimer);   // スキップ経由で呼ばれたとき、残っている盤面整理のタイマーを止める
@@ -2045,7 +2050,7 @@ io.on('connection', socket => {
     gs.phase          = 'memorizing';
     gs.remaining      = new Set(roundCardIds);
     gs.cardOrder      = roundCardIds;
-    gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
+    gs.memorizeEndsAt = Date.now() + memoSeconds() * 1000;
   gs.layout = LAYOUT.generateLayout(gs.cardOrder);
 
     io.emit('memorize_start', {
@@ -2345,7 +2350,7 @@ io.on('connection', socket => {
       : Math.min(PRACTICE_MOCK_SURVIVOR_SCHEDULE[gs.round - 1] ?? eventCutCounts(totalCount).pass, totalCount);
 
     gs.phase          = 'memorizing';
-    gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
+    gs.memorizeEndsAt = Date.now() + memoSeconds() * 1000;
   gs.layout = LAYOUT.generateLayout(gs.cardOrder);
 
     io.emit('memorize_start', {
@@ -2403,7 +2408,7 @@ io.on('connection', socket => {
     gs.currentDecoy   = null;
 
     gs.phase          = 'memorizing';
-    gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
+    gs.memorizeEndsAt = Date.now() + memoSeconds() * 1000;
   gs.layout = LAYOUT.generateLayout(gs.cardOrder);
 
     io.emit('memorize_start', {
@@ -2452,7 +2457,7 @@ io.on('connection', socket => {
     gs.currentCard    = null;
     gs.currentDecoy   = null;
     gs.phase          = 'memorizing';
-    gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
+    gs.memorizeEndsAt = Date.now() + memoSeconds() * 1000;
   gs.layout = LAYOUT.generateLayout(gs.cardOrder);
 
     io.emit('memorize_start', {
@@ -2524,7 +2529,7 @@ io.on('connection', socket => {
     gs.currentCard    = null;
     gs.currentDecoy   = null;
     gs.phase          = 'memorizing';
-    gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
+    gs.memorizeEndsAt = Date.now() + memoSeconds() * 1000;
   gs.layout = LAYOUT.generateLayout(gs.cardOrder);
 
     const tierLabel = tier === 'top' ? '上位' : tier === 'middle' ? '中位' : '下位';
@@ -2583,7 +2588,7 @@ io.on('connection', socket => {
     gs.currentCard    = null;
     gs.currentDecoy   = null;
     gs.phase          = 'memorizing';
-    gs.memorizeEndsAt = Date.now() + MEMO_SECONDS * 1000;
+    gs.memorizeEndsAt = Date.now() + memoSeconds() * 1000;
   gs.layout = LAYOUT.generateLayout(gs.cardOrder);
 
     const tierLabel   = gs.groupTier === 'top' ? '上位' : gs.groupTier === 'middle' ? '中位' : '下位';
