@@ -48,12 +48,43 @@ window.KCursor = (() => {
       return p && p.then ? p : Promise.resolve();
     } catch (e) { return Promise.reject(e); }
   }
-  function requestLock() {
-    if (!lockTarget().requestPointerLock) { st.fallback = true; updateUi(); return; }
-    // まず OS のマウス加速なし(unadjustedMovement)で試し、だめなら通常の Pointer Lock、それもだめなら本物のカーソルで遊ぶ
+  // Esc で解除した直後（約1秒以内）に再要求するとブラウザが拒否する。拒否されても通常カーソルに固定せず、
+  // 少し待って自動で再試行し、それでもだめなら案内を出したままにして、もう一度押せるようにする。
+  // 通常カーソルで遊ぶのは、ブラウザが Pointer Lock に対応していないときだけ。
+  const RELOCK_COOLDOWN_MS = 1300;
+  const MAX_LOCK_TRIES = 3;
+  let lastUnlockAt = 0, lockTries = 0, lockTimer = null, lockPending = false;
+  function lockFailed() {
+    if (!lockPending) return;              // rejectとpointerlockerrorの二重通知を1回にまとめる
+    lockPending = false;
+    if (st.locked || !st.enabled) return;
+    if (++lockTries < MAX_LOCK_TRIES) {
+      clearTimeout(lockTimer);
+      lockTimer = setTimeout(attemptLock, RELOCK_COOLDOWN_MS);
+    } else {
+      lockTries = 0;                       // あきらめて案内を残す（もう一度クリックすれば試せる）
+      const hint = $('lockPromptHint');
+      if (hint) hint.textContent = 'うまく切り替わりませんでした。1秒ほど待ってからもう一度クリックしてください。';
+      updateUi();
+    }
+  }
+  function attemptLock() {
+    if (st.locked || !st.enabled || lockPending) return;
+    lockPending = true;
+    // まず OS のマウス加速なし(unadjustedMovement)で試し、だめなら通常の Pointer Lock
     tryLock({ unadjustedMovement: true })
       .catch(() => tryLock())
-      .catch(() => { st.fallback = true; updateUi(); });
+      .then(() => { lockPending = false; }, lockFailed);
+  }
+  function requestLock() {
+    if (!lockTarget().requestPointerLock) { st.fallback = true; updateUi(); return; }
+    st.fallback = false;
+    lockTries = 0;
+    clearTimeout(lockTimer);
+    const hint = $('lockPromptHint');
+    if (hint) hint.textContent = '';
+    const wait = Math.max(0, lastUnlockAt + RELOCK_COOLDOWN_MS - Date.now());   // 解除直後は少し待ってから要求
+    if (wait > 0) lockTimer = setTimeout(attemptLock, wait); else attemptLock();
   }
 
   function releaseLock() {
@@ -62,11 +93,12 @@ window.KCursor = (() => {
 
   document.addEventListener('pointerlockchange', () => {
     st.locked = document.pointerLockElement === lockTarget();
-    if (st.locked) { st.fallback = false; moveHome(); }
+    if (st.locked) { st.fallback = false; lockPending = false; lockTries = 0; clearTimeout(lockTimer); moveHome(); }
+    else lastUnlockAt = Date.now();
     updateUi();
     if (!st.locked) hooks.hover(-1, -1, false);
   });
-  document.addEventListener('pointerlockerror', () => { st.fallback = true; updateUi(); });
+  document.addEventListener('pointerlockerror', lockFailed);
 
   document.addEventListener('mousemove', e => {
     if (!st.locked || !st.enabled) return;
