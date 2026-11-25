@@ -337,3 +337,8 @@ bca026e（未コミットの変更あり）
 
 ### 基準となるGit commit
 f608b63（この追記を含むコミットの親）
+
+## 追記 2026-11-25（プッシュ）
+- ユーザー指示で origin/master へプッシュ（上の追記の「GitHubへは未プッシュ」はこれで解消）。手順書は「今は直さない」と指示あり。本番反映は未実施。
+- 含めなかったもの: .claude/settings.local.json、poster/、voicevox_sample.html。
+- 基準commit: この追記を含むコミットの親（3ea9299）。
