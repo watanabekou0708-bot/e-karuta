@@ -545,6 +545,8 @@ if (HOST_PARAM) {
     const projectorLink = document.getElementById('projectorLink');
     if (adminLink)     adminLink.href     = 'admin.html?host=' + encodeURIComponent(HOST_VALUE);
     if (projectorLink) projectorLink.href = 'projector.html?host=' + encodeURIComponent(HOST_VALUE);
+    const statusLink = document.getElementById('statusLink');
+    if (statusLink)    statusLink.href    = 'status.html?host=' + encodeURIComponent(HOST_VALUE);
   });
 }
 // ロビーに表示する「他のパソコンはこのURLへ」の接続先。?host が付いたままだと、

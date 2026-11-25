@@ -202,7 +202,23 @@ try {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   logStream = fs.createWriteStream(path.join(LOG_DIR, `game-${stamp}-p${PORT}.jsonl`), { flags: 'a' });
 } catch (e) { console.warn('ログファイルを作成できません:', e.message); }
+// 所要時間の記録（logs/timing-<起動日時>.md。試合が終わるたびに書き直す）
+const { TimingLog } = require('./timing-log.js');
+const TIMING_FILE = `timing-${new Date().toISOString().replace(/[:.]/g, '-')}-p${PORT}.md`;
+const timing = new TimingLog(path.join(LOG_DIR, TIMING_FILE));
+// ログイベントのうち、所要時間の計測に使うものを拾う（記録の失敗でゲームを止めない）
+function timingFromLog(type, data) {
+  try {
+    if (type === 'read_start') timing.cardStart({ kind: data.kind, cardId: data.cardId, tori: data.tori, level: data.level });
+    else if (type === 'read_end') timing.cardReadEnd(data.readDurationMs);
+    else if (type === 'announce_go') timing.announceStart(true);
+    else if (type === 'time_up') timing.announceStart(false);
+    else if (type === 'ready_wait') timing.readyStart(Array.isArray(data.need) ? data.need.length : null);
+    else if (type === 'ready_release') timing.readyEnd(data.reason);
+  } catch (e) { /* 無視 */ }
+}
 function logEvent(type, data = {}) {
+  timingFromLog(type, data);
   if (!logStream) return;
   logStream.write(JSON.stringify({ at: new Date().toISOString(), t: Math.round(hiResNow()), type, ...data }) + '\n');
 }
@@ -414,8 +430,8 @@ const gs = {
   // ── 管理画面で調整する設定（進行中も変更可。イベントをまたいで保持する）───
   eventConfig: {
     mainCutRatio:     0.5,     // 本戦：毎回の通過比率（高いほど勝ち上がりやすく、試合数は減る）
-    mainMaxRounds:    7,       // 本戦：第何試合で最終試合として終了するか（そのときの残り人数で最終試合を行う）
-    revivalMaxRounds: 5,       // 敗者復活戦：第何試合で終了するか
+    mainMaxRounds:    5,       // 本戦：第何試合で最終試合として終了するか（そのときの残り人数で最終試合を行う）
+    revivalMaxRounds: 2,       // 敗者復活戦：第何試合で終了するか
     revivalCutRatio:  0.5,     // 敗者復活戦：中間ラウンドの通過比率
     testCpuFill:      false,   // テスト用：大会モード開始時、実参加者が少なくてもCPUで人数を補充する
                                 // （既定でオフ。本番当日はオフのまま＝実参加者のみで開始する）
@@ -465,6 +481,7 @@ const gs = {
     mainPool:          new Set(),   // 本戦の系譜にまだ残っている人
     revivalCandidates: new Set(), // 敗者復活戦にまだ挑戦していない／再挑戦権が残っている人（累積）
     gamesPlayed:       {},          // id → 消化した試合数
+    history:           {},          // id → 試合ごとの結果の履歴（勝敗一覧用）[{ stage, round, rank, score, result }]
     participantIds:    new Set(),   // 現在進行中の試合の参加者
     finalRanking:      [],        // 最終試合の結果（スコア降順のid配列。上位3名ハイライト表示に使う）
     lastResult:        null,        // 直近ステージの結果（ホストUI表示用）
@@ -516,7 +533,7 @@ function armAnnounceAdvance(fn) {
     announceAdvanceTimer = null;
     const f = pendingAnnounceAdvance;
     pendingAnnounceAdvance = null;
-    if (f) { logEvent('announce_advance_fallback', {}); f(); }
+    if (f) { logEvent('announce_advance_fallback', {}); timing.cardEnd('保険タイマー'); f(); }
   }, ANNOUNCE_FALLBACK_MS);
 }
 
@@ -1162,6 +1179,7 @@ function startDecoyRead() {
 
 // 試合終了処理
 function endRound() {
+  timing.matchEnd();
   logEvent('match_end', { round: gs.round, mode: gs.event.active ? 'event:' + gs.event.stage : 'practice',
     scores: Object.entries(gs.players).filter(([, p]) => p.isBot || p.joined)
       .sort(([, a], [, b]) => b.score - a.score)
@@ -1471,6 +1489,35 @@ function notifyEventStageReady() {
   io.emit('event_stage_ready', eventStageReadySnapshot());
 }
 
+// 勝敗一覧（教卓PC用）。参加者ごとに、本戦・敗者復活戦の結果の履歴と現在の状態を返す。
+// state: final=最終順位確定 / playing=試合中 / alive=本戦勝ち残り / revival_wait=敗者復活戦の挑戦待ち / out=敗退確定 / idle=未出場
+function eventStatusSnapshot() {
+  const ev = gs.event;
+  const midMatch = ['memorizing', 'waiting', 'reading', 'decoy', 'announcing'].includes(gs.phase);
+  const ids = new Set(Object.keys(ev.history));
+  Object.keys(gs.players).forEach(id => { const p = gs.players[id]; if (p && !p.isBot && p.joined) ids.add(id); });
+  const rows = [...ids].filter(id => gs.players[id] && !gs.players[id].isBot).map(id => {
+    const p = gs.players[id];
+    const hist = ev.history[id] || [];
+    const finalIdx = ev.finalRanking ? ev.finalRanking.indexOf(id) : -1;
+    let state, text;
+    if (finalIdx >= 0) { state = 'final'; text = `最終 ${finalIdx + 1}位`; }
+    else if (ev.active && midMatch && ev.participantIds.has(id)) { state = 'playing'; text = `${EVENT_STAGE_LABELS[ev.stage] || ''}の試合中`; }
+    else if (ev.mainPool.has(id)) { state = 'alive'; text = '本戦 勝ち残り'; }
+    else if (ev.revivalCandidates.has(id)) { state = 'revival_wait'; text = '敗者復活戦 挑戦待ち'; }
+    else if (hist.length) { state = 'out'; text = '敗退'; }
+    else { state = 'idle'; text = '未出場'; }
+    return { id, name: p.name, grade: p.grade || null, course: p.course || null, online: !!p.joined, state, text,
+      main: hist.filter(h => h.stage === 'main'), revival: hist.filter(h => h.stage === 'revival') };
+  });
+  return {
+    active: ev.active, stage: ev.stage, stageLabel: EVENT_STAGE_LABELS[ev.stage] || null, phase: gs.phase,
+    mainRound: ev.mainRoundIndex, revivalRound: ev.revivalRoundIndex,
+    mainMaxRounds: gs.eventConfig.mainMaxRounds, revivalMaxRounds: gs.eventConfig.revivalMaxRounds,
+    rows,
+  };
+}
+
 // 大会モードの1試合終了処理。ステージごとに通過／敗退／敗者復活行きを振り分ける。
 function endEventRound() {
   gs.phase = 'round_finished';
@@ -1488,10 +1535,16 @@ function endEventRound() {
 
   const playersSnap = Object.assign({}, gs.players);
   const ids = active.map(([id]) => id);
+  const roundNo = stage === 'revival' ? gs.event.revivalRoundIndex : gs.event.mainRoundIndex;
+  // 勝敗一覧用：この試合の順位・点数・結果を各参加者の履歴に残す（result は下で確定する）
+  const record = (id, result) => {
+    (gs.event.history[id] = gs.event.history[id] || []).push({ stage, round: roundNo, rank: ids.indexOf(id) + 1, score: (gs.players[id] && gs.players[id].score) || 0, result });
+  };
 
   // ── 本戦：設定された回数に達した「最終試合」── 絞り込みはせず、そのままの順位で確定 ──
   if (stage === 'main' && gs.event.isFinalMainRound) {
     gs.event.finalRanking = ids;
+    ids.forEach(id => record(id, '最終'));
     gs.event.mainPool     = new Set();
     gs.event.stage         = 'done';
     gs.event.lastResult    = { stage: 'main', isFinal: true, finalRanking: ids, players: playersSnap, ceremony: CEREMONY, roundNumber: gs.event.mainRoundIndex };
@@ -1508,7 +1561,8 @@ function endEventRound() {
     const pass = gs.event.passCount != null ? Math.min(gs.event.passCount, ids.length) : eventCutCounts(ids.length, gs.eventConfig.revivalCutRatio).pass;
     const revived   = ids.slice(0, pass);
     const stillOut  = ids.slice(pass);
-    revived.forEach(id => gs.event.mainPool.add(id));
+    revived.forEach(id => { gs.event.mainPool.add(id); record(id, '通過'); });
+    stillOut.forEach(id => record(id, '敗退'));
     // 敗者復活戦が設定回数に達していなければ、まだ既定試合数未満の人を次の敗者復活戦に再挑戦させる
     const revivalClosed = gs.event.revivalRoundIndex >= gs.eventConfig.revivalMaxRounds;
     if (!revivalClosed) {
@@ -1529,7 +1583,8 @@ function endEventRound() {
   const passers = ids.slice(0, pass);
   const losers   = ids.slice(pass);
   gs.event.mainPool  = new Set(passers);
-  losers.forEach(id => gs.event.revivalCandidates.add(id));
+  passers.forEach(id => record(id, '通過'));
+  losers.forEach(id => { gs.event.revivalCandidates.add(id); record(id, '敗退'); });
   gs.event.lastResult = { stage: 'main', passers, losers, players: playersSnap, roundNumber: gs.event.mainRoundIndex };
   setTimeout(() => {
     io.emit('event_round_finished', { stage: 'main', passers, losers, players: playersSnap, roundNumber: gs.event.mainRoundIndex });
@@ -1593,11 +1648,20 @@ function prepareMatchVoice() {
 // 試合を始める（音声がまだ揃っていなければ、最大 VOICE_WAIT_MAX_MS 待ってから、
 // それでも揃わない分は無音のまま始める）。
 function armMemorize() {
+  try {
+    const ev = gs.event.active;
+    const label = ev
+      ? (gs.event.stage === 'revival' ? `敗者復活戦 第${gs.event.revivalRoundIndex}試合` : `本戦 第${gs.event.mainRoundIndex}試合`)
+      : (gs.isRevival ? '敗者復活戦' : gs.isGroupMatch ? 'グループ戦' : `練習 第${gs.round}試合`);
+    const n = ev ? gs.event.participantIds.size : Object.values(gs.players).filter(p => p.joined && !p.isBot).length;
+    timing.matchBegin({ label, participants: n });
+  } catch (e) { /* 無視 */ }
   prepareMatchVoice();
   if (memorizeTimer) clearTimeout(memorizeTimer);
   memorizeTimer = setTimeout(startPlayingWhenVoiceReady, memoSeconds() * 1000);
 }
 function startPlayingWhenVoiceReady() {
+  timing.memoEnd();
   if (memorizeTimer) clearTimeout(memorizeTimer);   // スキップ経由で呼ばれたとき、残っている盤面整理のタイマーを止める
   memorizeTimer = null;
   if (gs.phase !== 'memorizing') return;
@@ -1617,6 +1681,7 @@ function startPlayingWhenVoiceReady() {
 
 // 暗記フェーズ終了後に waiting フェーズへ移行
 function doStartPlaying() {
+  timing.memoEnd(); timing.playReady();
   if (memorizeTimer) { clearTimeout(memorizeTimer); memorizeTimer = null; }
   // CPU は各試合の開始時（暗記フェーズ開始時）に追加済み
   gs.phase       = 'waiting';
@@ -1871,6 +1936,7 @@ function transferEventIdentity(oldId, newId) {
   swap(gs.event.participantIds);
   swap(gs.event.mainPool);
   swap(gs.event.revivalCandidates);
+  if (gs.event.history[oldId]) { gs.event.history[newId] = gs.event.history[oldId]; delete gs.event.history[oldId]; }
   if (gs.ready.active) swap(gs.ready.need);
 }
 // 大会に関わりがある（今の試合の参加者・本戦待機中・敗者復活戦待機中）、今は未接続の
@@ -2079,6 +2145,7 @@ io.on('connection', socket => {
   socket.on('sound_check_start', (opt) => {
     if (!gs.event.active && !(opt && opt.bot === true)) return;   // テスト音声は大会モードとボットモード(?bot)のみ（通常の練習モードでは流さない）
     if (socket.id !== gs.hostId || gs.phase !== 'waiting' || gs.ready.active) { socket.emit('sound_check_denied'); return; }   // 準備待ち中など：後(ready_release)でやり直してもらう
+    timing.soundStart();
     io.emit('sound_check', { playAt: hiResNow() + 1500 });
   });
 
@@ -2180,6 +2247,7 @@ io.on('connection', socket => {
     if (announceAdvanceTimer) { clearTimeout(announceAdvanceTimer); announceAdvanceTimer = null; }
     const f = pendingAnnounceAdvance;
     pendingAnnounceAdvance = null;
+    timing.cardEnd('音声終了の通知');
     f();
   });
 
@@ -2620,6 +2688,13 @@ io.on('connection', socket => {
 
 
   // ── 管理画面：接続時に、教卓PCかどうか・現在の設定値をまとめて返す ──
+  // ── 勝敗一覧（教卓PCのみ）：ack で最新の一覧を返す ──
+  socket.on('get_event_status', (ack) => {
+    if (typeof ack !== 'function') return;
+    if (!isHostEligible(socket)) { ack({ forbidden: true }); return; }
+    ack(eventStatusSnapshot());
+  });
+
   socket.on('join_admin', () => {
     socket.emit('admin_init', {
       isHost:      isHostEligible(socket),
@@ -2800,6 +2875,7 @@ io.on('connection', socket => {
     gs.event.mainPool          = new Set(participantIds);
     gs.event.revivalCandidates = new Set();
     gs.event.gamesPlayed       = {};
+    gs.event.history           = {};
     gs.event.finalRanking      = [];
     gs.event.lastResult        = null;
     gs.event.mainRoundIndex    = 0;
@@ -2845,6 +2921,7 @@ io.on('connection', socket => {
     gs.event.mainPool           = new Set();
     gs.event.revivalCandidates  = new Set();
     gs.event.gamesPlayed        = {};
+    gs.event.history            = {};
     gs.event.participantIds     = new Set();
     gs.event.mainRoundIndex     = 0;
     gs.event.revivalRoundIndex  = 0;
@@ -2981,6 +3058,25 @@ app.get('/api/loadtest/logs/:file', (req, res) => {
   if (!/^loadtest-[\w.-]+\.jsonl$/.test(req.params.file)) return res.status(400).json({ error: 'invalid filename' });
   const file = path.join(LOG_DIR, req.params.file);
   res.download(file, err => { if (err && !res.headersSent) res.status(404).json({ error: 'not found' }); });
+});
+
+// 所要時間の記録（logs/timing-*.md）の一覧とダウンロード（教卓PCのみ）
+app.get('/api/timing/logs', (req, res) => {
+  if (!isHostRequest(req)) return res.status(403).json({ error: 'forbidden' });
+  let files = [];
+  try {
+    files = fs.readdirSync(LOG_DIR)
+      .filter(f => /^timing-.*\.md$/.test(f))
+      .map(f => ({ name: f, ...fs.statSync(path.join(LOG_DIR, f)) }))
+      .map(f => ({ name: f.name, sizeBytes: f.size, mtime: f.mtime, current: f.name === TIMING_FILE }))
+      .sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+  } catch (e) { /* logsフォルダが無ければ空一覧 */ }
+  res.json({ files });
+});
+app.get('/api/timing/logs/:file', (req, res) => {
+  if (!isHostRequest(req)) return res.status(403).json({ error: 'forbidden' });
+  if (!/^timing-[\w.-]+\.md$/.test(req.params.file)) return res.status(400).json({ error: 'invalid filename' });
+  res.download(path.join(LOG_DIR, req.params.file), err => { if (err && !res.headersSent) res.status(404).json({ error: 'not found' }); });
 });
 
 // 実機ボットテスト（?bot=N/?bot=host）の通信・スペック診断ログ（教卓PCのみ）

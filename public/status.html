@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webかるた — 勝敗一覧</title>
+  <link rel="stylesheet" href="status.css">
+</head>
+<body>
+<div class="st-wrap">
+  <header class="st-head">
+    <h1>📋 勝敗一覧</h1>
+    <div class="st-now" id="stNow">読み込み中…</div>
+  </header>
+
+  <div id="stForbidden" class="st-card hidden">
+    この画面は教卓PC（サーバーを起動しているパソコン）から、ロビーの「勝敗一覧を開く」で開いてください。
+  </div>
+
+  <div id="stBody">
+    <!-- 状態ごとの人数（クリックで絞り込み） -->
+    <div class="st-summary" id="stSummary"></div>
+    <div class="st-tools">
+      <input id="stSearch" type="search" placeholder="名前で検索">
+      <span class="st-hint" id="stUpdated"></span>
+    </div>
+    <div class="st-table-wrap">
+      <table class="st-table">
+        <thead>
+          <tr><th>名前</th><th>学年・コース</th><th>いまの状態</th><th>本戦の結果</th><th>敗者復活戦の結果</th></tr>
+        </thead>
+        <tbody id="stRows"></tbody>
+      </table>
+    </div>
+    <p class="st-hint">各試合の結果は「第N試合 結果（順位・点数）」の順に表示します。画面は自動で更新されます。</p>
+  </div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="status.js"></script>
+</body>
+</html>

@@ -36,8 +36,8 @@ function saveConfig() {
   if (!isHost) return;
   socket.emit('set_event_config', {
     mainCutRatio:     (+$('cfgMainCutRatio').value || 50) / 100,
-    mainMaxRounds:    +$('cfgMainMaxRounds').value || 7,
-    revivalMaxRounds: +$('cfgRevivalMaxRounds').value || 5,
+    mainMaxRounds:    +$('cfgMainMaxRounds').value || 5,
+    revivalMaxRounds: +$('cfgRevivalMaxRounds').value || 2,
     revivalCutRatio:  (+$('cfgRevivalCutRatio').value || 50) / 100,
     testCpuFill:      $('cfgTestCpuFill').checked,
   });
@@ -131,7 +131,22 @@ function renderBtLogList(files) {
 }
 setInterval(fetchBottestLogs, 15000);
 
-socket.on('connect', () => { socket.emit('join_admin'); socket.emit('join_load_test_monitor'); fetchLoadtestLogs(); fetchBottestLogs(); });
+// 所要時間の記録（logs/timing-*.md）の一覧
+async function fetchTimingLogs() {
+  try {
+    const r = await fetch('/api/timing/logs?host=' + HOST_Q);
+    const d = await r.json();
+    $('tmLogList').innerHTML = (d.files || []).map(f => `
+      <div class="admin-sched-row" style="grid-template-columns:1fr auto auto">
+        <span>${escHtml(f.name)}${f.current ? '（今回の起動分）' : ''}</span>
+        <span class="admin-hint">${fmtBytes(f.sizeBytes)}</span>
+        <a class="btn-sched-start" href="/api/timing/logs/${encodeURIComponent(f.name)}?host=${HOST_Q}" download>⬇ ダウンロード</a>
+      </div>`).join('') || '<p class="ov-sub">まだ記録がありません（最初の試合が終わると作られます）。</p>';
+  } catch (e) { /* 取得できなければ一覧は変えない */ }
+}
+setInterval(fetchTimingLogs, 15000);
+
+socket.on('connect', () => { socket.emit('join_admin'); socket.emit('join_load_test_monitor'); fetchLoadtestLogs(); fetchBottestLogs(); fetchTimingLogs(); });
 socket.on('load_test_status', renderLtAdminStatus);
 socket.on('admin_init', (d) => {
   isHost = !!d.isHost;

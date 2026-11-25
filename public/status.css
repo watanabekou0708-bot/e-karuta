@@ -1,0 +1,43 @@
+/* 勝敗一覧（status.html）のスタイル。ほかの画面とは独立した、教卓PC用の見やすい表 */
+:root { --bg:#f4f6fb; --card:#fff; --text:#1d2433; --mute:#5a6078; --line:#d5dbea; --indigo:#1f2a5a;
+  --alive:#1f8a4c; --alive-bg:#e3f6ea; --wait:#b36b00; --wait-bg:#fff1d6; --out:#b3261e; --out-bg:#fde7e5;
+  --play:#1f4fb3; --play-bg:#e3ecff; --final:#7a2fb3; --final-bg:#f0e4fb; --idle:#5a6078; --idle-bg:#eceff6; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#12162a; --card:#1b2140; --text:#e8ebf7; --mute:#9aa3c7; --line:#2d355f; --indigo:#cfd6ff;
+    --alive:#6fe0a0; --alive-bg:#16382a; --wait:#ffc766; --wait-bg:#3d2e10; --out:#ff9a92; --out-bg:#43201e;
+    --play:#8fb2ff; --play-bg:#1a2c5c; --final:#d7a8ff; --final-bg:#33204a; --idle:#9aa3c7; --idle-bg:#242b4d; }
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:'Meiryo','Yu Gothic UI',system-ui,sans-serif; }
+.hidden { display:none !important; }
+.st-wrap { max-width:1200px; margin:0 auto; padding:16px; }
+.st-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; }
+.st-head h1 { margin:0; font-size:1.5rem; color:var(--indigo); }
+.st-now { font-weight:700; }
+.st-card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin:12px 0; }
+.st-summary { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 10px; }
+.st-chip { border:2px solid transparent; border-radius:10px; padding:8px 14px; min-width:110px; cursor:pointer; text-align:center; font:inherit; color:inherit; }
+.st-chip b { display:block; font-size:1.6rem; line-height:1.2; }
+.st-chip small { font-size:.8rem; }
+.st-chip.active { border-color:var(--indigo); }
+.s-final { background:var(--final-bg); color:var(--final); }
+.s-playing { background:var(--play-bg); color:var(--play); }
+.s-alive { background:var(--alive-bg); color:var(--alive); }
+.s-revival_wait { background:var(--wait-bg); color:var(--wait); }
+.s-out { background:var(--out-bg); color:var(--out); }
+.s-idle, .s-all { background:var(--idle-bg); color:var(--idle); }
+.st-tools { display:flex; gap:12px; align-items:center; margin-bottom:8px; }
+.st-tools input { font:inherit; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--text); }
+.st-hint { color:var(--mute); font-size:.85rem; }
+.st-table-wrap { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:auto; }
+.st-table { border-collapse:collapse; width:100%; }
+.st-table th, .st-table td { padding:8px 10px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top; }
+.st-table th { position:sticky; top:0; background:var(--card); color:var(--indigo); white-space:nowrap; }
+.st-name { font-weight:700; }
+.st-off { color:var(--mute); font-size:.8rem; margin-left:6px; }
+.st-badge { display:inline-block; padding:3px 10px; border-radius:999px; font-weight:700; white-space:nowrap; }
+.st-res { display:inline-block; margin:2px 6px 2px 0; padding:2px 8px; border-radius:6px; font-size:.9rem; white-space:nowrap; }
+.r-pass { background:var(--alive-bg); color:var(--alive); }
+.r-out { background:var(--out-bg); color:var(--out); }
+.r-final { background:var(--final-bg); color:var(--final); }
+.st-none { color:var(--mute); }

@@ -26,12 +26,12 @@
     <div class="admin-row">
       <label>本戦：第何試合で最終試合にするか
         <input id="cfgMainMaxRounds" type="number" min="1" max="20" step="1"></label>
-      <span class="admin-hint">この試合数に達すると、そのときの残り人数のまま最終試合（上位3名ハイライト）を行います（既定 7）</span>
+      <span class="admin-hint">この試合数に達すると、そのときの残り人数のまま最終試合（上位3名ハイライト）を行います（既定 5）</span>
     </div>
     <div class="admin-row">
       <label>敗者復活戦：第何試合で終了するか
         <input id="cfgRevivalMaxRounds" type="number" min="1" max="10" step="1"></label>
-      <span class="admin-hint">既定 5</span>
+      <span class="admin-hint">既定 2</span>
     </div>
     <div class="admin-row">
       <label>敗者復活戦：中間ラウンドの通過比率
@@ -87,6 +87,12 @@
     <h2 class="admin-h2">📡 実機ボットテストの通信診断ログ</h2>
     <p class="ov-sub"><code>?bot=host</code> / <code>?bot</code> で実機を使ってテストした際の、各端末の通信・スペック情報が自動保存されます。一覧から選んでダウンロードしてください。</p>
     <div id="btLogList" class="admin-schedule"></div>
+  </div>
+
+  <div class="admin-card">
+    <h2 class="admin-h2">⏱ 所要時間の記録（md）</h2>
+    <p class="ov-sub">試合ごとの所要時間、1枚ごとの「読み上げ開始 → DJ音声の終了」、準備時間の内訳が、試合が終わるたびに自動でまとめられます（サーバーを起動するたびに新しいファイル）。</p>
+    <div id="tmLogList" class="admin-schedule"></div>
   </div>
 </div>
 
