@@ -1,0 +1,126 @@
+<title>かるたアンケート3案</title>
+<style>
+/* 配置：比較表 → 3案を縦に並べる。各案は「PC画面の見本（ゲームの紺色）」＋短い説明 */
+:root { --bg:#f2f4f8; --fg:#182136; --sub:#56617a; --line:#cfd6e4; --card:#fff; --mark:#1d5fbf; --markbg:#e3eefc;
+  --g-bg:#06081a; --g-surf:#0e1630; --g-surf2:#16224a; --g-line:#2a3f70; --g-fg:#e3ecff; --g-dim:#93a9d4; --g-acc:#4a9eff; --g-green:#00e5a0; --g-ink:#04121f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#12151d; --fg:#e8ecf6; --sub:#a3adc4; --line:#333b4f; --card:#1b202c; --mark:#8bbcff; --markbg:#1f2d47; color-scheme:dark } }
+:root[data-theme="dark"] { --bg:#12151d; --fg:#e8ecf6; --sub:#a3adc4; --line:#333b4f; --card:#1b202c; --mark:#8bbcff; --markbg:#1f2d47; color-scheme:dark }
+body { background:var(--bg); color:var(--fg); font:15px/1.7 "Yu Gothic UI","Hiragino Sans",Meiryo,sans-serif; }
+.wrap { max-width:880px; margin:0 auto; padding-block:24px 56px; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); }
+h1 { font-size:1.6rem; margin:0 0 4px; } h2 { font-size:1.2rem; margin:40px 0 4px; } p { margin:4px 0 10px; }
+.sub { color:var(--sub); }
+.scroll { overflow-x:auto; }
+table { border-collapse:collapse; width:100%; min-width:520px; background:var(--card); font-size:.9rem; }
+th,td { border:1px solid var(--line); padding:6px 10px; text-align:left; vertical-align:top; }
+.rec { background:var(--markbg); }
+.tag { display:inline-block; background:var(--markbg); color:var(--mark); border-radius:4px; padding:0 8px; font-size:.8rem; font-weight:700; margin-left:8px; vertical-align:2px; }
+.screen { background:var(--g-bg); color:var(--g-fg); border:1px solid var(--g-line); border-radius:10px; padding:18px; margin:10px 0; }
+.panel { background:var(--g-surf); border:1px solid var(--g-line); border-radius:12px; padding:16px 18px; max-width:640px; margin:0 auto; }
+.panel h3 { margin:0; font-size:1.1rem; text-align:center; } .lead { text-align:center; color:var(--g-dim); font-size:.85rem; margin:2px 0 10px; }
+.q { margin:12px 0 0; } .q > b { display:block; font-size:.95rem; } .q small { color:var(--g-dim); font-weight:400; }
+.scale { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; margin-top:5px; }
+.chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:5px; }
+button.o { font:inherit; font-size:.82rem; line-height:1.35; cursor:pointer; background:var(--g-surf2); color:var(--g-fg); border:2px solid var(--g-line); border-radius:8px; padding:6px 4px; }
+.chips button.o { border-radius:999px; padding:4px 12px; }
+.scale button.o b { display:block; font-size:1.15rem; }
+button.o[aria-pressed="true"] { background:var(--g-acc); border-color:#cfe4ff; color:var(--g-ink); font-weight:700; }
+button:focus-visible, textarea:focus-visible { outline:3px solid var(--g-green); outline-offset:2px; }
+textarea { box-sizing:border-box; width:100%; margin-top:5px; background:var(--g-bg); color:var(--g-fg); border:1px solid var(--g-line); border-radius:8px; padding:8px; font:inherit; font-size:.9rem; }
+.send { display:block; width:100%; margin-top:14px; background:var(--g-green); color:var(--g-ink); border:0; border-radius:8px; padding:10px; font:inherit; font-weight:700; cursor:pointer; }
+.link { display:block; margin:8px auto 0; background:none; border:0; color:var(--g-dim); text-decoration:underline; font:inherit; font-size:.82rem; cursor:pointer; }
+.bar { height:6px; background:var(--g-surf2); border-radius:3px; margin:8px 0 4px; } .bar i { display:block; height:100%; background:var(--g-green); border-radius:3px; }
+.step { min-height:230px; } .step .big { font-size:1.15rem; text-align:center; margin:22px 0 12px; font-weight:700; }
+.msg { text-align:center; color:var(--g-green); min-height:1.4em; font-size:.85rem; margin:6px 0 0; }
+ul { margin:6px 0; padding-left:1.3em; }
+</style>
+<div class="wrap">
+  <h1>プレイ後アンケート 3つの案</h1>
+  <p class="sub">見本はクリックして試せます。入力内容はどこにも送信されません。どの案も、選ぶ操作が中心で自由記述は任意です。</p>
+
+  <div class="scroll"><table>
+    <tr><th></th><th>A：1画面まとめ</th><th>B：1問ずつ</th><th class="rec">C：評価＋タップ選択（おすすめ）</th></tr>
+    <tr><th>回答時間の目安</th><td>40〜60秒</td><td>40〜60秒</td><td class="rec">40〜60秒</td></tr>
+    <tr><th>全体の量が一目で分かる</th><td>分かる</td><td>進み具合の表示のみ</td><td class="rec">分かる（少し縦に長い）</td></tr>
+    <tr><th>文字を打たない人の意見</th><td>点数だけ</td><td>点数だけ</td><td class="rec">良かった点・困った点も集まる</td></tr>
+    <tr><th>不具合の把握</th><td>自由記述頼み</td><td>自由記述頼み</td><td class="rec">項目を選ぶだけで件数が出る</td></tr>
+    <tr><th>作業時間の目安（追加費用なし）</th><td>1.5〜2時間</td><td>2〜2.5時間</td><td class="rec">2〜3時間</td></tr>
+  </table></div>
+  <p class="sub">作業時間は、回答の保存と、管理画面からのCSVダウンロードを含めた見積もりです。回答時間も見積もりで、実測ではありません。</p>
+
+  <h2>A：1画面まとめ型</h2>
+  <p>5段階の質問4つと自由記述1つ。いちばん単純な形です。</p>
+  <div class="screen"><div class="panel">
+    <h3>アンケートにご協力ください（約1分）</h3>
+    <p class="lead">成績には関係ありません。名前は記録しません。</p>
+    <div class="q"><b>1. 操作のしやすさ（マウスで札を取る）</b><div class="scale" data-scale></div></div>
+    <div class="q"><b>2. 画面の見やすさ</b><div class="scale" data-scale></div></div>
+    <div class="q"><b>3. ルールや進み方の分かりやすさ</b><div class="scale" data-scale></div></div>
+    <div class="q"><b>4. 楽しさ</b><div class="scale" data-scale></div></div>
+    <div class="q"><b>5. ひとこと <small>（任意）良かった点・使いにくい点・こうしたらいい点など</small></b><textarea id="a-text" rows="3" aria-label="ひとこと"></textarea></div>
+    <button class="send" type="button" data-send>送信する</button><p class="msg" aria-live="polite"></p>
+  </div></div>
+
+  <h2>B：1問ずつ型</h2>
+  <p>大きなボタンを押すと次の質問へ自動で進みます。1画面の情報が少ない一方、最後まで何問あるかは進み具合で判断します。</p>
+  <div class="screen"><div class="panel">
+    <p class="lead" id="b-count"></p><div class="bar"><i id="b-bar"></i></div>
+    <div class="step" id="b-step"></div>
+    <button class="link" type="button" id="b-back">← 前の質問に戻る</button>
+  </div></div>
+
+  <h2>C：評価＋タップ選択型<span class="tag">おすすめ</span></h2>
+  <p>5段階は3つに絞り、良かった点と困った点は当てはまるものを押すだけにします。強制参加でも、文章を考えずに意見を返せます。今回確かめたい「大人数でも正しく動くか」は、困った点の件数で把握できます。</p>
+  <div class="screen"><div class="panel">
+    <h3>アンケート（約1分で終わります）</h3>
+    <p class="lead">成績には関係ありません。名前は記録しません。</p>
+    <div class="q"><b>1. 操作のしやすさ</b><div class="scale" data-scale></div></div>
+    <div class="q"><b>2. 画面の見やすさ</b><div class="scale" data-scale></div></div>
+    <div class="q"><b>3. ルールや進み方の分かりやすさ</b><div class="scale" data-scale></div></div>
+    <div class="q"><b>4. 良かったところ <small>（いくつでも・任意）</small></b>
+      <div class="chips" data-chips="札を取る操作|読み上げの声|実況（DJ）|得点の表示|見た目・デザイン|敗者復活戦|観戦モード|用語の勉強になった"></div></div>
+    <div class="q"><b>5. 困った・使いにくかったところ <small>（いくつでも・任意）</small></b>
+      <div class="chips" data-chips="クリックしても取れない|マウスカーソルが変・動かない|札の文字が読みにくい|音が出ない・ずれる・途切れる|画面が止まった・動きが重い|次の画面や観戦に正しく移らない|何をすればいいか分からない|特になし" data-none="特になし"></div></div>
+    <div class="q"><b>6. こうしたらもっと良くなる、など <small>（任意）</small></b><textarea id="c-text" rows="2" placeholder="書かなくても送信できます" aria-label="自由記述"></textarea></div>
+    <button class="send" type="button" data-send>送信する</button><p class="msg" aria-live="polite"></p>
+  </div></div>
+
+  <h2>作る前に決めたいこと（おすすめ）</h2>
+  <ul>
+    <li><b>表示するとき：</b>大会がすべて終わった後に、全員の画面へ出します。途中で負けた人も同じタイミングで答えます。練習モードは全4試合の終了後です。</li>
+    <li><b>匿名：</b>名前は記録しません。不具合の分析用に、学年・コースと、本戦で負けた試合などの参加状況だけを一緒に保存します。この場合は画面の説明にもそのことを書きます。</li>
+    <li><b>必須の範囲：</b>5段階だけを必須にし、「答えずに閉じる」も小さく用意します。</li>
+    <li><b>結果の見かた：</b>サーバーPCに保存し、管理画面からCSV（Excelで開ける形式）でダウンロードします。教卓PCに回答済みの人数を表示します。</li>
+  </ul>
+</div>
+<script>
+// 5段階ボタン・複数選択ボタンの生成と、見本としての送信表示
+const LABELS = ['とても悪い','悪い','ふつう','良い','とても良い'];
+function btn(html, onclick) { const b = document.createElement('button'); b.type = 'button'; b.className = 'o'; b.innerHTML = html; b.setAttribute('aria-pressed','false'); b.onclick = () => onclick(b); return b; }
+function pickOne(b) { [...b.parentNode.children].forEach(x => x.setAttribute('aria-pressed', String(x === b))); }
+document.querySelectorAll('[data-scale]').forEach(el => LABELS.forEach((t, i) => el.append(btn(`<b>${i+1}</b>${t}`, pickOne))));
+document.querySelectorAll('[data-chips]').forEach(el => el.dataset.chips.split('|').forEach(t => el.append(btn(t, b => {
+  const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(on));
+  if (!on || !el.dataset.none) return;   // 「特になし」と他の項目は同時に選べない
+  [...el.children].forEach(x => { if (x !== b && (b.textContent === el.dataset.none || x.textContent === el.dataset.none)) x.setAttribute('aria-pressed','false'); });
+}))));
+document.querySelectorAll('[data-send]').forEach(s => s.onclick = () => { s.nextElementSibling.textContent = '見本のため送信はしません（本番では「ご協力ありがとうございました」と表示します）'; });
+
+// 案B：1問ずつ進む
+const STEPS = ['操作のしやすさは？','画面の見やすさは？','ルールや進み方は分かりやすかった？','楽しかった？','ひとことあれば（任意）'];
+const answers = []; let at = 0;
+function renderB() {
+  const box = document.getElementById('b-step');
+  document.getElementById('b-count').textContent = at < STEPS.length ? `質問 ${at+1} / ${STEPS.length}` : '回答完了';
+  document.getElementById('b-bar').style.width = `${Math.min(at+1, STEPS.length) / STEPS.length * 100}%`;
+  document.getElementById('b-back').hidden = at === 0;
+  box.innerHTML = '';
+  const q = document.createElement('p'); q.className = 'big'; q.textContent = STEPS[at] || 'ご協力ありがとうございました（見本のため送信していません）'; box.append(q);
+  if (at < 4) { const s = document.createElement('div'); s.className = 'scale';
+    LABELS.forEach((t, i) => { const b = btn(`<b>${i+1}</b>${t}`, () => { answers[at] = i; at++; renderB(); }); b.setAttribute('aria-pressed', String(answers[at] === i)); s.append(b); });
+    box.append(s);
+  } else if (at === 4) { const t = document.createElement('textarea'); t.id = 'b-text'; t.rows = 3; t.setAttribute('aria-label','ひとこと'); t.placeholder = '良かった点・使いにくい点など。書かなくても送信できます';
+    const send = document.createElement('button'); send.type = 'button'; send.className = 'send'; send.textContent = '送信する'; send.onclick = () => { at++; renderB(); }; box.append(t, send); }
+}
+document.getElementById('b-back').onclick = () => { at--; renderB(); };
+renderB();
+</script>

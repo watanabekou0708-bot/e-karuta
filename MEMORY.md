@@ -86,3 +86,33 @@
 - 勝敗一覧：public/status.html/.js/.css を新規作成。ロビーの教卓PC側に「勝敗一覧を開く」ボタン。server.js に gs.event.history と eventStatusSnapshot()、socket 'get_event_status'（教卓PCのみ）。本戦・敗者復活戦の各試合の通過/敗退/最終と、現在の状態（最終順位・試合中・本戦勝ち残り・復活戦挑戦待ち・敗退・未出場）を3秒ごと更新。
 - 検証：node --check、ボット負荷テスト(tools/bot-load.jsの複製)でタイミングmdの生成を確認、status.htmlの表示を確認。実際の通しの大会（敗者復活戦まで）での勝敗履歴は未確認。
 - 未コミット。
+
+## 追記 2026-11-25（用語リスト・アンケート案）
+### 今回行ったこと
+- 出題元を確認: ゲームは public/karuta-data.js（YCCカルタ大会/IT用語一覧.xlsm の Sheet1 から生成後、修正を重ねたもの）を読む。収録788語のうち lv=A〜D の586語が出題対象（A117/B189/C161/D119）、lv が空の202語はダミー読み専用。xlsm との出題対象の差は「行」の削除と loT→IoT。
+- 誤字5件を修正（ユーザー承認済み）: AVERAGEIF関数・AVERAGEIFS関数（旧 ABERAGE〜）、ビッグデータ（旧 ピッグデータ）、AI（人工知能）（旧 Al）、Blu-ray Disc（旧 Blue-ray）。public/tts.js の読み辞書に 'Blu-ray' と 'AI' を反映。
+- 配布用の用語リストを作成: 手順書/Webかるた_用語リスト.pptx・.pdf（A4縦15ページ、分野別・難易度あり、用語＋意味、ダミー札は除外）。生成: tools/make_term_list.py（要 python-pptx）→ tools/pptx_to_pdf.ps1（要 PowerPoint）。
+- プレイ後アンケートのモックアップ3案: mockups/survey-mockup.html（公開 https://claude.ai/artifact/UFQXgTdYEthNuuFNz2kTPJ 、非公開設定）。おすすめはC（5段階3問＋良かった点/困った点のタップ選択＋任意の自由記述）。
+
+### 現在できていること
+- 用語リストの内容は出題対象586語とデータ上で完全一致（PDF内の全用語を照合、ダミー専用語の混入なし）。ローカルサーバーで修正後の表記の配信と読み変換を確認。
+
+### 未完了のこと
+- アンケート本体は未実装（案の選択待ち。表示タイミング・匿名性・必須範囲・結果の見かたも要確認）。
+- 誤字修正の本番サーバーへの反映と、表記が変わった札の音声の生成（本番で npm run voice:pregen、VOICEVOX が必要）。実音声は未確認。
+
+### 発生している問題
+- 未修正の疑わしい札: 「NFP」の意味が Non-Functional Requirements（一般には NFR）。要確認。直した場合は用語リストを作り直す。
+
+### 重要な判断
+- リストは以前の大会と同じく「用語＋意味」。データを変えたら用語リストも再生成する。
+- ARCHITECTURE.md が空のため、定義済みの検証手順はない。
+
+### 次に行うこと
+- アンケート案の決定後に実装。本番反映。
+
+### 最終更新
+2026-11-25
+
+### 基準となるGit commit
+c5054c4（この追記を含むコミットの親）
