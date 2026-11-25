@@ -24,16 +24,18 @@
       <input id="stSearch" type="search" placeholder="名前で検索">
       <span class="st-hint" id="stUpdated"></span>
     </div>
+    <!-- いま効いている絞り込み条件（押すと解除） -->
+    <div class="st-active" id="stActive"></div>
     <div class="st-table-wrap">
       <table class="st-table">
-        <thead>
-          <tr><th>名前</th><th>学年・コース</th><th>いまの状態</th><th>本戦の結果</th><th>敗者復活戦の結果</th></tr>
-        </thead>
+        <thead id="stHead"></thead>
         <tbody id="stRows"></tbody>
       </table>
     </div>
-    <p class="st-hint">各試合の結果は「第N試合 結果（順位・点数）」の順に表示します。画面は自動で更新されます。</p>
+    <p class="st-hint">見出しの名前を押すと並び替え、▼を押すと並び替えと絞り込みができます。結果の列の並び替えと絞り込みは、直近の試合の結果が対象です。画面は自動で更新されます。</p>
   </div>
+  <!-- 見出しの▼で開く、並び替え・絞り込みのメニュー -->
+  <div class="st-menu hidden" id="stMenu"></div>
 </div>
 <script src="/socket.io/socket.io.js"></script>
 <script src="status.js"></script>

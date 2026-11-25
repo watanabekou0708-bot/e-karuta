@@ -1,6 +1,6 @@
 'use strict';
 // YCCカルタ大会/IT用語一覧.pdf に載っている札のID（175語）。PDFの掲載順。
-// 大会モードの出題を一時的にこの範囲に限定する（server.js の EVENT_TERMS_LIMITED）。
+// 大会モードと練習モードの出題を一時的にこの範囲に限定する（server.js の YCC_TERMS_LIMITED）。
 // 用語リスト（tools/make_term_list.py）もこの一覧から作る。難易度は karuta-data.js の lv を使う。
 module.exports = [
   // Excel2019クイックマスター基本編（17語）

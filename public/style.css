@@ -59,6 +59,16 @@ body {
 }
 .name-input:focus { border-color: var(--accent); }
 .name-input::placeholder { color: var(--dim); }
+/* 名字・名前の2つの入力欄と、ひらがな以外が入ったときの赤い警告 */
+.name-row { display: flex; gap: .5rem; margin-bottom: .6rem; }
+.name-field { flex: 1; min-width: 0; text-align: left; font-size: .85rem; font-weight: 700; }
+.name-field .name-input { display: block; margin-top: .25rem; }
+.name-input.invalid { border-color: var(--danger); }
+.name-error { margin: 0 0 .6rem; color: var(--danger); font-weight: 700; font-size: .95rem; }
+.name-error.hidden { display: none; }
+/* ヘッドフォン確認の番号の入力欄 */
+.hp-input { display: block; width: 10rem; margin: 0 auto .8rem; text-align: center; font-size: 2rem; letter-spacing: .4em; font-variant-numeric: tabular-nums; }
+.hp-status { min-height: 1.4em; margin: 0 0 .6rem; font-weight: 700; color: var(--accent); }
 
 /* ── Buttons ─────────────────────────────────────────────── */
 .btn {
@@ -734,11 +744,15 @@ body.vcursor-on, body.vcursor-on * { cursor: none !important; }
    コメント入力バーだけを盤面に重ねて表示する ──────────────────────── */
 .spec-panel {
   position: absolute; inset: 0; z-index: 40;
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; justify-content: flex-end;
   pointer-events: none;   /* 下部バー以外は素通しして盤面が見えるようにする */
 }
 .spec-panel.hidden { display: none; }
-.spec-comments-layer { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+/* 下の72pxは観戦者のコメント入力欄の分を空ける。札のクリックはそのまま下に通す。開始の案内(.lock-prompt)より下に流す */
+.spec-comments-layer { position: absolute; inset: 0 0 72px 0; z-index: 29; overflow: hidden; pointer-events: none; }
+.spec-comments-layer .spec-comment.fading, .react-float-layer .react-float.fading { opacity: 0; transition: opacity .35s linear; }
+.comment-toggle { padding: .3rem .7rem; font-size: .8rem; background: var(--surf2); border: 1px solid var(--border); color: var(--text); white-space: nowrap; }
+.comment-toggle[aria-pressed="false"] { opacity: .6; }
 .spec-comment {
   position: absolute; left: 100%; white-space: nowrap;
   font-weight: 800; font-size: 1.35rem; line-height: 1;
@@ -1025,10 +1039,12 @@ body.in-game .sp-cmp .c, body.in-game .sp-cmp .rl:not(.you), body.in-game .sp-cm
 .sp-list { margin-top: .25rem; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding-right: 3px; }
 .sp-list::-webkit-scrollbar { width: 7px; }
 .sp-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-.sp-li { display: grid; grid-template-columns: minmax(0, 1fr) 3.6rem 3.9rem 2.6rem; gap: .3rem; align-items: baseline;
+.sp-li { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: .3rem; align-items: baseline;
   padding: .2rem .4rem; border-radius: 6px; font-size: .74rem; font-variant-numeric: tabular-nums; }
 .sp-li span { white-space: nowrap; }
-.sp-li .n { overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+/* 名前は1段目いっぱいに出し、速さ・中心から・精度点・獲得を2段目に並べる */
+.sp-li .n { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+.sp-li.head span:first-child { display: none; }
 .sp-li span:nth-child(n+2) { text-align: right; }
 .sp-li.head { position: sticky; top: 0; background: var(--surf2, #0a1428); color: var(--dim); font-size: .66rem; padding-top: 0; padding-bottom: 0; }
 .sp-li.win { background: rgba(0, 229, 160, .16); }

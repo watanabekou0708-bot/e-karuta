@@ -157,7 +157,25 @@ function renderStudentPractice() {
 }
 function toggleStudentPractice() { if (isHost) socket.emit('set_student_practice', !studentPracticeAllowed); }
 socket.on('student_practice', ({ allowed }) => { studentPracticeAllowed = !!allowed; renderStudentPractice(); });
-socket.on('admin_init', (d) => { studentPracticeAllowed = !!d.studentPracticeAllowed; isHost = !!d.isHost; renderStudentPractice(); });
+
+// ── ヘッドフォン確認をするか ──
+let headphoneCheckEnabled = true;
+function renderHeadphoneCheck() {
+  const btn = $('headphoneToggleBtn');
+  btn.disabled = !isHost;
+  btn.textContent = !isHost ? '教卓PCからのみ変更できます'
+    : headphoneCheckEnabled ? '現在：確認する（押すと「確認しない」）' : '現在：確認しない（押すと「確認する」）';
+  btn.setAttribute('aria-pressed', String(headphoneCheckEnabled));
+}
+function toggleHeadphoneCheck() { if (isHost) socket.emit('set_headphone_check', !headphoneCheckEnabled); }
+socket.on('headphone_check_setting', ({ enabled }) => { headphoneCheckEnabled = !!enabled; renderHeadphoneCheck(); });
+socket.on('admin_init', (d) => {
+  studentPracticeAllowed = !!d.studentPracticeAllowed;
+  headphoneCheckEnabled = !!d.headphoneCheckEnabled;
+  isHost = !!d.isHost;
+  renderStudentPractice();
+  renderHeadphoneCheck();
+});
 
 // ── アンケート結果（CSV）の一覧 ──
 async function fetchSurveyLogs() {

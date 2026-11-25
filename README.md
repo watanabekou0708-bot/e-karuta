@@ -1,7 +1,11 @@
 ## 配布資料・ツールの説明
 - `手順書/Webかるた_用語リスト.pptx` / `.pdf`：学生に配る用語リスト（IT用語一覧.pdf の175語。競技要領およびルールは載せない）。
 - `tools/make_term_list.py`：`ycc-terms.js` の札を `public/karuta-data.js` から読んで用語リストの PPTX を作る（`pip install python-pptx` が必要）。
-- `ycc-terms.js`：IT用語一覧.pdf の175語の札ID。大会モードの出題を一時的にこの範囲に限定している（`server.js` の `EVENT_TERMS_LIMITED`）。
+- `ycc-terms.js`：IT用語一覧.pdf の175語の札ID。大会モードと練習モードの出題を一時的にこの範囲に限定している（`server.js` の `YCC_TERMS_LIMITED`）。
+- `public/ranking.js`：順位の並び順（同点はランダムな順）。サーバーとブラウザで共通。
+- `public/comments.js`：観戦コメントの順番待ち・表示・読み上げ中の停止・オン/オフ。
+- `public/headphone.js`：大会モードの待機画面の前のヘッドフォン確認（3けたの番号）。
+- `public/status.html`（`status.js` / `status.css`）：勝敗一覧（列ごとの並び替え・絞り込み）。
 - `tools/pptx_to_pdf.ps1`：PowerPoint で PPTX を PDF に書き出す。
 - `mockups/`：実装前の画面案（`survey-mockup.html` はプレイ後アンケートの案）。
 - `survey.js` / `public/survey.html`・`survey.css`・`survey-page.js`：アンケート（サーバー側のCSV保存 / 専用ページ）。

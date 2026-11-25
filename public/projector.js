@@ -7,23 +7,18 @@ const $ = id => document.getElementById(id);
 
 const RANK_ICONS = ['🥇', '🥈', '🥉'];
 const rankIcon = r => (r <= 3 ? RANK_ICONS[r - 1] : String(r));
-function competitionRanks(sortedEntries) {
-  const ranks = [];
-  sortedEntries.forEach(([, p], i) => {
-    ranks.push(i > 0 && p.score === sortedEntries[i - 1][1].score ? ranks[i - 1] : i + 1);
-  });
-  return ranks;
-}
 const escHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtPts = n => Math.round(n || 0).toLocaleString('ja-JP');
 
 let hostId = null;
 
+let lastPlayers = null;
 function renderRanking(players) {
+  lastPlayers = players;
   const all = Object.entries(players || {})
     .filter(([id, p]) => id !== hostId && (p.isBot || p.joined))
-    .sort(([, a], [, b]) => b.score - a.score);
-  const ranks = competitionRanks(all);
+    .sort(KRank.compareEntries);
+  const ranks = KRank.listRanks(all);
   const allTied = all.length > 1 && all[0][1].score === all[all.length - 1][1].score;
   $('pjRanking').innerHTML = all.map(([id, p], i) => `
     <div class="pj-rank-row">
@@ -42,8 +37,8 @@ function showResult(title, players, round) {
   clearTimeout(resultTimer);
   const all = Object.entries(players || {})
     .filter(([id, p]) => id !== hostId && (p.isBot || p.joined))
-    .sort(([, a], [, b]) => b.score - a.score);
-  const ranks = competitionRanks(all);
+    .sort(KRank.compareEntries);
+  const ranks = KRank.listRanks(all);
   $('pjResultTitle').textContent = title;
   $('pjResultTable').innerHTML = all.map(([id, p], i) => `
     <div class="pj-rank-row">
@@ -82,6 +77,11 @@ socket.on('card_taken', ({ by, result }) => {
 socket.on('time_up', () => {
   setStatus('⏱ そこまで！（時間切れ）');
   setYomi('');
+});
+socket.on('tie_order', ({ ties }) => {
+  if (!lastPlayers) return;
+  Object.entries(ties).forEach(([id, tie]) => { if (lastPlayers[id]) lastPlayers[id].tie = tie; });
+  renderRanking(lastPlayers);
 });
 socket.on('game_waiting', (d) => {
   setStatus('⏳ 次の札を待っています…');

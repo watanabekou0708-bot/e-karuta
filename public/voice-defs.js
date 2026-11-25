@@ -139,9 +139,20 @@
   }
 
   // ── 事前に作っておく部品（サーバー起動時のウォームアップ・事前生成スクリプトで使う）──
+  // ヘッドフォン確認：3けたの番号を2回読み上げる（めたん）
+  const HEADPHONE_INTRO = '今から、3けたの番号を読み上げます。';
+  const HEADPHONE_AGAIN = 'もう一度読み上げます。';
+  const DIGIT_READINGS = ['ゼロ', 'イチ', 'ニ', 'サン', 'ヨン', 'ゴ', 'ロク', 'ナナ', 'ハチ', 'キュウ'];
+  const digitSeg = d => seg(`${DIGIT_READINGS[d]}。`);
+  function headphoneSegments(code) {
+    const digits = [...String(code)].map(c => digitSeg(Number(c)));
+    return [seg(HEADPHONE_INTRO), ...digits, seg(HEADPHONE_AGAIN), ...digits];
+  }
+
   function warmupItems() {
     const items = [];
     Object.values(FIXED).forEach(t => items.push(seg(t)));   // 警告・読み上げます・そこまで・これは盤面にない札でした（めたん）
+    items.push(seg(HEADPHONE_INTRO), seg(HEADPHONE_AGAIN), ...DIGIT_READINGS.map((_, d) => digitSeg(d)));
     [
       'が札をとりました！', 'ナイスキャッチ！', '現在', 'です。', 'お見事、', 'が1枚ゲットです！', '流石です！', 'いい精度。', '素晴らしい！',
       'ナイスマウスさばき', 'あと少しで1位です！', 'おめでとうございます。あなたは', 'で', 'です。', '惜しい。あと', 'でした。', 'マイナス', '点',
@@ -168,7 +179,7 @@
     VOICES, CACHE_VERSION, FIXED, hash, voiceDir, voiceKey, voiceUrl, seg, djSeg,
     pointsSegments, rankSegment, roundEndSegments, resultCongratsSegments, resultCloseSegments, resultNearWinSegments,
     nameSeg, DJ_TAKE, djBonusSegments, djMouseSegments, djNearSegments, answerSegments, warmupItems,
-    matchNumSegment,
+    matchNumSegment, headphoneSegments,
     eventPassedSegments, eventEliminatedSegments, eventMainCloseSegments, eventRevivedSegments, eventStillOutSegments,
     eventRevivalCloseSegments, eventChampionSegments, eventRunnerUpSegments, eventThirdPlaceSegments,
     eventFinalCloseSegments, eventRankedSegments, eventCeremonyClosingSegments, eventSpectatorRoundEndSegments,

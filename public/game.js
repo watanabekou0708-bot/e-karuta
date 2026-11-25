@@ -440,16 +440,6 @@ function spokenPoints(n) {
   return `${v}点`;
 }
 
-// 同じ点数なら同順位（1位,1位,3位…）にする。
-// sortedEntries は [id, player] を点数の多い順に並べた配列。各要素の順位の配列を返す。
-function competitionRanks(sortedEntries) {
-  const ranks = [];
-  sortedEntries.forEach(([, p], i) => {
-    ranks.push(i > 0 && p.score === sortedEntries[i - 1][1].score ? ranks[i - 1] : i + 1);
-  });
-  return ranks;
-}
-
 // ── ランキング（全員分。左の縦いっぱいに表示し、入りきらない分はスクロール）─────────
 // 順位は名前の先頭のアイコンだけで示す（🥇🥈🥉／4位以降は数字）。1〜3位が複数名いても
 // 色は変えず、自分の行だけを青で強調する。
@@ -480,8 +470,8 @@ function renderTop3(players) {
   renderHouseScoreboard(players);
   const el = $('top3');
   if (!el) return;
-  const all = eventFilterPlayers(players).sort(([, a], [, b]) => b.score - a.score);
-  const ranks = competitionRanks(all);
+  const all = eventFilterPlayers(players).sort(KRank.compareEntries);
+  const ranks = KRank.listRanks(all);
   // 全員が同じ点数（試合開始直後の全員0点など）のときは、全員に🥇を付けず「－」にする
   const allTied = all.length > 1 && all[0][1].score === all[all.length - 1][1].score;
   const keep = el.scrollTop;
@@ -513,6 +503,7 @@ function renderTop3(players) {
 }
 
 // ── App state ─────────────────────────────────────────────
+let liveTies = {};   // 同点の並び順（サーバーから届いた最新の値）
 // ?host を付けて開いたブラウザだけが、大会モードの開始・管理画面などの操作ができる
 // 「ホスト」になる（以前はサーバーPC自身からの接続を自動的にホスト扱いしていたが、
 // それだとサーバーPC自身で参加者としてテストできなかったため、明示的な印に変更した）。
@@ -612,8 +603,8 @@ let eventPassCount       = null;    // 今の試合で何人が通過するか�
 let eventParticipantIds  = new Set();
 let eventGamesPlayed     = {};
 let myIsEventSpectator   = false;
-let eventStarted         = false;   // 大会モードが実際に開始された（＝ラウンド間はホームに戻る対象）かどうか
-let eventShowingHub      = false;   // ラウンド結果画面で「ホームに戻る」を押した後かどうか
+let eventStarted         = false;   // 大会モードが実際に開始された（＝ラウンド間はロビーに戻る対象）かどうか
+let eventShowingHub      = false;   // ラウンド結果画面で「ロビーに戻る」を押した後かどうか
 let lastEventStageReady  = null;    // 直近の event_stage_ready（ホーム画面の次アクション表示に使う）
 let lastEventRoundResult = null;    // 直近の event_round_finished（ホーム画面の結果表示に使う）
 
@@ -862,7 +853,7 @@ function updateLobbyUI() {
   renderLobbyEventSection();
 }
 
-// 大会モードの結果画面に出ている「🏠 ホームに戻る」ボタン用。結果を見終わったら
+// 大会モードの結果画面に出ている「🏠 ロビーに戻る」ボタン用。結果を見終わったら
 // ホーム（本戦／敗者復活戦の選択、または表彰式案内）へ進む。ホスト・非ホスト共通。
 function goToEventHub() {
   eventShowingHub = true;
@@ -906,13 +897,13 @@ function renderLobbyEventSection() {
   const data = lastEventRoundResult;
   const ready = lastEventStageReady;
   const stageDone = ready && ready.stage === 'done';
-  // 結果を見終わって「ホームに戻る」を押すまでは、結果画面だけを表示する
+  // 結果を見終わって「ロビーに戻る」を押すまでは、結果画面だけを表示する
   // （ホスト・非ホスト共通。大会設定リンクや次アクションはそのあとに出す）。
   const showResult = !!data && !eventShowingHub;
   const showHub     = !eventStarted || (eventShowingHub && !stageDone);
 
   // ── 直前の試合結果（ホスト・非ホスト共通）。タイトル・自分の結果・通過者と
-  // 敗退者のランキング・ホームに戻るボタンを表示する────────────────────
+  // 敗退者のランキング・ロビーに戻るボタンを表示する────────────────────
   if (data && resultBox) {
     const players = data.players || {};
     const row = (id, badgeText, badgeCls, rankClass) => ({ id, badgeText, badgeCls, rankClass });
@@ -936,9 +927,9 @@ function renderLobbyEventSection() {
       ];
     }
     // rows は通過者→敗退者（または復活者→敗退者、最終試合は得点順）の順に並んでおり、
-    // 各グループ内もスコア降順のまま届くので、そのまま順位を振れる（同点は同順位）。
+    // 各グループ内もサーバーが決めた順のまま届くので、そのまま順位を振れる（同点でも順位は分ける）。
     const rankEntries = rows.map(r => [r.id, players[r.id] || { score: 0 }]);
-    const ranks = competitionRanks(rankEntries);
+    const ranks = KRank.listRanks(rankEntries);
     const medal = ['🥇', '🥈', '🥉'];
     if (resultTable) {
       resultTable.innerHTML = rows.map((r, i) => {
@@ -1032,7 +1023,11 @@ function renderLobbyEventSection() {
 // 大会モード開始前に「大会モード」を選んでいる間は、ロビーを待機画面（waiting.js）に切り替える。
 // この画面を開いていること＝準備完了。サーバーの記録と違っていれば知らせる（再接続後もここで元に戻る）。
 function syncWaiting() {
-  const waitingNow = lobbyMode === 'event' && !eventStarted;
+  const choseEvent = lobbyMode === 'event' && !eventStarted;
+  // 参加者は、ヘッドフォン確認に合格するまで待機画面（準備完了）に進めない。進行役とボットは対象外
+  const needsCheck = choseEvent && !isServerPc && !HOST_PARAM && !BOT_LINK && KHeadphone.isRequired();
+  KHeadphone.sync(needsCheck && nameEntered && !$('oLobby').classList.contains('hidden'));
+  const waitingNow = choseEvent && !needsCheck;
   const card = document.querySelector('#oLobby .ov-card');
   card.classList.toggle('waiting-mode', waitingNow);
   $('waitingView').classList.toggle('hidden', !waitingNow);
@@ -1088,6 +1083,7 @@ function updateHostNotice() {
   }
   const specPanel = $('specPanel');
   if (specPanel) specPanel.classList.toggle('hidden', !amSpectating || isArranging);
+  $('commentToggleBtn').classList.toggle('hidden', !(isEventMode && gameStarted && !myIsHost && !isServerPc));
   const debugBtn    = $('debugEndBtn');
   const debugCpuBtn = $('debugCpuBtn');
   // 練習モードは誰でも使える。大会モード中はサーバーPCだけ。
@@ -1387,7 +1383,7 @@ function playWarmupBlip() {
     hide('oBotStart');
     // ① 参加：名前・学年・コースを自動入力して送信する
     //    （ダミー音の再生はdoJoin()が担う。bot/通常参加の両方で共通化している）
-    $('nameInput').value = botName;
+    $('familyNameInput').value = botName;
     const grade = pick(Object.keys(COURSE_OPTIONS));
     $('gradeSelect').value = grade;
     updateCourseOptions();
@@ -1538,9 +1534,35 @@ function stopLoadTestUI() {
 
 let lastJoinPayload = null;
 let initCount = 0;   // 再接続のたびに init が届く（2回目以降＝再接続）
+
+// ── 名前（名字・名前）の入力チェック ───────────────────────
+// 参加者はひらがな（と長音「ー」）だけ。進行役（?host）と実機ボットは名前を自動で入れるので対象外。
+const NAME_FIELD_IDS = ['familyNameInput', 'givenNameInput'];
+const HIRAGANA_ONLY = /^[ぁ-ゖー]+$/;
+const needsHiraganaName = () => !HOST_PARAM && !BOT_LINK;
+// ひらがな以外が入っている欄を赤くして警告を出し、その欄の一覧を返す。空欄はここでは警告しない
+function checkNameFields() {
+  const bad = NAME_FIELD_IDS.map(id => $(id)).filter(el => {
+    const value = el.value.trim();
+    const invalid = needsHiraganaName() && value !== '' && !HIRAGANA_ONLY.test(value);
+    el.classList.toggle('invalid', invalid);
+    el.setAttribute('aria-invalid', String(invalid));
+    return invalid;
+  });
+  $('nameError').classList.toggle('hidden', !bad.length);
+  return bad;
+}
+
 function doJoin() {
-  const name = $('nameInput').value.trim();
-  if (!name) { $('nameInput').focus(); return; }
+  const parts = NAME_FIELD_IDS.map(id => $(id).value.trim());
+  const bad = checkNameFields();
+  if (bad.length) { bad[0].focus(); return; }
+  if (needsHiraganaName()) {
+    const empty = parts.findIndex(v => !v);
+    if (empty >= 0) { $(NAME_FIELD_IDS[empty]).focus(); return; }
+  }
+  const name = parts.filter(Boolean).join(' ');
+  if (!name) return;
   const gradeSel  = $('gradeSelect');
   const courseSel = $('courseSelect');
   const grade  = (!PRACTICE_LINK && !HOST_PARAM && gradeSel)  ? gradeSel.value  : null;
@@ -1556,8 +1578,17 @@ function doJoin() {
   if (liveData) applyInit(liveData);
 }
 
-document.getElementById('nameInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doJoin();
+NAME_FIELD_IDS.forEach((id, i) => {
+  const el = document.getElementById(id);
+  // 日本語入力の変換中は判定しない（確定した時点で判定する）
+  el.addEventListener('input', e => { if (!e.isComposing) checkNameFields(); });
+  el.addEventListener('compositionend', checkNameFields);
+  el.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing) return;   // 変換を確定する Enter では進まない
+    const next = NAME_FIELD_IDS[i + 1];
+    if (next && !document.getElementById(next).value.trim()) document.getElementById(next).focus();
+    else doJoin();
+  });
 });
 
 // ?host を付けて開いたPC（進行役）は、学年・コースはもちろん名前の入力も不要にする
@@ -1566,7 +1597,7 @@ document.getElementById('nameInput').addEventListener('keydown', e => {
 (function applyHostAutoJoin() {
   if (!HOST_PARAM || BOT_LINK) return;
   document.addEventListener('DOMContentLoaded', () => {
-    $('nameInput').value = 'ホスト';
+    $('familyNameInput').value = 'ホスト';
     doJoin();
   });
 })();
@@ -2050,13 +2081,13 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
     const participantIds = new Set([...survivorIds, ...eliminatedIds]);
     const sorted = Object.entries(players)
       .filter(([id, p]) => !(id === liveHostId && isEventMode) && participantIds.has(id) && (p.isBot || p.joined))
-      .sort(([, a], [, b]) => b.score - a.score);
+      .sort(KRank.compareEntries);
 
     // 練習モードの通常試合結果（このどれにも当てはまらない場合）は、
     // 敗退がなく全員が survivorIds に入るため、CPUの「進出」強調表示は
     // 意味を持たない（誤解を招く）ので付けない。
     const isPracticeNormalRound = !isGroupMatchIntermediate && !isRevivalIntermediate && !isRevival && !isFinal;
-    const rrRanks = competitionRanks(sorted);
+    const rrRanks = KRank.listRanks(sorted);
     let dividerDrawn = false;
     sorted.forEach(([id, p], i) => {
       const isSurv = survivorIds.includes(id);
@@ -2198,7 +2229,7 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
     if (isGroupMatchResult && currentGroupTier === 'top') {
       const sorted = Object.entries(players)
         .filter(([id, p]) => !(id === liveHostId && isEventMode) && survivorIds.includes(id) && !p.isBot && p.joined)
-        .sort(([, a], [, b]) => b.score - a.score);
+        .sort(KRank.compareEntries);
       startCeremony(sorted, players, () => {
         hide('oCeremony');
         show('oRoundResult');  // ランキング画面を表示してから手動でロビーへ
@@ -2699,30 +2730,33 @@ function showPendingPanel(speedMs, g) {
     ${spRow('🎯 精度', mmStr(g.offsetMm), '札の中心からの距離', fmtPts(accPts(g.offsetMm)))}
     ${spRow('🖱 距離', mmStr(g.distMm), '定位置から札の中心まで', fmtPts(ctrlPts(g.distMm)))}
     ${accPts(g.offsetMm) >= ACC_BONUS_THRESHOLD ? `<div class="sp-row"><span class="sp-label">🎁 精度ボーナス</span><span class="sp-detail">精度${ACC_BONUS_THRESHOLD}点以上</span><span class="sp-pts">+${fmtPts(ACC_BONUS_PTS)}</span></div>` : ''}
-    <div class="sp-cont">0.5秒間にクリックした全員のうち、精度の点数が一番高い人が札を取ります。<br>mm は画面の札＝実物の取り札（横${CARD_REAL_W_MM}mm）の縮尺で換算しています。</div>`;
+    <div class="sp-cont">0.5秒間にクリックした全員のうち、精度の点数が一番高い人が札を取ります。<br>札を取れなくても、「そこまで」までに正しい札をクリックした人には点数が入ります。<br>mm は画面の札＝実物の取り札（横${CARD_REAL_W_MM}mm）の縮尺で換算しています。</div>`;
 }
 // 札を取った人の内訳（全員の画面に表示）。同時に申告した人は縦に1行ずつ並べる。
 function showScorePanel(by, r, contenders) {
   const el = $('scorePanel');
   if (!el || !r) return;
   el.className = 'score-panel';
-  const hc = r.handicap && r.handicap !== 1
-    ? `<div class="sp-row"><span class="sp-label sp-hc">ハンデ</span><span class="sp-detail sp-hc">×${r.handicap}</span><span class="sp-pts sp-hc">${fmtPts(r.wanted - r.base)}</span></div>`
+  // ハンデ・ボーナス・獲得ポイントは、自分に点が入っていれば自分の分、そうでなければ1位の人の分を出す
+  const mc = (contenders || []).find(c => c.id === myId);
+  const iWon = by.id === myId;
+  const own = mc && !iWon ? mc : r;
+  const totalLabel = mc ? 'あなたの獲得ポイント' : '獲得ポイント';
+  const hc = own.handicap && own.handicap !== 1
+    ? `<div class="sp-row"><span class="sp-label sp-hc">ハンデ</span><span class="sp-detail sp-hc">×${own.handicap}</span><span class="sp-pts sp-hc">${fmtPts(own.wanted - own.base)}</span></div>`
     : '';
-  const capNote = r.capped ? '<div class="sp-cont">※ 1試合の上限（2万点）に達しました。</div>' : '';
+  const capNote = own.capped ? '<div class="sp-cont">※ 1試合の上限（2万点）に達しました。</div>' : '';
   // クリックした人は（0.5秒以内に限らず）全員、精度の高い順に並べて表示する。自分の行は目立たせる。
   const list = (contenders || []).length > 1
     ? `<div class="sp-list-title">クリックした人（${contenders.length}人）</div>
       <div class="sp-list" id="spList">
-        <div class="sp-li head"><span>名前</span><span>速さ</span><span>中心から</span><span>精度点</span></div>
+        <div class="sp-li head"><span>名前</span><span>速さ</span><span>中心から</span><span>精度点</span><span>獲得</span></div>
         ${contenders.map(c => `<div class="sp-li${c.win ? ' win' : ''}${c.id === myId ? ' me' : ''}" id="${c.id === myId ? 'spListMe' : ''}">
-          <span class="n">${c.win ? '◎ ' : ''}${escHtml(c.name)}</span><span>${(c.speedMs / 1000).toFixed(2)}秒</span><span>${mmStr(c.offsetMm)}</span><span>${fmtPts(c.key)}</span></div>`).join('')}
+          <span class="n">${c.win ? '◎ ' : ''}${escHtml(c.name)}</span><span>${(c.speedMs / 1000).toFixed(2)}秒</span><span>${mmStr(c.offsetMm)}</span><span>${fmtPts(c.key)}</span><span>+${fmtPts(c.awarded + c.bonus)}</span></div>`).join('')}
       </div>`
     : '';
   // 速度・精度・距離を横並びにして、札を取った人と自分を比べる（取ったのが自分なら1行だけ）
   const win = { speedMs: r.speedMs, offsetMm: r.offsetMm, distMm: r.distMm, sp: r.speedPts, ap: r.accPts, cp: r.ctrlPts };
-  const mc = (contenders || []).find(c => c.id === myId);
-  const iWon = by.id === myId;
   const cell = (val, pts, cls) => `<span class="v${cls ? ' ' + cls : ''}">${val}<small>+${fmtPts(pts)}点</small></span>`;
   let cmp = `<div class="sp-cmp">
       <span></span><span class="c">⚡ 速度<small>短いほど有利</small></span><span class="c">🎯 精度<small>短いほど有利</small></span><span class="c">🖱 距離<small>長いほど加点（取る判定には無関係）</small></span>
@@ -2740,8 +2774,8 @@ function showScorePanel(by, r, contenders) {
   el.innerHTML = `<div class="sp-title"><span class="tn-dot" style="background:${by.color || '#4a9eff'}"></span>${escHtml(by.name)} <span style="color:var(--dim);font-weight:400;font-size:.75rem">が獲得</span></div>
     ${cmp}
     ${hc}
-    ${r.bonus ? `<div class="sp-row"><span class="sp-label">🎁 精度ボーナス</span><span class="sp-detail">精度${ACC_BONUS_THRESHOLD}点以上${r.handicap !== 1 ? `（${fmtPts(r.bonusBase)}×${r.handicap}）` : '（別枠）'}</span><span class="sp-pts">+${fmtPts(r.bonus)}</span></div>` : ''}
-    <div class="sp-total"><span>獲得ポイント</span><span class="sp-big">+${fmtPts(r.awarded + (r.bonus || 0))}</span></div>
+    ${own.bonus ? `<div class="sp-row"><span class="sp-label">🎁 精度ボーナス</span><span class="sp-detail">精度${ACC_BONUS_THRESHOLD}点以上${own.handicap !== 1 ? `（${fmtPts(own.bonusBase)}×${own.handicap}）` : '（別枠）'}</span><span class="sp-pts">+${fmtPts(own.bonus)}</span></div>` : ''}
+    <div class="sp-total"><span>${totalLabel}</span><span class="sp-big">+${fmtPts(own.awarded + (own.bonus || 0))}</span></div>
     ${capNote}${list}`;
   // 一覧の中で自分の行が隠れていたら、見える位置までスクロールする（一目でわかるように）
   const me = $('spListMe');
@@ -2761,6 +2795,8 @@ function showMissPanel(penalty, title, detail) {
 // 自分自身のチップのみ表示する（他プレイヤーの一覧は表示しない）
 function updateChips(players) {
   livePlayers = players;
+  // 取得の発表まで持っていた古い一覧を表示するときも、同点の並び順は最新にそろえる
+  Object.entries(liveTies).forEach(([id, tie]) => { if (players[id]) players[id].tie = tie; });
   const wrap = $('chips');
   wrap.innerHTML = '';
   const me = players[myId];
@@ -2781,10 +2817,10 @@ function updateChips(players) {
 
 // 自分の現在の順位（ホストを除いた全参加者中の順位）を返す
 function myRankLabel(players) {
-  const sorted = eventFilterPlayers(players).sort(([, a], [, b]) => b.score - a.score);
+  const sorted = eventFilterPlayers(players).sort(KRank.compareEntries);
   const idx = sorted.findIndex(([id]) => id === myId);
   if (idx === -1) return '';
-  return `${competitionRanks(sorted)[idx]}位 / ${sorted.length}人中`;
+  return `${KRank.listRanks(sorted)[idx]}位 / ${sorted.length}人中`;
 }
 
 // ── Float score label ─────────────────────────────────────
@@ -2812,7 +2848,7 @@ function showGameOver(players) {
   wrap.innerHTML = '';
   const sorted = Object.entries(players)
     .filter(([id]) => !(id === liveHostId && isEventMode))
-    .sort(([, a], [, b]) => b.score - a.score);
+    .sort(KRank.compareEntries);
 
   const top3 = sorted.slice(0, 3);
   const rest = sorted.slice(3);
@@ -2854,8 +2890,11 @@ socket.on('init', data => {
   initCount++;
   if (initCount > 1 && nameEntered && lastJoinPayload) socket.emit('set_name', lastJoinPayload);
   myId       = data.myId;
+  liveTies   = {};
+  KComments.setQuiet(data.phase === 'reading' || data.phase === 'decoy');
   isServerPc = !!data.isServerPc;
   studentPracticeAllowed = !!data.studentPracticeAllowed;
+  KHeadphone.setEnabled(data.headphoneCheckEnabled !== false);
   liveHostId = data.hostId;
   liveData   = { ...data };
   applyVoiceSummary(data.voice);
@@ -2901,6 +2940,18 @@ socket.on('players_updated', players => {
   if (liveData) liveData.players = players;
   updateChips(players);
   if (lobbyVisible()) { renderLobbyList(players); renderLobbyEventSection(); }
+});
+
+// 同点の人の順位の入れ替え（サーバーが一定時間おきに並び順だけを配る）。点数は書き換えない
+socket.on('tie_order', ({ ties }) => {
+  Object.entries(ties).forEach(([id, tie]) => { liveTies[id] = tie; });
+  if (gameStarted && !isArranging && livePlayers) updateChips(livePlayers);
+});
+
+KHeadphone.init({ socket, onPass: () => syncWaiting(), onBack: () => backToLobbyModeSelect() });
+socket.on('headphone_check_setting', ({ enabled }) => {
+  KHeadphone.setEnabled(!!enabled);
+  syncWaiting();
 });
 
 socket.on('houses_assigned', ({ houses, players }) => {
@@ -2969,6 +3020,7 @@ socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, s
   soundCheckPending = true; soundCheckRunning = false;   // 大会モードだけ、最初の読み上げの前にテスト音声を1回流す
   matchHeadcount      = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   isEventMode         = true;
+  KHeadphone.sync(false);
   eventStarted        = true;
   eventStage          = stage;
   eventStageLabel     = stageLabel;
@@ -3022,6 +3074,7 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
 // イントロ（読み上げます）→ 上の句 MP3 を Web Audio で精密同期再生
 // playAt = イントロ開始時刻（全 PC でハードウェアレベルで同期）
 socket.on('read_card', ({ card, remaining, playAt }) => {
+  KComments.setQuiet(true);   // かるたの読み上げ中はコメントを流さない
   currentReadPlayAt = playAt;
   introStarted = false;   // 「読み上げます」が始まるまでは取れない
   // 前の札の判定内訳は、次の札の「読み上げます」が終わる（上の句が始まる）まで表示し続ける（playVoiceReadで消す）
@@ -3055,6 +3108,7 @@ socket.on('layout', ({ layout, by }) => {
 });
 
 socket.on('decoy_read', ({ id, yomi, playAt }) => {
+  KComments.setQuiet(true);
   currentReadPlayAt = playAt;
   introStarted = false;
   setGrabLocked(false);
@@ -3088,6 +3142,7 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
   const finishTimeUp = () => {
     if (finished) return;
     finished = true;
+    KComments.setQuiet(false);
     markVoiceEnd();
     isAnnouncing = false;
     updateReadBtnAvailability();
@@ -3105,7 +3160,10 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
   if (!items) { finishTimeUp(); return; }
   Voice.preload(items, { ensure: true }).then(() => {
     if (gen !== audioGeneration) return;
-    if (!playVoiceItems(items, playAt, gen, finishTimeUp)) finishTimeUp();
+    const resumeComments = i => {
+      if (i === 0) setTimeout(() => { if (gen === audioGeneration) KComments.setQuiet(false); }, Voice.durationOf(items[0]) * 1000);
+    };
+    if (!playVoiceItems(items, playAt, gen, finishTimeUp, resumeComments)) finishTimeUp();
   });
 });
 
@@ -3142,15 +3200,18 @@ socket.on('card_taken', ({ cardId, by, players, result, contenders, djText, djSe
   const reveal = () => {
     if (gen !== audioGeneration) return;
     // ここで初めて「○○が獲得！」・獲得ポイント・札の演出を表示する（DJの実況とほぼ同時にするため）
+    KComments.setQuiet(false);
     showTakenNotif(by.name, by.color || '#4a9eff');
     showScorePanel(by, result, contenders);
     updateChips(players);
+    const myAward = (contenders || []).find(c => c.id === myId);   // 札を取れなくても点が入っていれば、自分の点を出す
     const el = $(`card-${cardId}`);
     if (el) {
       if (by.id === myId) {
         showFloat(el, '+' + fmtPts(result ? result.awarded : 0), '#00e5a0');
         el.classList.add('correct-mine');
       } else {
+        if (myAward) showFloat(el, '+' + fmtPts(myAward.awarded + myAward.bonus), '#00e5a0');
         el.style.borderColor = by.color;
         el.style.color       = by.color;
         el.style.background  = `linear-gradient(160deg,${by.color}28,${by.color}0a)`;
@@ -3377,7 +3438,7 @@ function speakEventRoundResultDj(data) {
 function speakRoundResultDj(round, players, participantIds) {
   const sorted = Object.entries(players)
     .filter(([id, p]) => participantIds.has(id) && (p.isBot || p.joined))
-    .sort(([, a], [, b]) => b.score - a.score);
+    .sort(KRank.compareEntries);
 
   // 優先度：3位以内「おめでとうございます」→ 3位との点差が約1枚分(3万点)以内なら「惜しい」→「○回戦終了です」。
   // 順位そのものは問わない（何位でも、3位との差が3万点以内なら惜しいを流す）。
@@ -3385,8 +3446,8 @@ function speakRoundResultDj(round, players, participantIds) {
   let line = `${round}回戦終了です。お疲れ様でした。`;
   let lineSegs = VD.roundEndSegments(round);
 
-  // 同じ枚数は同順位（1位,1位,3位…）。結果画面の順位表示と同じ数え方にする。
-  const ranks = competitionRanks(sorted);
+  // 結果画面の順位表示と同じ数え方（同点でも順位は分ける）にする。
+  const ranks = KRank.listRanks(sorted);
   const myIdx = sorted.findIndex(([id]) => id === myId);
   if (myIdx !== -1) {
     const rank  = ranks[myIdx];
@@ -3394,7 +3455,7 @@ function speakRoundResultDj(round, players, participantIds) {
     if (rank === 1) {
       line = `おめでとうございます。あなたは${spokenPoints(score)}で${rank}位です。`;
       lineSegs = VD.resultCongratsSegments(score, rank);
-    } else if (rank === 2 || rank === 3) {
+    } else if ((rank === 2 || rank === 3) && sorted[0][1].score > score) {   // 1位と同点のときは点差を言わない
       // 1位との点差を常に伝える（しきい値なし）
       const diff = sorted[0][1].score - score;
       const name = rawName(sorted[myIdx][1]);
@@ -3444,35 +3505,24 @@ const SPEC_REACTIONS = ['👏', '🔥', '😲', '😆', '😭', '🎉', '💪', 
 let specWarnTimer = null;
 
 function clearSpectatorChat() {
-  const layer = $('specCommentsLayer');
-  if (layer) layer.innerHTML = '';
+  KComments.clear();
+  KComments.setQuiet(false);
   const warn = $('specChatWarn');
   if (warn) warn.textContent = '';
 }
 
-// ニコニコ動画のように、コメントを画面右から左へ流す。複数レーン（縦方向の段）に
-// 順番に振り分け、長い文章ほどゆっくり・長い時間流れるようにする。
-const SPEC_COMMENT_LANES = 6;
-let specCommentLaneIdx = 0;
-function postSpecComment(name, color, text, isMe) {
-  const layer = $('specCommentsLayer');
-  if (!layer) return;
-  const el = document.createElement('div');
-  el.className = 'spec-comment' + (isMe ? ' me' : '');
-  const who = document.createElement('b');
-  who.style.color = color || '#8fb4ff';
-  who.textContent = name ? `${name}： ` : '';
-  const body = document.createElement('span');
-  body.textContent = text;   // textContent で入れるのでHTMLは解釈されない
-  el.append(who, body);
-  const lane = specCommentLaneIdx % SPEC_COMMENT_LANES;
-  specCommentLaneIdx++;
-  el.style.top = (lane * (100 / SPEC_COMMENT_LANES)) + '%';
-  const durationMs = Math.max(6000, Math.min(14000, 6000 + text.length * 180));
-  el.style.animationDuration = durationMs + 'ms';
-  layer.appendChild(el);
-  setTimeout(() => el.remove(), durationMs + 200);
+// コメント表示のオン・オフ（観戦者・競技者それぞれの端末で切り替える）
+function renderCommentToggle() {
+  const btn = $('commentToggleBtn');
+  const on = KComments.isEnabled();
+  btn.textContent = on ? '💬 コメント：オン' : '💬 コメント：オフ';
+  btn.setAttribute('aria-pressed', String(on));
 }
+function toggleComments() {
+  KComments.setEnabled(!KComments.isEnabled());
+  renderCommentToggle();
+}
+renderCommentToggle();
 function showChatWarn(msg) {
   const warn = $('specChatWarn');
   if (!warn) return;
@@ -3505,11 +3555,14 @@ function showChatWarn(msg) {
 })();
 
 socket.on('spectator_chat', ({ id, name, color, text }) => {
-  postSpecComment(name, color, text, id === myId);
-  if (id === myId) { const input = $('specChatInput'); if (input) input.value = ''; }
+  KComments.comment({ name, color, text, isMe: id === myId });
+  if (id !== myId) return;
+  const input = $('specChatInput');
+  if (input) input.value = '';
+  if (KComments.isQuiet() && KComments.isEnabled()) showChatWarn('送信しました。読み上げが終わってから流れます');
 });
 socket.on('chat_rejected', ({ message }) => showChatWarn(message || 'このメッセージは送信できません'));
-socket.on('spectator_reaction', ({ emoji, name, color }) => {
+socket.on('spectator_reaction', ({ emoji, name, color }) => KComments.effect(() => {
   const layer = $('reactFloat');
   if (!layer) return;
   const el = document.createElement('div');
@@ -3522,7 +3575,7 @@ socket.on('spectator_reaction', ({ emoji, name, color }) => {
   small.style.color = color || '';
   layer.appendChild(el);
   setTimeout(() => el.remove(), 2700);
-});
+}));
 
 socket.on('connect_error', () => {
   $('readingText').textContent = 'サーバーに接続できません。ページを更新してください。';

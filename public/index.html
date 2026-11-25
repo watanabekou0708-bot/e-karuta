@@ -13,8 +13,14 @@
   <div class="ov-card">
     <div class="ov-title">💻 Webかるた</div>
     <p class="ov-sub">プレイヤー名を入力して参加しましょう</p>
-    <input id="nameInput" class="name-input" type="text"
-           placeholder="あなたの名前（最大15字）" maxlength="15" autofocus>
+    <!-- 名字と名前（どちらもひらがなだけ。入力チェックは game.js の checkNameFields） -->
+    <div class="name-row">
+      <label class="name-field">名字<input id="familyNameInput" class="name-input" type="text"
+             placeholder="例：やまだ" maxlength="10" autocomplete="off" aria-describedby="nameError" autofocus></label>
+      <label class="name-field">名前<input id="givenNameInput" class="name-input" type="text"
+             placeholder="例：たろう" maxlength="10" autocomplete="off" aria-describedby="nameError"></label>
+    </div>
+    <p id="nameError" class="name-error hidden" role="alert">ひらがなで入力してください。</p>
     <div class="grade-course-row">
       <select id="gradeSelect" class="grade-select" onchange="updateCourseOptions()">
         <option value="3">3年生</option>
@@ -137,7 +143,7 @@
         <span class="rr-me-score" id="lobbyEventMeScore"></span>
         <span class="rr-badge" id="lobbyEventMeBadge"></span>
       </div>
-      <button class="btn btn-blue" style="margin:.6rem 0" onclick="goToEventHub()">🏠 ホームに戻る</button>
+      <button class="btn btn-blue" style="margin:.6rem 0" onclick="goToEventHub()">🏠 ロビーに戻る</button>
       <div class="rr-table" id="lobbyEventResultTable"></div>
     </div>
 
@@ -158,7 +164,7 @@
       <!-- 大会開始前のみ表示 -->
       <button id="lobbyEventStartBtn" class="btn btn-green" style="margin-top:.8rem;width:100%" onclick="startEvent()">🏁 大会モードを開始（本戦 第1試合）</button>
 
-      <!-- 次のアクション選択（ホーム画面。「ホームに戻る」を押した後のみ表示） -->
+      <!-- 次のアクション選択（ホーム画面。「ロビーに戻る」を押した後のみ表示） -->
       <div id="lobbyEventHostControls" class="hidden" style="margin-top:.6rem;text-align:center">
         <button id="evMainBtn" class="btn btn-green" style="margin:.3rem" onclick="advanceEvent('main')">本戦を行う</button>
         <button id="evRevivalBtn" class="btn btn-revival" style="margin:.3rem" onclick="advanceEvent('revival')">敗者復活戦を行う</button>
@@ -174,6 +180,22 @@
     <!-- ゲスト向けメッセージ（モード未選択時） -->
     <p id="lobbyWaiting" class="ov-sub" style="margin-top:.8rem">ホストがモードを選択するまでお待ちください</p>
     <button id="lobbyLeaveBtn" class="btn btn-leave" onclick="leaveLobby()">🚪 退室する</button>
+  </div>
+</div>
+
+<!-- ── ヘッドフォン確認（大会モードの待機画面の前。処理は headphone.js）──── -->
+<div id="oHeadphone" class="overlay hidden">
+  <div class="ov-card">
+    <div class="ov-title">🎧 ヘッドフォン確認</div>
+    <p class="ov-sub">ヘッドフォンかイヤホンを着けてください。<br>音声で流れる3けたの番号を入力してください。</p>
+    <p class="hp-status" id="hpStatus" role="status"></p>
+    <form id="hpForm" autocomplete="off">
+      <input id="hpInput" class="name-input hp-input" type="text" inputmode="numeric" maxlength="3" aria-label="3けたの番号" aria-describedby="hpError">
+      <p id="hpError" class="name-error hidden" role="alert"></p>
+      <button type="submit" class="btn btn-green">確認する</button>
+    </form>
+    <button id="hpRetry" class="btn btn-blue hidden" type="button" style="margin-top:.6rem">もう一度ためす</button>
+    <button id="hpBack" class="btn-back" type="button" style="margin-top:.8rem">← モード選択に戻る</button>
   </div>
 </div>
 
@@ -241,6 +263,7 @@
     <div class="chips" id="chips"></div>
   </div>
   <div class="header-right">
+    <button id="commentToggleBtn" class="btn comment-toggle hidden" type="button" onclick="toggleComments()" aria-pressed="true">💬 コメント：オン</button>
     <div class="game-timer" id="timer">00:00</div>
     <button id="debugCpuBtn" class="btn btn-debug" onclick="debugGiveCpuPoints()" title="デバッグ用：CPUにランダムポイント" style="display:none">🎲 CPUポイント</button>
     <button id="debugEndBtn" class="btn btn-debug" onclick="debugSmartSkip()" title="デバッグ用：即終了／盤面整理をスキップ" style="display:none">⏹ 即終了（デバッグ）</button>
@@ -290,10 +313,12 @@
           <div class="start-extra"></div></div>
       </div>
 
+      <!-- 流れるコメント（観戦者と競技者の画面。表示の処理は comments.js） -->
+      <div id="commentLayer" class="spec-comments-layer"></div>
+
       <!-- ── 観戦パネル（敗退者は自動でこちらに切り替わる）。盤面はそのまま見える状態の
            上に重ね、画面下部にコメント入力・リアクションのバーを置く ───────── -->
       <div id="specPanel" class="spec-panel hidden">
-        <div id="specCommentsLayer" class="spec-comments-layer"></div>
         <div id="reactFloat" class="react-float-layer"></div>
         <div class="spec-bottom-bar">
           <div class="spec-react-bar" id="specReactBar"></div>
@@ -344,10 +369,13 @@
 <script src="karuta-data.js"></script>
 <script src="game-config.js"></script>
 <script src="layout.js"></script>
+<script src="ranking.js"></script>
 <script src="voice-defs.js"></script>
 <script src="voice.js"></script>
 <script src="cursor.js"></script>
+<script src="comments.js"></script>
 <script src="waiting.js"></script>
+<script src="headphone.js"></script>
 <script src="game.js"></script>
 <script src="a11y.js"></script>
 </body>
