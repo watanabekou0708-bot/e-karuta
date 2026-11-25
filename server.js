@@ -206,6 +206,9 @@ try {
 const { TimingLog } = require('./timing-log.js');
 const TIMING_FILE = `timing-${new Date().toISOString().replace(/[:.]/g, '-')}-p${PORT}.md`;
 const timing = new TimingLog(path.join(LOG_DIR, TIMING_FILE));
+// プレイ後アンケート（回答は logs/survey-<起動日時>.csv）
+const { createSurvey } = require('./survey.js');
+const survey = createSurvey({ logDir: LOG_DIR, fileName: `survey-${new Date().toISOString().replace(/[:.]/g, '-')}-p${PORT}.csv` });
 // ログイベントのうち、所要時間の計測に使うものを拾う（記録の失敗でゲームを止めない）
 function timingFromLog(type, data) {
   try {
@@ -1380,6 +1383,7 @@ function endRound() {
       survivorIds, eliminatedIds, survivorCount: gs.survivorCount,
       ...(isFinalRound ? { isFinal: true } : {}),
     });
+    if (isFinalRound) openSurvey('practice', survivorIds);
   }, 3000);
 }
 
@@ -1518,6 +1522,43 @@ function eventStatusSnapshot() {
   };
 }
 
+// ── プレイ後アンケート ─────────────────────────────────────
+// 回答者の区別には、再接続しても変わらないブラウザのトークンを使う（無ければ接続ID）
+const surveyKey = id => (gs.players[id] && gs.players[id].sessionToken) || id;
+const ADMIN_ROOM = 'admins';   // 大会設定画面（教卓PC）の接続。回答状況はここにだけ送る
+
+// その接続の画面に、アンケートを出すかどうかを送る（教卓PCと未参加の接続には出さない）
+function sendSurveyState(socket) {
+  const p = gs.players[socket.id];
+  const eligible = !!(p && p.joined && !p.isBot) && !isHostEligible(socket);
+  socket.emit('survey_state', eligible ? survey.stateFor(surveyKey(socket.id)) : { open: false, sessionId: null });
+}
+function broadcastSurvey() {
+  io.sockets.sockets.forEach(sendSurveyState);
+  io.to(ADMIN_ROOM).emit('survey_summary', survey.summary());
+}
+// 大会の最終試合後／練習の全試合後に受付を始める。対象は、この時点で参加していた人（教卓PC・CPUを除く）
+function openSurvey(mode, ranking) {
+  const targets = Object.entries(gs.players)
+    .filter(([id, p]) => !p.isBot && (p.joined || (mode === 'event' && gs.event.history[id])))
+    .filter(([id]) => { const s = io.sockets.sockets.get(id); return !(s && isHostEligible(s)); })
+    .map(([id, p]) => {
+      const hist = mode === 'event' ? (gs.event.history[id] || []) : [];
+      const rank = ranking.indexOf(id) + 1;
+      const last = hist[hist.length - 1];
+      return [surveyKey(id), {
+        grade: p.grade || '', course: p.course || '',
+        main:    mode === 'event' ? hist.filter(h => h.stage === 'main').length : '',
+        revival: mode === 'event' ? hist.filter(h => h.stage === 'revival').length : '',
+        result:  rank ? `最終試合 ${rank}位` : last ? `${EVENT_STAGE_LABELS[last.stage] || ''}${last.result}` : '',
+      }];
+    });
+  survey.open(mode, targets);
+  logEvent('survey_open', { mode, targets: targets.length });
+  broadcastSurvey();
+}
+function closeSurvey() { survey.close(); broadcastSurvey(); }
+
 // 大会モードの1試合終了処理。ステージごとに通過／敗退／敗者復活行きを振り分ける。
 function endEventRound() {
   gs.phase = 'round_finished';
@@ -1553,6 +1594,7 @@ function endEventRound() {
         stage: 'main', isFinal: true, finalRanking: ids, players: playersSnap, ceremony: CEREMONY, roundNumber: gs.event.mainRoundIndex,
       });
       notifyEventStageReady();
+      openSurvey('event', ids);
     }, 3000);
     return;
   }
@@ -2050,6 +2092,7 @@ io.on('connection', socket => {
       // 復帰できた場合、大会モードの参加者状態が変わっているので、この接続にだけ最新状態を
       // 送り直す（観戦者扱いのままにならないようにする）。
       if (reclaimed) sendInitTo(socket);
+      sendSurveyState(socket);
     }
   });
 
@@ -2066,6 +2109,7 @@ io.on('connection', socket => {
     logEvent('join', { id: socket.id, name: gs.players[socket.id].name, reclaimed: true, viaToken: true });
     io.emit('players_updated', gs.players);
     sendInitTo(socket);
+    sendSurveyState(socket);
     ack({ success: true });
   });
 
@@ -2083,6 +2127,7 @@ io.on('connection', socket => {
   // ── Start game（参加登録済みの誰でも。先に押した人の設定が全員に適用される）──
   socket.on('start_game', (opts) => {
     if (gs.phase !== 'lobby' || !isJoinedHuman(socket.id)) return;
+    closeSurvey();
     // 開始した人が読み上げの進行役（次の札の読み上げ通知を出す端末）になる
     setHost(socket.id);
     const cpuDiff = opts && opts.cpuDifficulty;
@@ -2695,7 +2740,26 @@ io.on('connection', socket => {
     ack(eventStatusSnapshot());
   });
 
+  // アンケートの回答（対象者1人につき1回）
+  socket.on('survey_submit', (data, ack) => {
+    if (typeof ack !== 'function') return;
+    const p = gs.players[socket.id];
+    if (!p || !p.joined || isHostEligible(socket)) { ack({ ok: false, reason: 'closed' }); return; }
+    const result = survey.submit(surveyKey(socket.id), data);
+    logEvent('survey_submit', { ok: result.ok, reason: result.reason });   // 内容はCSVにだけ残し、個人と結び付くログには書かない
+    ack(result);
+    if (result.ok) io.to(ADMIN_ROOM).emit('survey_summary', survey.summary());
+  });
+  // 大会設定画面の「アンケートを出す／出さない」（教卓PCのみ）
+  socket.on('set_survey_enabled', (on) => {
+    if (!isHostEligible(socket) || typeof on !== 'boolean') return;
+    survey.setEnabled(on);
+    logEvent('survey_enabled', { on });
+    broadcastSurvey();
+  });
+
   socket.on('join_admin', () => {
+    if (isHostEligible(socket)) { socket.join(ADMIN_ROOM); socket.emit('survey_summary', survey.summary()); }
     socket.emit('admin_init', {
       isHost:      isHostEligible(socket),
       supervised:  process.env.KARUTA_SUPERVISED === '1',
@@ -2871,6 +2935,7 @@ io.on('connection', socket => {
     }
     if (participantIds.length === 0) { socket.emit('event_start_denied', { reason: 'no_participants' }); return; }
 
+    closeSurvey();
     gs.event.active            = true;
     gs.event.mainPool          = new Set(participantIds);
     gs.event.revivalCandidates = new Set();
@@ -3076,6 +3141,25 @@ app.get('/api/timing/logs', (req, res) => {
 app.get('/api/timing/logs/:file', (req, res) => {
   if (!isHostRequest(req)) return res.status(403).json({ error: 'forbidden' });
   if (!/^timing-[\w.-]+\.md$/.test(req.params.file)) return res.status(400).json({ error: 'invalid filename' });
+  res.download(path.join(LOG_DIR, req.params.file), err => { if (err && !res.headersSent) res.status(404).json({ error: 'not found' }); });
+});
+
+// アンケート結果（logs/survey-*.csv）の一覧とダウンロード（教卓PCのみ）
+app.get('/api/survey/logs', (req, res) => {
+  if (!isHostRequest(req)) return res.status(403).json({ error: 'forbidden' });
+  let files = [];
+  try {
+    files = fs.readdirSync(LOG_DIR)
+      .filter(f => /^survey-.*\.csv$/.test(f))
+      .map(f => ({ name: f, ...fs.statSync(path.join(LOG_DIR, f)) }))
+      .map(f => ({ name: f.name, sizeBytes: f.size, mtime: f.mtime, current: f.name === path.basename(survey.file) }))
+      .sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+  } catch (e) { /* logsフォルダが無ければ空一覧 */ }
+  res.json({ files });
+});
+app.get('/api/survey/logs/:file', (req, res) => {
+  if (!isHostRequest(req)) return res.status(403).json({ error: 'forbidden' });
+  if (!/^survey-[\w.-]+\.csv$/.test(req.params.file)) return res.status(400).json({ error: 'invalid filename' });
   res.download(path.join(LOG_DIR, req.params.file), err => { if (err && !res.headersSent) res.status(404).json({ error: 'not found' }); });
 });
 

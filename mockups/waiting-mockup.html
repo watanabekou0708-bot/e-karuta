@@ -1,0 +1,99 @@
+<title>かるた待機画面3案</title>
+<style>
+/* 配置：3案を縦に並べる。各案は「学生の画面」「ホストの画面」を切り替える 16:9 の見本（ゲームの紺色） */
+:root { --bg:#f2f4f8; --fg:#182136; --sub:#56617a; --line:#cfd6e4; --card:#fff; --mark:#1d5fbf; --markbg:#e3eefc; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#12151d; --fg:#e8ecf6; --sub:#a3adc4; --line:#333b4f; --card:#1b202c; --mark:#8bbcff; --markbg:#1f2d47; color-scheme:dark } }
+:root[data-theme="dark"] { --bg:#12151d; --fg:#e8ecf6; --sub:#a3adc4; --line:#333b4f; --card:#1b202c; --mark:#8bbcff; --markbg:#1f2d47; color-scheme:dark }
+body { background:var(--bg); color:var(--fg); font:15px/1.7 "Yu Gothic UI","Hiragino Sans",Meiryo,sans-serif; }
+.wrap { max-width:1040px; margin:0 auto; padding-block:24px 56px; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); }
+h1 { font-size:1.6rem; margin:0 0 4px; } h2 { font-size:1.2rem; margin:40px 0 4px; } p { margin:4px 0 10px; } .sub { color:var(--sub); }
+.tag { display:inline-block; background:var(--markbg); color:var(--mark); border-radius:4px; padding:0 8px; font-size:.8rem; font-weight:700; margin-left:8px; vertical-align:2px; }
+.scroll { overflow-x:auto; } table.cmp { border-collapse:collapse; width:100%; min-width:520px; background:var(--card); font-size:.9rem; } .cmp th,.cmp td { border:1px solid var(--line); padding:6px 10px; text-align:left; vertical-align:top; }
+.tabs { display:flex; gap:6px; margin:6px 0; } .tabs button { font:inherit; font-size:.85rem; cursor:pointer; padding:4px 16px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
+.tabs button[aria-pressed="true"] { background:var(--mark); color:var(--card); border-color:var(--mark); font-weight:700; }
+button:focus-visible { outline:3px solid #e0a800; outline-offset:2px; }
+
+/* 見本の画面。文字サイズは画面の幅に比例（cqw）させ、実物（1920×1080）と同じ見え方にする */
+.screen { container-type:inline-size; width:100%; aspect-ratio:16/9; background:#06081a; color:#e3ecff; border:1px solid #2a3f70; border-radius:10px; overflow:hidden; }
+.s { box-sizing:border-box; height:100%; padding:2cqw; display:flex; flex-direction:column; align-items:center; gap:.7cqw; font-size:max(9px,1.25cqw); line-height:1.35; }
+.t1 { font-size:2cqw; color:#4a9eff; font-weight:700; letter-spacing:.15em; }
+.t2 { font-size:4.6cqw; color:#00e5a0; font-weight:800; line-height:1.15; }
+.t3 { font-size:2.2cqw; color:#e3ecff; }
+.count { font-size:1.2cqw; color:#93a9d4; }
+.list { flex:1; min-height:0; overflow-y:auto; box-sizing:border-box; width:100%; background:#0e1630; border:1px solid #2a3f70; border-radius:.8cqw; }
+.narrow { width:48cqw; } .mid { width:66cqw; }
+.row { display:grid; grid-template-columns:4cqw minmax(0,1fr); padding:.45cqw 1.2cqw; border-bottom:1px solid #1d2c55; }
+.host .row { grid-template-columns:4cqw minmax(0,1fr) 14cqw; }
+.row.head { position:sticky; top:0; background:#16224a; color:#93a9d4; font-weight:700; }
+.row i { font-style:normal; color:#93a9d4; }
+.pc { color:#ffd34d; font-variant-numeric:tabular-nums; }
+.grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:.6cqw; padding:.8cqw; align-content:start; }
+.tile { background:#16224a; border-radius:.5cqw; padding:.5cqw .8cqw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tile small { display:block; font-size:.85em; }
+.bar { display:flex; gap:1cqw; align-items:center; justify-content:center; flex-wrap:wrap; }
+.b { display:inline-block; padding:.7cqw 1.6cqw; border-radius:.6cqw; background:#1a4f8f; font-weight:700; font-size:1.2cqw; } .b.go { background:#17683a; } .b.ghost { background:none; border:1px solid #2a3f70; color:#93a9d4; font-weight:400; }
+.sort { font:inherit; font-size:1.15cqw; cursor:pointer; background:#0e1630; color:#93a9d4; border:1px solid #2a3f70; border-radius:99px; padding:.4cqw 1.4cqw; }
+.sort[aria-pressed="true"] { background:#4a9eff; color:#04121f; font-weight:700; }
+.split { flex:1; min-height:0; width:100%; display:grid; grid-template-columns:2fr 3fr; gap:2cqw; }
+.side { display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; gap:1.2cqw; }
+.main { display:flex; flex-direction:column; min-height:0; gap:.7cqw; }
+.side .t3 { font-size:1.65cqw; white-space:nowrap; }
+</style>
+<div class="wrap">
+  <h1>大会モードの待機画面 3つの案</h1>
+  <p class="sub">画面の上のボタンで「学生の画面」と「ホストの画面」を切り替えられます。名前とPC名はすべて見本です。一覧はスクロールできます。PC名はホストの画面にだけ出ます。</p>
+  <div class="scroll"><table class="cmp">
+    <tr><th></th><th>A：中央に1列</th><th>B：タイルで一覧</th><th>C：左右に分割</th></tr>
+    <tr><th>一度に見える人数の目安</th><td>10〜15人</td><td>約40人</td><td>15〜20人</td></tr>
+    <tr><th>向いている使い方</th><td>指定の並びに一番近く、読みやすい</td><td>大人数の入室状況をホストが確認する</td><td>人数と一覧を同時に大きく見せる</td></tr>
+  </table></div>
+  <p class="sub">人数の目安は1920×1080の画面を想定した見積もりです。実装の作業時間はどの案も2〜3時間、追加費用はありません。</p>
+
+  <h2>A：中央に1列</h2><p>見出し、「準備完了！」、案内文、一覧の順に縦に並べます。</p><div data-demo="a"></div>
+  <h2>B：タイルで一覧<span class="tag">おすすめ</span></h2><p>並び順は同じで、一覧を6列のタイルにします。A案の3倍ほどの人数が一度に見えるので、いない人を探しやすくなります。80人の場合は少しスクロールします。</p><div data-demo="b"></div>
+  <h2>C：左右に分割</h2><p>左に状態を大きく表示し、右に一覧を置きます。「待機画面」の下に「準備完了！」が来る順番は左側の中で保ちます。</p><div data-demo="c"></div>
+
+  <h2>PC名の取得方法（どの案でも選ぶ必要があります）</h2>
+  <p>ブラウザのページは、動いているPCの名前を読み取れない仕組みになっています。次のいずれかの方法が必要です。</p>
+  <div class="scroll"><table class="cmp">
+    <tr><th>方法</th><th>準備</th><th>注意点</th></tr>
+    <tr><th>1. PCごとに専用のアドレス（おすすめ）<br><small>例：https://e-karuta.online/?pc=A101-05</small></th><td>各PCにショートカットを1回置く（共有フォルダやバッチ処理で配れる場合は短時間）</td><td>一度開くとブラウザが覚えます。学生の入力は不要です。アドレスを書き換えれば別の名前にできます。</td></tr>
+    <tr><th>2. 学生が参加画面でPC番号を入力</th><td>PCに番号の貼り紙があれば不要</td><td>入力の手間が増え、打ち間違いが起こります。</td></tr>
+    <tr><th>3. サーバーがIPアドレスから調べる</th><td>学内ネットワークの設定の確認が必要</td><td>e-karuta.online経由の接続ではPC名まで分からない可能性が高いです（未確認）。</td></tr>
+  </table></div>
+</div>
+<script>
+// 見本のデータ（35人分）。名前・PC名は数字順になるように自然順で並び替える
+const TAGS = ['1AP','1PG','2IE','2SC','3GC','3VC'];
+const users = Array.from({length:35}, (_, i) => ({ name:`${TAGS[(i*5)%6]}　見本${String((i*13)%35+1).padStart(2,'0')}`, pc:`A101-${String((i*8)%35+1).padStart(2,'0')}` }));
+const sorted = key => [...users].sort((a, b) => a[key].localeCompare(b[key], 'ja', { numeric:true }));
+
+const titles = (host) => `<div class="t1">待機画面</div><div class="t2">${host ? users.length + '名準備完了！' : '準備完了！'}</div>${host ? '' : '<div class="t3">ゲームが開始するまでこの画面でお待ちください</div>'}`;
+const hostButtons = '<div class="bar"><span class="b">⚙️ 大会設定を開く</span><span class="b">📋 勝敗一覧を開く</span><span class="b go">🏁 大会モードを開始</span><span class="b ghost">← モード選択に戻る</span></div>';
+const guestButtons = '<div class="bar"><span class="b ghost">← モード選択に戻る</span><span class="b ghost">退室する</span></div>';
+const sortBar = key => `<div class="bar"><button class="sort" data-sort="name" aria-pressed="${key==='name'}">ユーザー名順 ▲</button><button class="sort" data-sort="pc" aria-pressed="${key==='pc'}">デバイス名順 ▲</button></div>`;
+function table(host, key, cls) {
+  const head = `<div class="row head"><span>No.</span><span>ユーザー名</span>${host ? '<span>デバイス名</span>' : ''}</div>`;
+  return `<div class="list ${cls}" tabindex="0">${head}${sorted(host ? key : 'name').map((u, i) => `<div class="row"><i>${i+1}</i><span>${u.name}</span>${host ? `<span class="pc">${u.pc}</span>` : ''}</div>`).join('')}</div>`;
+}
+const tiles = (host, key) => `<div class="list grid" tabindex="0">${sorted(host ? key : 'name').map(u => `<div class="tile">${u.name}${host ? `<small class="pc">${u.pc}</small>` : ''}</div>`).join('')}</div>`;
+const count = host => host ? '' : `<div class="count">参加中のユーザー（${users.length}人）</div>`;
+
+const LAYOUTS = {
+  a: (h, k) => titles(h) + count(h) + (h ? sortBar(k) : '') + table(h, k, h ? 'mid' : 'narrow') + (h ? hostButtons : guestButtons),
+  b: (h, k) => titles(h) + count(h) + (h ? sortBar(k) : '') + tiles(h, k) + (h ? hostButtons : guestButtons),
+  c: (h, k) => `<div class="split"><div class="side">${titles(h)}${h ? hostButtons : guestButtons}</div><div class="main">${count(h)}${h ? sortBar(k) : ''}${table(h, k, '')}</div></div>`,
+};
+document.querySelectorAll('[data-demo]').forEach(box => {
+  let host = false, key = 'name';
+  function render() {
+    box.innerHTML = `<div class="tabs"><button type="button" data-view="guest" aria-pressed="${!host}">学生の画面</button><button type="button" data-view="host" aria-pressed="${host}">ホストの画面</button></div><div class="screen"><div class="s ${host ? 'host' : ''}">${LAYOUTS[box.dataset.demo](host, key)}</div></div>`;
+  }
+  box.addEventListener('click', e => {
+    const view = e.target.closest('[data-view]'), sort = e.target.closest('[data-sort]');
+    if (view) host = view.dataset.view === 'host'; else if (sort) key = sort.dataset.sort; else return;
+    render();
+  });
+  render();
+});
+</script>

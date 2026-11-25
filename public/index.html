@@ -139,7 +139,6 @@
       <button id="lobbyEventBackBtn" class="btn-back" onclick="backToLobbyModeSelect()">← モード選択に戻る</button>
       <div id="lobbyEventHubLinks" style="display:flex;gap:.5rem;margin-bottom:.6rem">
         <a id="adminLink" href="admin.html" target="_blank" class="btn btn-blue" style="flex:1;text-align:center;text-decoration:none">⚙️ 大会設定を開く</a>
-        <a id="projectorLink" href="projector.html" target="_blank" class="btn btn-blue" style="flex:1;text-align:center;text-decoration:none">📽️ 投影画面を開く</a>
         <a id="statusLink" href="status.html" target="_blank" class="btn btn-blue" style="flex:1;text-align:center;text-decoration:none">📋 勝敗一覧を開く</a>
       </div>
 
@@ -207,6 +206,24 @@
     <button class="btn btn-blue" onclick="requestLobby()">ロビーに戻る</button>
     <button class="btn btn-leave" onclick="leaveLobby()" style="margin-top:.6rem">🚪 退室する</button>
   </div>
+</div>
+
+<!-- ── プレイ後アンケート（中身の制御は survey.js）───────── -->
+<div id="oSurvey" class="overlay survey-overlay hidden">
+  <form class="ov-card survey-card" id="surveyForm" novalidate>
+    <div class="ov-title">アンケート（約1分で終わります）</div>
+    <p class="sv-lead">成績には関係ありません。名前は記録しません。<br>学年・コースと参加した試合の情報は、回答と一緒に記録します。</p>
+    <fieldset class="sv-q"><legend>1. 操作のしやすさ <small>（必須）</small></legend><div class="sv-scale" data-key="operation"></div></fieldset>
+    <fieldset class="sv-q"><legend>2. 画面の見やすさ <small>（必須）</small></legend><div class="sv-scale" data-key="visibility"></div></fieldset>
+    <fieldset class="sv-q"><legend>3. ルールや進み方の分かりやすさ <small>（必須）</small></legend><div class="sv-scale" data-key="clarity"></div></fieldset>
+    <fieldset class="sv-q"><legend>4. 良かったところ <small>（いくつでも・任意）</small></legend><div class="sv-chips" data-key="good"></div></fieldset>
+    <fieldset class="sv-q"><legend>5. 困った・使いにくかったところ <small>（いくつでも・任意）</small></legend><div class="sv-chips" data-key="bad"></div></fieldset>
+    <div class="sv-q"><label for="svComment">6. こうしたらもっと良くなる、など <small>（任意）</small></label>
+      <textarea id="svComment" rows="2" maxlength="500" placeholder="書かなくても送信できます"></textarea></div>
+    <p class="sv-msg" id="svMsg" role="alert"></p>
+    <button type="submit" class="btn btn-green sv-send" id="svSend">送信する</button>
+    <button type="button" class="sv-skip" id="svSkip">答えずに閉じる</button>
+  </form>
 </div>
 
 <!-- ── 緊急停止のお知らせ ───────────────────────────── -->
@@ -336,6 +353,7 @@
 <script src="voice.js"></script>
 <script src="cursor.js"></script>
 <script src="game.js"></script>
+<script src="survey.js"></script>
 <script src="a11y.js"></script>
 </body>
 </html>

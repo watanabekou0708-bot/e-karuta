@@ -537,14 +537,12 @@ function getOrCreatePlayerToken() {
   } catch (e) { return null; }   // プライベートブラウジング等でlocalStorageが使えない場合は諦める
 }
 const PLAYER_TOKEN = getOrCreatePlayerToken();
-// 管理画面・投影画面へのリンクも ?host 付きで開けるよう引き継ぐ（そのページ自身のHTTPリクエストが
+// 管理画面・勝敗一覧へのリンクも ?host 付きで開けるよう引き継ぐ（そのページ自身のHTTPリクエストが
 // ホスト判定を行うため。isHostRequest() 参照）。
 if (HOST_PARAM) {
   document.addEventListener('DOMContentLoaded', () => {
     const adminLink     = document.getElementById('adminLink');
-    const projectorLink = document.getElementById('projectorLink');
     if (adminLink)     adminLink.href     = 'admin.html?host=' + encodeURIComponent(HOST_VALUE);
-    if (projectorLink) projectorLink.href = 'projector.html?host=' + encodeURIComponent(HOST_VALUE);
     const statusLink = document.getElementById('statusLink');
     if (statusLink)    statusLink.href    = 'status.html?host=' + encodeURIComponent(HOST_VALUE);
   });
@@ -849,6 +847,7 @@ function updateLobbyUI() {
 function goToEventHub() {
   eventShowingHub = true;
   renderLobbyEventSection();
+  if (window.KSurvey) KSurvey.showNow();   // 大会終了後なら、結果を見終わったこの時点でアンケートを出す
 }
 
 // 大会モードの画面（結果画面／ホーム画面＝lobbyEventSection・lobbyEventGuestSection）の
@@ -859,7 +858,7 @@ function renderLobbyEventSection() {
   const resultBox      = $('lobbyEventResult');
   const resultTitle     = $('lobbyEventResultTitle');
   const resultTable     = $('lobbyEventResultTable');
-  const hubLinks       = $('lobbyEventHubLinks');   // 大会設定・投影画面リンク
+  const hubLinks       = $('lobbyEventHubLinks');   // 大会設定・勝敗一覧リンク
   const hostControls   = $('lobbyEventHostControls');
   const mainBtn         = $('evMainBtn');
   const revivalBtn      = $('evRevivalBtn');
@@ -971,7 +970,7 @@ function renderLobbyEventSection() {
     ceremonyBox.classList.add('hidden');
   }
 
-  // ── ホーム画面：大会設定・投影画面リンク／次アクション（ホストのみ）────────
+  // ── ホーム画面：大会設定・勝敗一覧リンク／次アクション（ホストのみ）────────
   if (hubLinks) hubLinks.style.display = showHub ? '' : 'none';
   if (isServerPc) {
     const showControls = showHub && !stageDone && ready;

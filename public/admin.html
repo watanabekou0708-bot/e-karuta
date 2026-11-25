@@ -46,6 +46,16 @@
     <span id="cfgSaved" class="admin-saved hidden">✓ 保存しました</span>
   </div>
 
+  <div class="admin-card" id="surveyCard">
+    <h2 class="admin-h2">📝 プレイ後アンケート</h2>
+    <p class="ov-sub">大会の最終試合後（練習は全4試合の後）に、参加者の画面へ約1分のアンケートを出します。教卓PCには出ません。受付中に「出さない」にすると画面から閉じ、「出す」に戻すと未回答の人にもう一度出ます。次のゲームを始めると受付は終わります。</p>
+    <button id="surveyToggleBtn" class="btn btn-blue" type="button" disabled onclick="toggleSurvey()">読み込み中…</button>
+    <p class="ov-sub" id="surveyStatus" aria-live="polite"></p>
+    <h2 class="admin-h2" style="margin-top:1rem">アンケート結果（CSV）</h2>
+    <p class="ov-sub">Excelで開けます。サーバーを起動するたびに新しいファイルになります。「出す／出さない」の設定は、起動し直すと「出す」に戻ります。</p>
+    <div id="svLogList" class="admin-schedule"></div>
+  </div>
+
   <div class="admin-card" id="pauseCard">
     <h2 class="admin-h2">🚨 緊急停止</h2>
     <p class="ov-sub">他のPCにトラブルが出たときに使います。押すと、いま鳴っている読み上げ・DJなどの音声が終わった段階でゲームが一時中断し、全員の画面に「トラブル対応中」のお知らせが出ます。再開ボタンを押すと「まもなく再開します」と表示され、30秒後に次の札から再開します。</p>
