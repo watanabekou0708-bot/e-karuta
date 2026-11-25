@@ -1267,6 +1267,9 @@ body.admin-body { overflow-y: auto; padding: 1.5rem; }
 /* 盤面整理のスキップボタン：音声の準備中は薄く表示し、押しても反応しない */
 .btn-debug.btn-gated, .btn-debug:disabled { opacity: .4; color: rgba(255, 255, 255, .55); cursor: not-allowed; pointer-events: none; filter: none; transform: none; box-shadow: none; }
 
+/* 開始できないモードのボタン */
+.btn-mode:disabled { opacity: .4; cursor: not-allowed; filter: grayscale(1); transform: none; }
+
 /* ── 大会モードの待機画面（開始前）──────────────────────── */
 .ov-card.waiting-mode { display: flex; flex-direction: column; align-items: center; gap: .5rem; width: 100%; max-width: 1600px; height: calc(100vh - 3rem); max-height: none; padding: 1rem 1.5rem; overflow: hidden; }
 /* 待機画面では、ロビーの他の部分（接続URL・モード選択など）を隠し、操作ボタンだけを下に残す */

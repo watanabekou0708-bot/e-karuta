@@ -146,6 +146,19 @@ async function fetchTimingLogs() {
 }
 setInterval(fetchTimingLogs, 15000);
 
+// ── 参加者の練習モード開始の許可／不許可 ──
+let studentPracticeAllowed = false;
+function renderStudentPractice() {
+  const btn = $('practiceToggleBtn');
+  btn.disabled = !isHost;
+  btn.textContent = !isHost ? '教卓PCでのみ操作できます'
+    : studentPracticeAllowed ? '現在：参加者も開始できる（押すと「許可しない」）' : '現在：参加者は開始できない（押すと「許可する」）';
+  btn.setAttribute('aria-pressed', String(studentPracticeAllowed));
+}
+function toggleStudentPractice() { if (isHost) socket.emit('set_student_practice', !studentPracticeAllowed); }
+socket.on('student_practice', ({ allowed }) => { studentPracticeAllowed = !!allowed; renderStudentPractice(); });
+socket.on('admin_init', (d) => { studentPracticeAllowed = !!d.studentPracticeAllowed; isHost = !!d.isHost; renderStudentPractice(); });
+
 // ── アンケート結果（CSV）の一覧 ──
 async function fetchSurveyLogs() {
   try {

@@ -55,6 +55,12 @@
     <div id="svLogList" class="admin-schedule"></div>
   </div>
 
+  <div class="admin-card" id="practiceCard">
+    <h2 class="admin-h2">🎮 参加者の練習モード</h2>
+    <p class="ov-sub">練習は始まると全員の画面が試合になるため、はじめは教卓PCだけが開始できます。参加者にも開始させたいときだけ「許可する」にしてください。<b>大会の日は「許可しない」のままにしてください。</b>サーバーを起動し直すと「許可しない」に戻ります。</p>
+    <button id="practiceToggleBtn" class="btn btn-blue" type="button" disabled onclick="toggleStudentPractice()">読み込み中…</button>
+  </div>
+
   <div class="admin-card" id="pauseCard">
     <h2 class="admin-h2">🚨 緊急停止</h2>
     <p class="ov-sub">他のPCにトラブルが出たときに使います。押すと、いま鳴っている読み上げ・DJなどの音声が終わった段階でゲームが一時中断し、全員の画面に「トラブル対応中」のお知らせが出ます。再開ボタンを押すと「まもなく再開します」と表示され、30秒後に次の札から再開します。</p>

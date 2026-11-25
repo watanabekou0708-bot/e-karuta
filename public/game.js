@@ -671,6 +671,19 @@ function startGame() {
   });
 }
 
+// 参加者が練習を開始できるか（サーバー側でも確認する。ここは表示の切り替え用）
+let studentPracticeAllowed = false;
+const canStartPractice = () => isServerPc || studentPracticeAllowed;
+socket.on('student_practice', ({ allowed }) => {
+  studentPracticeAllowed = !!allowed;
+  if (!$('oLobby').classList.contains('hidden')) updateLobbyUI();
+});
+// 開始を断られたとき：理由を表示し、押したボタンを元に戻す
+socket.on('practice_denied', () => {
+  ['lobbyStartBtn', 'botWaitStartBtn'].forEach(id => { const b = $(id); if (b) b.disabled = false; });
+  alert('練習モードは、いまは開始できません。（教卓PC以外で開始するには、大会設定画面で許可してください）');
+});
+
 function startNextRound() {
   socket.emit('start_next_round');
 }
@@ -807,10 +820,17 @@ function updateLobbyUI() {
   const eventGuestSection = $('lobbyEventGuestSection');
   const eventBtn = $('lobbyEventStartBtn');
   if (eventBtn) eventBtn.disabled = false;
+  // 練習を開始できない参加者は、練習モードを選べないようにする
+  const practiceBtn = $('btnModePractice');
+  if (practiceBtn) {
+    practiceBtn.disabled = !canStartPractice();
+    $('practiceModeNote').textContent = canStartPractice() ? '個人戦・CPU対戦で自由に練習' : 'いまは使えません';
+  }
+  if (!canStartPractice() && lobbyMode === 'practice') lobbyMode = null;
 
   // 最終試合後（postTournament）に戻ってきた場合は練習モードへ自動遷移
   // （ロビーに入り直すたびに一度だけ。手動で戻った後は再適用しない）
-  if (postTournament && !lobbyMode && !modeAutoApplied) {
+  if (postTournament && !lobbyMode && !modeAutoApplied && canStartPractice()) {
     lobbyMode = 'practice';
     modeAutoApplied = true;
   }
@@ -2194,8 +2214,8 @@ function showRoundResult(round, players, survivorIds, eliminatedIds, sc, isFinal
       if (guestWait) guestWait.classList.remove('hidden');
     }
   } else {
-    // 通常試合後：練習モードは参加者の誰でも次の試合を開始できる（大会モードは別画面）。
-    if (myIsHost || !isEventMode) {
+    // 通常試合後：練習の次の試合は、開始できる人にだけボタンを出す（大会モードは別画面）。
+    if (isEventMode ? myIsHost : canStartPractice()) {
       const hasElim = Object.entries(players)
         .some(([id, p]) => liveEliminatedIds.has(id) && !p.isBot && p.joined && !(id === liveHostId && isEventMode));
 
@@ -2835,6 +2855,7 @@ socket.on('init', data => {
   if (initCount > 1 && nameEntered && lastJoinPayload) socket.emit('set_name', lastJoinPayload);
   myId       = data.myId;
   isServerPc = !!data.isServerPc;
+  studentPracticeAllowed = !!data.studentPracticeAllowed;
   liveHostId = data.hostId;
   liveData   = { ...data };
   applyVoiceSummary(data.voice);

@@ -10,8 +10,9 @@ const PING_INTERVAL_MS = 2000;
 const PING_TIMEOUT_MS  = 3000;
 
 class LoadTestRunner {
-  constructor({ port, log, onStop }) {
+  constructor({ port, log, onStop, internalToken }) {
     this.port = port;
+    this.internalToken = internalToken;   // 練習の開始を許可してもらうための合言葉（server.js）
     this.log  = log || (() => {});
     this.onStop = onStop || (() => {});
     this.bots = [];
@@ -39,7 +40,7 @@ class LoadTestRunner {
     const url = `http://127.0.0.1:${this.port}`;
     // forceNew必須：省略すると同じURLへの複数io()呼び出しが1本の接続に多重化されてしまい、
     // 「別々の端末が同時接続している」という負荷テストの前提が崩れる。
-    const socket = io(url, { transports: ['websocket'], reconnection: false, forceNew: true });
+    const socket = io(url, { transports: ['websocket'], reconnection: false, forceNew: true, query: { internal: this.internalToken } });
     const name = `負荷LT${String(idx + 1).padStart(3, '0')}`;
     const bot = { idx, isHost, socket, name };
     this.bots.push(bot);

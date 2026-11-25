@@ -272,8 +272,18 @@ function startLoadTestMetrics() {
 function stopLoadTestMetrics() {
   if (loadtestMetricsTimer) { clearInterval(loadtestMetricsTimer); loadtestMetricsTimer = null; }
 }
+// ── 練習モードを開始できる人 ─────────────────────────────
+// 練習は始まると全員の画面が試合になるため、既定では教卓PC（?host）だけが開始できる。
+// 大会設定画面で許可すると、参加者も開始できる（サーバーを起動し直すと「許可しない」に戻る）。
+let studentPracticeAllowed = false;
+// サーバー内蔵の負荷テストのボットだけが知っている合言葉（起動のたびに作り直す。教卓PCの権限は与えない）
+const INTERNAL_TOKEN = require('crypto').randomBytes(24).toString('hex');
+const canStartPractice = socket => studentPracticeAllowed || isHostEligible(socket)
+  || (socket.handshake.query && socket.handshake.query.internal === INTERNAL_TOKEN);
+
 const loadTestRunner = new LoadTestRunner({
   port: PORT,
+  internalToken: INTERNAL_TOKEN,
   log: loadtestLog,
   onStop: () => {
     stopLoadTestMetrics();
@@ -1887,6 +1897,7 @@ function sendInitTo(socket) {
     endsAt:            gs.memorizeEndsAt,
     hostId:            gs.hostId,
     isServerPc:        isHostEligible(socket),   // サーバーPC自身のブラウザか（大会モードの操作可否）
+    studentPracticeAllowed,                      // 参加者が練習モードを開始できるか
     round:             gs.round,
     maxRounds:         gs.maxRounds,
     survivorCount:       gs.survivorCount,
@@ -2089,6 +2100,7 @@ io.on('connection', socket => {
   // ── Start game（参加登録済みの誰でも。先に押した人の設定が全員に適用される）──
   socket.on('start_game', (opts) => {
     if (gs.phase !== 'lobby' || !isJoinedHuman(socket.id)) return;
+    if (!canStartPractice(socket)) { logEvent('practice_denied', { id: socket.id }); socket.emit('practice_denied'); return; }
     clearEventReady();
     // 開始した人が読み上げの進行役（次の札の読み上げ通知を出す端末）になる
     setHost(socket.id);
@@ -2392,6 +2404,7 @@ io.on('connection', socket => {
   // ── 次の試合を開始（参加登録済みの誰でも）─────────────────────────
   socket.on('start_next_round', () => {
     if (!isJoinedHuman(socket.id) || gs.event.active || gs.phase !== 'round_finished') return;
+    if (!canStartPractice(socket)) { logEvent('practice_denied', { id: socket.id }); socket.emit('practice_denied'); return; }
     setHost(socket.id);   // 次の試合を始めた人が進行役になる
 
     // スコアリセット前に累積スコアへ加算
@@ -2710,9 +2723,18 @@ io.on('connection', socket => {
     io.emit('players_updated', gs.players);
   });
 
+  // 大会設定画面の「参加者の練習モード開始を許可する／しない」（教卓PCのみ）
+  socket.on('set_student_practice', (on) => {
+    if (!isHostEligible(socket) || typeof on !== 'boolean') return;
+    studentPracticeAllowed = on;
+    logEvent('student_practice', { allowed: on });
+    io.emit('student_practice', { allowed: on });
+  });
+
   socket.on('join_admin', () => {
     socket.emit('admin_init', {
       isHost:      isHostEligible(socket),
+      studentPracticeAllowed,
       supervised:  process.env.KARUTA_SUPERVISED === '1',
       runMode:     serverRunMode(),
       pause:       pauseSnapshot(),

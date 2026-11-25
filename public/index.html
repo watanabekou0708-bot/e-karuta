@@ -104,8 +104,8 @@
     <div id="lobbyModeSelect" class="lobby-mode-select" style="display:none">
       <div class="diff-label">モードを選択してください</div>
       <div class="lobby-mode-btns">
-        <button class="btn-mode" onclick="chooseLobbyMode('practice')">
-          🎮 練習モード<br><small>個人戦・CPU対戦で自由に練習</small>
+        <button id="btnModePractice" class="btn-mode" onclick="chooseLobbyMode('practice')">
+          🎮 練習モード<br><small id="practiceModeNote">個人戦・CPU対戦で自由に練習</small>
         </button>
         <button id="btnModeEvent" class="btn-mode" onclick="chooseLobbyMode('event')">
           🏁 大会モード<br><small>1/8本番用・個人戦トーナメント</small>
