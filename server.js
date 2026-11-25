@@ -1558,6 +1558,7 @@ function openSurvey(mode, ranking) {
   broadcastSurvey();
 }
 function closeSurvey() { survey.close(); broadcastSurvey(); }
+function clearEventReady() { Object.values(gs.players).forEach(p => { p.eventReady = false; }); }
 
 // 大会モードの1試合終了処理。ステージごとに通過／敗退／敗者復活行きを振り分ける。
 function endEventRound() {
@@ -2128,6 +2129,7 @@ io.on('connection', socket => {
   socket.on('start_game', (opts) => {
     if (gs.phase !== 'lobby' || !isJoinedHuman(socket.id)) return;
     closeSurvey();
+    clearEventReady();
     // 開始した人が読み上げの進行役（次の札の読み上げ通知を出す端末）になる
     setHost(socket.id);
     const cpuDiff = opts && opts.cpuDifficulty;
@@ -2740,6 +2742,14 @@ io.on('connection', socket => {
     ack(eventStatusSnapshot());
   });
 
+  // 大会モードの待機画面を開いている（＝準備完了）かどうか。ホストの待機画面の人数と一覧に使う
+  socket.on('event_ready', (on) => {
+    const p = gs.players[socket.id];
+    if (!p || !p.joined || isHostEligible(socket) || typeof on !== 'boolean' || !!p.eventReady === on) return;
+    p.eventReady = on;
+    io.emit('players_updated', gs.players);
+  });
+
   // アンケートの回答（対象者1人につき1回）
   socket.on('survey_submit', (data, ack) => {
     if (typeof ack !== 'function') return;
@@ -2936,6 +2946,7 @@ io.on('connection', socket => {
     if (participantIds.length === 0) { socket.emit('event_start_denied', { reason: 'no_participants' }); return; }
 
     closeSurvey();
+    clearEventReady();
     gs.event.active            = true;
     gs.event.mainPool          = new Set(participantIds);
     gs.event.revivalCandidates = new Set();

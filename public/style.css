@@ -1267,6 +1267,35 @@ body.admin-body { overflow-y: auto; padding: 1.5rem; }
 /* 盤面整理のスキップボタン：音声の準備中は薄く表示し、押しても反応しない */
 .btn-debug.btn-gated, .btn-debug:disabled { opacity: .4; color: rgba(255, 255, 255, .55); cursor: not-allowed; pointer-events: none; filter: none; transform: none; box-shadow: none; }
 
+/* ── 大会モードの待機画面（開始前）──────────────────────── */
+.ov-card.waiting-mode { display: flex; flex-direction: column; align-items: center; gap: .5rem; width: 100%; max-width: 1600px; height: calc(100vh - 3rem); max-height: none; padding: 1rem 1.5rem; overflow: hidden; }
+/* 待機画面では、ロビーの他の部分（接続URL・モード選択など）を隠し、操作ボタンだけを下に残す */
+.ov-card.waiting-mode > :not(#waitingView):not(#lobbyEventSection):not(#lobbyEventGuestSection):not(#lobbyLeaveBtn) { display: none !important; }
+#waitingView { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: .35rem; }
+.wt-label { color: var(--accent); font-weight: 700; letter-spacing: .15em; font-size: min(2vw, 3.5vh); line-height: 1.3; }
+.wt-ready { color: var(--green); font-weight: 800; font-size: min(4.6vw, 8vh); line-height: 1.15; }
+.wt-note { margin: 0; color: #e3ecff; font-size: min(2.2vw, 3.8vh); line-height: 1.3; }
+.wt-sub { margin: 0; color: var(--dim); font-size: .9rem; }
+.wt-sub:empty { display: none; }
+.wt-sort { display: flex; gap: .6rem; }
+.wt-sort button { font: inherit; font-size: .95rem; cursor: pointer; background: var(--surf); color: #b9c9ee; border: 1px solid var(--border); border-radius: 99px; padding: .3rem 1.2rem; }
+.wt-sort button[aria-pressed="true"] { background: var(--accent); color: #04121f; font-weight: 700; }
+.wt-sort button:focus-visible, .wt-list:focus-visible { outline: 3px solid #ffd34d; outline-offset: 2px; }
+.wt-list { flex: 1; min-height: 0; width: 100%; box-sizing: border-box; overflow-y: auto; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: max-content; align-content: start; gap: .45rem; padding: .6rem; background: var(--surf); border: 1px solid var(--border); border-radius: 10px; }
+.wt-tile { background: #16224a; color: #e3ecff; border-radius: 6px; padding: .45rem .6rem; font-size: 1rem; line-height: 1.35; text-align: left; overflow-wrap: anywhere; }
+.wt-tile.me { outline: 2px solid var(--green); outline-offset: -2px; }
+.wt-group { grid-column: 1 / -1; text-align: left; color: #ffd34d; font-weight: 700; border-bottom: 1px solid var(--border); padding: .35rem .2rem .15rem; }
+@media (max-width: 1100px) { .wt-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 640px)  { .wt-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.waiting-mode #lobbyEventSection { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .6rem; }
+.waiting-mode #lobbyEventHubLinks { display: contents; }
+.waiting-mode #lobbyEventHubLinks a { flex: none !important; }
+.waiting-mode #lobbyEventStartBtn { width: auto !important; margin: 0 !important; }
+.waiting-mode #lobbyEventBackBtn { order: 9; margin: 0; }
+.waiting-mode #lobbyEventGuestSection, .waiting-mode #lobbyEventGuestSection button { margin: 0; }
+.waiting-mode #lobbyEventGuestMsg, .waiting-mode #lobbyEventHostControls { display: none !important; }
+.waiting-mode #lobbyLeaveBtn { width: auto; margin: 0; padding: .35rem 1.4rem; }
+
 /* ── プレイ後アンケート ─────────────────────────────────── */
 .survey-overlay { z-index: 600; overflow-y: auto; align-items: flex-start; padding: 1rem; }   /* 緊急停止のお知らせ(900)よりは下 */
 .survey-card { width: min(640px, 100%); max-width: 640px; margin: auto; text-align: left; box-sizing: border-box; }

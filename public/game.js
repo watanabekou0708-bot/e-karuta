@@ -866,6 +866,8 @@ function renderLobbyEventSection() {
   const ceremonyMsg     = $('lobbyEventCeremonyMsg');
   const guestMsg       = $('lobbyEventGuestMsg');
 
+  syncWaiting();
+
   if (!eventStarted) {
     // 大会モード開始前：開始ボタン＋リンクのみ（結果・ホーム切り替えは対象外）
     if (startBtn)     startBtn.classList.remove('hidden');
@@ -1006,6 +1008,19 @@ function renderLobbyEventSection() {
       }
     }
   }
+}
+
+// 大会モード開始前に「大会モード」を選んでいる間は、ロビーを待機画面（waiting.js）に切り替える。
+// この画面を開いていること＝準備完了。サーバーの記録と違っていれば知らせる（再接続後もここで元に戻る）。
+function syncWaiting() {
+  const waitingNow = lobbyMode === 'event' && !eventStarted;
+  const card = document.querySelector('#oLobby .ov-card');
+  card.classList.toggle('waiting-mode', waitingNow);
+  $('waitingView').classList.toggle('hidden', !waitingNow);
+  if (waitingNow) KWaiting.render({ players: livePlayers, hostId: liveHostId, myId, isHost: isServerPc });
+  const me = livePlayers[myId];
+  const ready = waitingNow && !$('oLobby').classList.contains('hidden');
+  if (!isServerPc && me && me.joined && !!me.eventReady !== ready) socket.emit('event_ready', ready);
 }
 
 function lobbyParticipantCount() {
@@ -1589,7 +1604,10 @@ function applyInit(d) {
   updateChips(d.players);
 
   if (d.phase === 'lobby') {
+    // 通信が切れて再接続したときは、待機画面にいた人を待機画面に戻す（準備完了が取り消されないように）
+    const wasWaiting = initCount > 1 && lobbyMode === 'event';
     openLobby(d.players);
+    if (wasWaiting) chooseLobbyMode('event');
   } else if (d.phase === 'memorizing') {
     openArrangeScreen(d.cardOrder, d.cards, d.endsAt, d.players, d.round, d.layout);
   } else if (['waiting', 'reading', 'decoy', 'announcing'].includes(d.phase)) {

@@ -1,0 +1,77 @@
+'use strict';
+// 大会モードの待機画面（開始前）。ロビーで「大会モード」を選ぶと表示する。
+//  ・学生の画面：「準備完了！」と、アクセスしている参加者の一覧
+//  ・ホストの画面：「○名準備完了！」と、準備完了の参加者の一覧（ユーザー名順／コース名順）
+// 「準備完了」＝この画面を開いていること。game.js の syncWaiting() がサーバーに知らせる。
+window.KWaiting = (() => {
+  // コース名順で分ける順番（アプリコース＝APが先頭。参加画面の選択肢の並び）
+  const COURSES = [
+    ['アプリコース', 'AP'], ['プログラムコース', 'PG'], ['ITスペシャリストコース', 'SC'], ['画像クリエイトコース', 'GC'],
+    ['ITエンジニアコース', 'EC'], ['ビジュアルデザインコース', 'VC'], ['ビジネスITコース', 'BC'],
+  ];
+  const NO_COURSE = 'コース未設定';
+
+  // 名前の昇順。学年・コースの記号を除いた名前で比べ、数字は大きさの順にする（2 が 10 より先）。
+  // 漢字は読みが分からないため、読みの順にはならない。
+  const collator = new Intl.Collator('ja', { numeric: true });
+  const byName = (a, b) => collator.compare(a.rawName || a.name, b.rawName || b.name) || collator.compare(a.name, b.name);
+
+  let sortKey = 'name';   // 'name' | 'course'（ホストの画面だけで切り替える）
+  let last = null;        // 直近の表示内容（並び替えボタンで描き直すため）
+
+  const el = id => document.getElementById(id);
+  function make(tag, className, text) {
+    const node = document.createElement(tag);
+    node.className = className;
+    node.textContent = text;
+    return node;
+  }
+  const tile = (p, myId) => make('div', 'wt-tile' + (p.id === myId ? ' me' : ''), p.name + (p.id === myId ? '（あなた）' : ''));
+
+  // コースごとに見出しを入れて並べる。該当者のいないコースは出さない
+  function courseNodes(list, myId) {
+    const known = new Set(COURSES.map(([course]) => course));
+    const groups = [
+      ...COURSES.map(([course, abbr]) => [`${abbr}　${course}`, list.filter(p => p.course === course)]),
+      [NO_COURSE, list.filter(p => !known.has(p.course))],
+    ];
+    return groups.filter(([, members]) => members.length)
+      .flatMap(([title, members]) => [make('div', 'wt-group', `${title}（${members.length}名）`), ...members.sort(byName).map(p => tile(p, myId))]);
+  }
+
+  // view: { players, hostId, myId, isHost }
+  function render(view) {
+    last = view;
+    const { players, hostId, myId, isHost } = view;
+    // 参加登録している人（CPUと進行役を除く）
+    const members = Object.entries(players || {})
+      .filter(([id, p]) => !p.isBot && p.joined && id !== hostId)
+      .map(([id, p]) => ({ ...p, id }));
+    const ready = members.filter(p => p.eventReady);
+    const shown = isHost ? ready : members;
+
+    el('wtReady').textContent = isHost ? `${ready.length}名準備完了！` : '準備完了！';
+    el('wtNote').classList.toggle('hidden', isHost);
+    el('wtSort').classList.toggle('hidden', !isHost);
+    const notReady = members.length - ready.length;
+    el('wtSub').textContent = !isHost ? `参加中のユーザー（${members.length}名）`
+      : notReady ? `このほかに待機画面を開いていない参加者が ${notReady}名います（開始すると参加者に含まれます）` : '';
+    document.querySelectorAll('#wtSort button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sort === sortKey)));
+
+    // 中身を入れ替えても、一覧のスクロール位置は保つ
+    const list = el('wtList');
+    const top = list.scrollTop;
+    list.replaceChildren(...(isHost && sortKey === 'course' ? courseNodes(shown, myId) : [...shown].sort(byName).map(p => tile(p, myId))));
+    list.scrollTop = top;
+  }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('#wtSort button');
+    if (!b || !last) return;
+    sortKey = b.dataset.sort;
+    el('wtList').scrollTop = 0;
+    render(last);
+  });
+
+  return { render };
+})();

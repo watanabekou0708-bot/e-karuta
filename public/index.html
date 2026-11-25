@@ -87,6 +87,19 @@
       <div class="lobby-players" id="lobbyList"></div>
     </div>
 
+    <!-- 大会モード開始前の待機画面（中身は waiting.js） -->
+    <div id="waitingView" class="hidden">
+      <div class="wt-label">待機画面</div>
+      <div class="wt-ready" id="wtReady" role="status">準備完了！</div>
+      <p class="wt-note" id="wtNote">ゲームが開始するまでこの画面でお待ちください</p>
+      <p class="wt-sub" id="wtSub"></p>
+      <div class="wt-sort hidden" id="wtSort">
+        <button type="button" data-sort="name" aria-pressed="true">ユーザー名順 ▲</button>
+        <button type="button" data-sort="course" aria-pressed="false">コース名順 ▲</button>
+      </div>
+      <div class="wt-list" id="wtList" tabindex="0" aria-label="ユーザーの一覧"></div>
+    </div>
+
     <!-- ホストのみ表示：モード選択 -->
     <div id="lobbyModeSelect" class="lobby-mode-select" style="display:none">
       <div class="diff-label">モードを選択してください</div>
@@ -352,6 +365,7 @@
 <script src="voice-defs.js"></script>
 <script src="voice.js"></script>
 <script src="cursor.js"></script>
+<script src="waiting.js"></script>
 <script src="game.js"></script>
 <script src="survey.js"></script>
 <script src="a11y.js"></script>
