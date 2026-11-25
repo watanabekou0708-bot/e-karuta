@@ -21,7 +21,6 @@ function applyLockState() {
     if (el) el.disabled = locked;
   });
   $('adminNotHost').classList.toggle('hidden', isHost);
-  if (!isHost) $('surveyToggleBtn').textContent = '教卓PCでのみ操作できます';
   $('adminConfigNote').textContent = '大会モード進行中でも変更できます。変更は次に始まる試合・敗者復活戦から反映され、今進行中の試合には影響しません。';
 }
 
@@ -147,21 +146,7 @@ async function fetchTimingLogs() {
 }
 setInterval(fetchTimingLogs, 15000);
 
-// ── プレイ後アンケート：出す／出さないの切り替え、回答数、結果のダウンロード ──
-let surveyEnabled = true;
-function toggleSurvey() { socket.emit('set_survey_enabled', !surveyEnabled); }
-socket.on('survey_summary', (s) => {
-  surveyEnabled = !!s.enabled;
-  const btn = $('surveyToggleBtn');
-  btn.disabled = false;
-  btn.textContent = surveyEnabled ? '現在：アンケートを出す（押すと「出さない」）' : '現在：アンケートを出さない（押すと「出す」）';
-  btn.className = 'btn ' + (surveyEnabled ? 'btn-green' : 'btn-blue');
-  btn.setAttribute('aria-pressed', String(surveyEnabled));
-  $('surveyStatus').textContent = s.accepting
-    ? `回答済み ${s.answered}人 / 対象 ${s.targets}人${surveyEnabled ? '' : '（「出さない」のため受付を止めています）'}`
-    : 'いまは受付前です。';
-  fetchSurveyLogs();
-});
+// ── アンケート結果（CSV）の一覧 ──
 async function fetchSurveyLogs() {
   try {
     const r = await fetch('/api/survey/logs?host=' + HOST_Q);
@@ -174,6 +159,8 @@ async function fetchSurveyLogs() {
       </div>`).join('') || '<p class="ov-sub">まだ回答がありません。</p>';
   } catch (e) { /* 取得できなければ一覧は変えない */ }
 }
+
+setInterval(fetchSurveyLogs, 15000);
 
 socket.on('connect', () => { socket.emit('join_admin'); socket.emit('join_load_test_monitor'); fetchLoadtestLogs(); fetchBottestLogs(); fetchTimingLogs(); fetchSurveyLogs(); });
 socket.on('load_test_status', renderLtAdminStatus);

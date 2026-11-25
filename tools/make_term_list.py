@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """学生配布用の用語一覧（PPTX）を public/karuta-data.js から作る。
 
-様式は YCCカルタ大会/IT用語一覧.pdf に合わせ、難易度（A〜D）ごとにまとめる。
+様式は YCCカルタ大会/IT用語一覧.pdf に合わせ、Excel基本編 → Excel応用編 → 難易度A〜D（Excel以外）の順にまとめる。
 
   python tools/make_term_list.py   … 手順書/Webかるた_用語リスト.pptx を作る
   PDF は tools/pptx_to_pdf.ps1 で PowerPoint から書き出す。
@@ -27,7 +27,6 @@ OUT = os.path.join(ROOT, '手順書', 'Webかるた_用語リスト.pptx')
 PAGE_W, PAGE_H = 210, 297
 MARGIN_X = 8
 TOP, BOTTOM = 18, 286          # 表を置ける上端と下端（上はページ見出しの下）
-FIRST_PAGE_TOP = 56            # 1ページ目は競技要領を入れるので表が下から始まる
 SET_W = 4.3                    # 「競技セット」は A〜D の4列に分け、該当する位置に記号を置く
 COLS = [SET_W] * 4 + [9, 44, 123.8]   # 競技セット×4, 番号, 用語, 意味
 FONT = '游ゴシック'
@@ -44,12 +43,15 @@ NAVY = RGBColor(0x00, 0x00, 0x99)
 HEAD_BG = RGBColor(0xBF, 0xBF, 0xBF)
 FRAME = '595959'
 
-# 難易度ごとの帯の見出し（IT用語一覧.xlsm の区分の説明）
-LEVELS = {
-    'A': '難易度A：一般常識として覚えておきたい用語（容易）',
-    'B': '難易度B：情報技術を扱う立場として覚えておきたい用語（標準）',
-    'C': '難易度C：情報技術を構築する立場として覚えておきたい用語（中程度）',
-    'D': '難易度D：情報技術を運営・管理する立場として覚えておきたい用語（高度）',
+LEVELS = ['A', 'B', 'C', 'D']   # 「競技セット」の4列の順
+# Excel関数は、札データの分野（IT用語一覧.xlsm の区分）で基本編と応用編に分ける
+EXCEL_GENRES = ['Excel2019クイックマスター基本編', 'Excel2019クイックマスター応用編']
+# Excel以外の、難易度ごとの帯の見出し
+LEVEL_TITLES = {
+    'A': '一般常識として覚えておきたい用語（J検3級：容易）',
+    'B': '情報技術を扱う立場として覚えておきたい用語（J検3級：標準）',
+    'C': '情報技術を構築する立場として覚えておきたい用語（J検3級：中程度）',
+    'D': '情報技術を運営・管理する立場として覚えておきたい用語（J検3級：高度）',
 }
 
 
@@ -82,11 +84,19 @@ def row_height(card):
     return max(ROW_MIN, n * LINE_MM + PAD_Y * 2 + 0.3)
 
 
-# ── ページ分け：難易度ごとに帯＋見出し＋行を流し込む（番号は難易度ごとに1から）──
+# ── 区分：[(帯の見出し, 札の一覧)]。Excelの2区分は難易度の低い順に並べる ──
+def sections(cards):
+    excel = [(f'{genre}　全{{n}}語', sorted((k for k in cards if k['genre'] == genre), key=lambda k: k['lv']))
+             for genre in EXCEL_GENRES]
+    others = [(title + '全{n}語', [k for k in cards if k['lv'] == level and k['genre'] not in EXCEL_GENRES])
+              for level, title in LEVEL_TITLES.items()]
+    return [(title.format(n=len(rows)), rows) for title, rows in excel + others]
+
+
+# ── ページ分け：区分ごとに帯＋見出し＋行を流し込む（番号は区分ごとに1から）──
 def paginate(cards):
-    pages, page, y = [], [], FIRST_PAGE_TOP
-    for level, title in LEVELS.items():
-        rows = [k for k in cards if k['lv'] == level]
+    pages, page, y = [], [], TOP
+    for title, rows in sections(cards):
         block, first = None, True
         for no, card in enumerate(rows, start=1):
             h = row_height(card)
@@ -95,7 +105,7 @@ def paginate(cards):
                 pages.append(page)
                 page, y, block = [], TOP, None
             if not block:
-                label = f'{title}　全{len(rows)}語' + ('' if first else '（つづき）')
+                label = title + ('' if first else '（つづき）')
                 block = {'title': label, 'y': y, 'rows': []}
                 page.append(block)
                 y += BAND_H + HEAD_H
@@ -210,22 +220,6 @@ def add_table(slide, block):
         set_cell(table.cell(r, 6), card['yomi'])
 
 
-def add_rules(slide, counts, total):
-    """1ページ目の上部：競技要領およびルール（Web版）。"""
-    w = sum(COLS)
-    add_text(slide, MARGIN_X, 17, w, 5, '競技要領およびルール', 8, True)
-    lines = [
-        f'札になる用語は、この一覧の全{total}語（' + '、'.join(f'{k}：{v}語' for k, v in counts.items()) + '）の中から選ばれます。',
-        '試合が進むほど、競技セットは A から B・C・D の札へと替わっていきます。',
-        '用語一覧の「意味」の部分が読み上げられますので、該当する「用語」の札を「そこまで」の前にマウスでクリックしてください。',
-        '「読み上げます」の後、読み始めるまではマウスを定位置の円から出さないでください（フライングになります）。',
-        '盤面に置かれていない札の文（空札）も読まれます。空札はこの一覧に載っていません。',
-        '違う札を取るとお手つきとなり減点されます。',
-        '早く、札の中心に近い位置を取るほど高得点です。定位置から遠い札ほど点が加算されます。',
-    ]
-    add_text(slide, MARGIN_X + 3, 22, w - 3, 31, '\n'.join(lines), 6.8)
-
-
 def build():
     cards = load_cards()
     pages = paginate(cards)
@@ -234,8 +228,6 @@ def build():
     for n, page in enumerate(pages, start=1):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         add_text(slide, MARGIN_X, 8, sum(COLS), 7, 'YCCカルタ大会　用語一覧', 11, True, align=PP_ALIGN.CENTER)
-        if n == 1:
-            add_rules(slide, {lv: sum(1 for k in cards if k['lv'] == lv) for lv in LEVELS}, len(cards))
         for block in page:
             add_table(slide, block)
         add_text(slide, MARGIN_X, 289, sum(COLS), 5, f'{n} / {len(pages)}', 7, align=PP_ALIGN.CENTER)

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webかるた — アンケート</title>
+  <link rel="stylesheet" href="survey.css">
+</head>
+<body>
+<!-- ゲームとは別の、アンケート専用ページ（中身の制御は survey-page.js） -->
+<main class="card">
+  <h1>Webかるた アンケート（約1分で終わります）</h1>
+
+  <form id="surveyForm" novalidate>
+    <p class="lead">成績には関係ありません。名前は記録しません。</p>
+    <fieldset class="q"><legend>1. 操作のしやすさ <small>（必須）</small></legend><div class="scale" data-key="operation"></div></fieldset>
+    <fieldset class="q"><legend>2. 画面の見やすさ <small>（必須）</small></legend><div class="scale" data-key="visibility"></div></fieldset>
+    <fieldset class="q"><legend>3. ルールや進み方の分かりやすさ <small>（必須）</small></legend><div class="scale" data-key="clarity"></div></fieldset>
+    <fieldset class="q"><legend>4. 良かったところ <small>（いくつでも・任意）</small></legend><div class="chips" data-key="good"></div></fieldset>
+    <fieldset class="q"><legend>5. 困った・使いにくかったところ <small>（いくつでも・任意）</small></legend><div class="chips" data-key="bad"></div></fieldset>
+    <div class="q"><label for="comment">6. こうしたらもっと良くなる、など <small>（任意）</small></label>
+      <textarea id="comment" rows="3" maxlength="500" placeholder="書かなくても送信できます"></textarea></div>
+    <p class="msg" id="msg" role="alert"></p>
+    <button type="submit" class="send" id="send">送信する</button>
+  </form>
+
+  <div id="thanks" class="thanks" hidden>
+    <p class="big" tabindex="-1" id="thanksText">ご協力ありがとうございました。</p>
+    <p>回答を受け付けました。この画面は閉じてください。</p>
+  </div>
+</main>
+<script src="survey-page.js"></script>
+</body>
+</html>

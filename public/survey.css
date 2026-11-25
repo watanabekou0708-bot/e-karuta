@@ -1,0 +1,25 @@
+/* アンケート専用ページ（survey.html）。配色はゲームのロビーに合わせる */
+:root { --bg: #06081a; --card: #16213f; --surf: #16224a; --border: #2a3f70; --accent: #4a9eff; --green: #00e5a0; --text: #e3ecff; --dim: #93a9d4; --warn: #ffaa44; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 1rem; background: var(--bg); color: var(--text); font-family: 'Yu Gothic UI', 'Hiragino Sans', Meiryo, sans-serif; line-height: 1.5; }
+.card { max-width: 660px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem 1.4rem 1.3rem; }
+h1 { margin: 0; text-align: center; font-size: 1.2rem; color: var(--accent); }
+.lead { text-align: center; color: var(--dim); font-size: .9rem; margin: .3rem 0 .4rem; }
+.q { border: 0; padding: 0; margin: .75rem 0 0; min-width: 0; }
+.q legend, .q label { font-weight: 700; padding: 0; }
+.q small { color: var(--dim); font-weight: 400; }
+.scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .4rem; margin-top: .3rem; }
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .3rem; }
+.opt { font: inherit; font-size: .85rem; line-height: 1.35; cursor: pointer; background: var(--surf); color: var(--text); border: 2px solid var(--border); border-radius: 8px; padding: .4rem .25rem; }
+.opt b { display: block; font-size: 1.15rem; }
+.chips .opt { border-radius: 999px; padding: .3rem .8rem; }
+.opt[aria-pressed="true"] { background: var(--accent); border-color: #cfe4ff; color: #04121f; font-weight: 700; }
+.opt:focus-visible, .send:focus-visible, textarea:focus-visible { outline: 3px solid #ffd34d; outline-offset: 2px; }
+textarea { width: 100%; margin-top: .3rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: .5rem; font: inherit; font-size: .95rem; resize: vertical; }
+.msg { color: var(--warn); min-height: 1.5em; margin: .4rem 0 .2rem; text-align: center; }
+.send { display: block; width: 100%; background: var(--green); color: #04121f; border: 0; border-radius: 8px; padding: .7rem; font: inherit; font-weight: 700; cursor: pointer; }
+.send:disabled { opacity: .5; cursor: wait; }
+.thanks { text-align: center; padding: 2rem 0 1rem; }
+.thanks .big { color: var(--green); font-size: 1.5rem; font-weight: 800; }
+[hidden] { display: none !important; }
+@media (max-width: 480px) { .card { padding: .9rem .8rem 1rem; } .opt { font-size: .75rem; } }

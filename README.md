@@ -3,5 +3,6 @@
 - `tools/make_term_list.py`：`public/karuta-data.js` から用語リストの PPTX を作る（`pip install python-pptx` が必要）。
 - `tools/pptx_to_pdf.ps1`：PowerPoint で PPTX を PDF に書き出す。
 - `mockups/`：実装前の画面案（`survey-mockup.html` はプレイ後アンケートの案）。
-- `survey.js` / `public/survey.js`：プレイ後アンケート（サーバー側の受付とCSV保存 / 参加者の画面）。
+- `survey.js` / `public/survey.html`・`survey.css`・`survey-page.js`：アンケート（サーバー側のCSV保存 / 専用ページ）。
+- `手順書/Webかるた_アンケート.url`：共有ドライブに置くアンケートのショートカット。
 - `public/waiting.js`：大会モード開始前の待機画面。

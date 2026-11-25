@@ -1295,23 +1295,3 @@ body.admin-body { overflow-y: auto; padding: 1.5rem; }
 .waiting-mode #lobbyEventGuestSection, .waiting-mode #lobbyEventGuestSection button { margin: 0; }
 .waiting-mode #lobbyEventGuestMsg, .waiting-mode #lobbyEventHostControls { display: none !important; }
 .waiting-mode #lobbyLeaveBtn { width: auto; margin: 0; padding: .35rem 1.4rem; }
-
-/* ── プレイ後アンケート ─────────────────────────────────── */
-.survey-overlay { z-index: 600; overflow-y: auto; align-items: flex-start; padding: 1rem; }   /* 緊急停止のお知らせ(900)よりは下 */
-.survey-card { width: min(640px, 100%); max-width: 640px; margin: auto; text-align: left; box-sizing: border-box; }
-.survey-card .ov-title { text-align: center; font-size: 1.15rem; margin-bottom: .2rem; }
-.sv-lead { text-align: center; color: var(--dim); font-size: .85rem; margin: .2rem 0 .4rem; }
-.sv-q { border: 0; padding: 0; margin: .65rem 0 0; min-width: 0; }
-.sv-q legend, .sv-q label { font-weight: 700; font-size: .95rem; padding: 0; }
-.sv-q small { color: var(--dim); font-weight: 400; }
-.sv-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .4rem; margin-top: .3rem; }
-.sv-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .3rem; }
-.sv-opt { font: inherit; font-size: .82rem; line-height: 1.35; cursor: pointer; background: #16224a; color: #e3ecff; border: 2px solid var(--border); border-radius: 8px; padding: .35rem .25rem; }
-.sv-opt b { display: block; font-size: 1.1rem; }
-.sv-chips .sv-opt { border-radius: 999px; padding: .25rem .75rem; }
-.sv-opt[aria-pressed="true"] { background: var(--accent); border-color: #cfe4ff; color: #04121f; font-weight: 700; }
-.sv-opt:focus-visible, .sv-skip:focus-visible, .survey-card textarea:focus-visible { outline: 3px solid #ffd34d; outline-offset: 2px; }
-.survey-card textarea { box-sizing: border-box; width: 100%; margin-top: .3rem; background: var(--bg); color: #e3ecff; border: 1px solid var(--border); border-radius: 8px; padding: .5rem; font: inherit; font-size: .9rem; resize: vertical; }
-.sv-msg { color: var(--warn); min-height: 1.3em; margin: .4rem 0 .2rem; text-align: center; font-size: .9rem; }
-.sv-send { width: 100%; }
-.sv-skip { display: block; margin: .6rem auto 0; background: none; border: 0; color: var(--dim); text-decoration: underline; font: inherit; font-size: .82rem; cursor: pointer; }

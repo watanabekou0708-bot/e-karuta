@@ -847,7 +847,6 @@ function updateLobbyUI() {
 function goToEventHub() {
   eventShowingHub = true;
   renderLobbyEventSection();
-  if (window.KSurvey) KSurvey.showNow();   // 大会終了後なら、結果を見終わったこの時点でアンケートを出す
 }
 
 // 大会モードの画面（結果画面／ホーム画面＝lobbyEventSection・lobbyEventGuestSection）の

@@ -47,12 +47,11 @@
   </div>
 
   <div class="admin-card" id="surveyCard">
-    <h2 class="admin-h2">📝 プレイ後アンケート</h2>
-    <p class="ov-sub">大会の最終試合後（練習は全4試合の後）に、参加者の画面へ約1分のアンケートを出します。教卓PCには出ません。受付中に「出さない」にすると画面から閉じ、「出す」に戻すと未回答の人にもう一度出ます。次のゲームを始めると受付は終わります。</p>
-    <button id="surveyToggleBtn" class="btn btn-blue" type="button" disabled onclick="toggleSurvey()">読み込み中…</button>
-    <p class="ov-sub" id="surveyStatus" aria-live="polite"></p>
+    <h2 class="admin-h2">📝 アンケート</h2>
+    <p class="ov-sub">アンケートはゲームの画面には出ません。専用ページのショートカットから回答してもらいます。</p>
+    <p><a class="btn btn-blue" href="survey.html" target="_blank" style="text-decoration:none">アンケートページを開く</a></p>
     <h2 class="admin-h2" style="margin-top:1rem">アンケート結果（CSV）</h2>
-    <p class="ov-sub">Excelで開けます。サーバーを起動するたびに新しいファイルになります。「出す／出さない」の設定は、起動し直すと「出す」に戻ります。</p>
+    <p class="ov-sub">Excelで開けます。サーバーを起動するたびに新しいファイルになります。</p>
     <div id="svLogList" class="admin-schedule"></div>
   </div>
 
