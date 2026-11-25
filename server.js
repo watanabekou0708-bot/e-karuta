@@ -26,6 +26,13 @@ const UNLEVELED = [];
 KARUTA.forEach(k => { if (LEVEL_IDS[k.lv]) LEVEL_IDS[k.lv].push(k.id); else UNLEVELED.push(k); });
 const levelIndexOfCard = id => { const k = KMAP[id]; return k ? LEVELS.indexOf(k.lv) : -1; };
 
+// 【一時的な限定】大会モードの盤面に出す札を、YCCカルタ大会/IT用語一覧.pdf の175語だけにする。
+// 全範囲に戻すときは false にしてサーバーを再起動する。練習モードとダミー読みは限定しない。
+const EVENT_TERMS_LIMITED = true;
+const YCC_IDS = new Set(require('./ycc-terms.js'));
+const EVENT_LEVEL_IDS = Object.fromEntries(LEVELS.map(lv =>
+  [lv, EVENT_TERMS_LIMITED ? LEVEL_IDS[lv].filter(id => YCC_IDS.has(id)) : LEVEL_IDS[lv]]));
+
 // 最後の1枚になったとき、本物の札を読む前に必ず連発するダミー読みの最低回数（レベルが上がるほど増える）
 const FINAL_DECOYS = { A: 3, B: 4, C: 5, D: 6 };
 
@@ -99,7 +106,7 @@ const EVENT_ROUND_MIX = [
 
 function buildEventRoundCardIds(roundIndex) {
   const mix = EVENT_ROUND_MIX[Math.min(Math.max(roundIndex, 1), EVENT_ROUND_MIX.length) - 1];
-  return shuffle(LEVELS.flatMap((lv, i) => shuffle(LEVEL_IDS[lv]).slice(0, mix[i])));
+  return shuffle(LEVELS.flatMap((lv, i) => shuffle(EVENT_LEVEL_IDS[lv]).slice(0, mix[i])));
 }
 
 // 敗者復活戦で使うレベル別の枚数 [A, B, C, D]（1試合5枚）。EVENT_ROUND_MIXと同じ形（本戦の
@@ -116,7 +123,7 @@ const REVIVAL_ROUND_MIX = [
 ];
 function buildRevivalRoundCardIds(roundIndex) {
   const mix = REVIVAL_ROUND_MIX[Math.min(Math.max(roundIndex, 1), REVIVAL_ROUND_MIX.length) - 1];
-  return shuffle(LEVELS.flatMap((lv, i) => shuffle(LEVEL_IDS[lv]).slice(0, mix[i])));
+  return shuffle(LEVELS.flatMap((lv, i) => shuffle(EVENT_LEVEL_IDS[lv]).slice(0, mix[i])));
 }
 
 // 練習モード：第N試合はレベルN（A→B→C→D）。1試合15枚。

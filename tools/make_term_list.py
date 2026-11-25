@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """学生配布用の用語一覧（PPTX）を public/karuta-data.js から作る。
 
-様式は YCCカルタ大会/IT用語一覧.pdf に合わせ、Excel基本編 → Excel応用編 → 難易度A〜D（Excel以外）の順にまとめる。
+載せるのは YCCカルタ大会/IT用語一覧.pdf の175語（ycc-terms.js）で、競技要領およびルールは載せない。
+用語と意味はゲームの札の表記（PDFの誤字は修正済み）。
+様式と掲載順も同じPDFに合わせ、Excel基本編 → Excel応用編 → 難易度A〜D（Excel以外）の順にまとめる。
 
   python tools/make_term_list.py   … 手順書/Webかるた_用語リスト.pptx を作る
   PDF は tools/pptx_to_pdf.ps1 で PowerPoint から書き出す。
 
 必要: python-pptx（pip install python-pptx）、Node.js、Windows の游ゴシック。
-載せるのは出題対象（lv が A〜D）の札だけ。lv が空の札（ダミー読み専用）は載せない。
 """
 import json
 import os
@@ -56,10 +57,10 @@ LEVEL_TITLES = {
 
 
 def load_cards():
-    """ゲーム本体と同じ札データを Node 経由で読み、出題対象だけ返す。"""
-    js = "process.stdout.write(JSON.stringify(require('./public/karuta-data.js')))"
-    data = json.loads(subprocess.check_output(['node', '-e', js], cwd=ROOT).decode('utf-8'))
-    return [k for k in data if k['lv'] in LEVELS]
+    """ゲーム本体と同じ札データから、ycc-terms.js の札を掲載順に返す。"""
+    js = ("const m=new Map(require('./public/karuta-data.js').map(k=>[k.id,k]));"
+          "process.stdout.write(JSON.stringify(require('./ycc-terms.js').map(id=>m.get(id))))")
+    return json.loads(subprocess.check_output(['node', '-e', js], cwd=ROOT).decode('utf-8'))
 
 
 # ── 行の高さの見積り（折り返し行数を実フォントの文字幅で数える）──
