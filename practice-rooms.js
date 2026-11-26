@@ -3,7 +3,7 @@
 //  ・接続した人は、まず大会用の部屋（全員で共有するロビー・大会モード）に入る
 //  ・参加者が練習を始めると、その人だけの部屋を作り、試合の操作はその部屋に渡す
 //  ・練習を終える（ロビーに戻る）か、大会が始まると、大会用の部屋に戻る
-//  ・同じ接続元IP・同じ端末・同じ名前なら、ブラウザが違っても同じ人として扱う（後から開いた画面が引き継ぐ）
+//  ・同じ接続元IP・同じ名前（学年・クラスも同じ）なら、ブラウザや画面が違っても同じ人として扱う（後から開いた画面が引き継ぐ）
 // 実機ボット(?bot=host)と内蔵の負荷テストの練習は、全員で同じ試合をする必要があるので大会用の部屋で行う。
 const crypto = require('crypto');
 const { createHub } = require('./room-hub.js');
@@ -16,18 +16,14 @@ const PRACTICE_EVENTS = new Set([
   'set_layout', 'sound_check_start', 'start_revival', 'start_next_revival_round', 'start_group_match', 'start_next_group_round',
 ]);
 
-// 端末の特徴。参加ボタンを押した時点の値を使う（画面が隠れたまま読み込むと、接続時の画面サイズは 0 になることがある）。
-// 画面サイズが取れていない値は、手がかりにしない
-function deviceOf(real, payload) {
-  const device = String((payload && payload.device) || (real.handshake.query && real.handshake.query.device) || '').slice(0, 80);
-  return device.startsWith('0x0x') ? '' : device;
-}
-
-// 同じ人かどうかの鍵。端末の特徴か名前が無ければ作らない（別人をまとめないため）
-function identityOf(ip, device, payload) {
+// 同じ人かどうかの鍵＝接続元IP＋名前＋学年＋クラス。名前が無ければ作らない（別人をまとめないため）。
+// 端末の特徴（画面サイズなど）は使わない。画面サイズはブラウザの拡大率で変わり、同じ人がブラウザを
+// 変えると別人になってしまうため（2026-11-26 変更）。学内は全員が学校の同じグローバルIPに見えるが、
+// 名前・学年・クラスで分かれる。自宅は家庭ごとにIPが違うので、同じ名前の別人がまとまることもない。
+function identityOf(ip, payload) {
   const name = payload && typeof payload === 'object' ? String(payload.name || '').trim() : '';
-  if (!ip || !device || !name) return null;
-  const parts = [ip, device, name, String(payload.grade || ''), String(payload.className || '')];
+  if (!ip || !name) return null;
+  const parts = [ip, name, String(payload.grade || ''), String(payload.className || '')];
   return crypto.createHash('sha256').update(parts.join('\n')).digest('hex');
 }
 
@@ -118,7 +114,7 @@ function createPracticeRooms({ io, createGameRoom, roomEnv, canStartPractice, is
   function handleSetName(session, args) {
     const { real } = session;
     const identity = isHostEligible(real) || isInternalBot(real) ? null
-      : identityOf(clientIpOf(real).ip, deviceOf(real, args[0]), args[0]);
+      : identityOf(clientIpOf(real).ip, args[0]);
     if (identity) {
       sessions.forEach(other => {
         if (other === session || other.identity !== identity) return;
