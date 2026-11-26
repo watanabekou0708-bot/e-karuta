@@ -21,13 +21,16 @@
              placeholder="例：たろう" maxlength="10" autocomplete="off" aria-describedby="nameError"></label>
     </div>
     <p id="nameError" class="name-error hidden" role="alert">ひらがなで入力してください。</p>
-    <div class="grade-course-row">
-      <select id="gradeSelect" class="grade-select" onchange="updateCourseOptions()">
+    <div class="grade-class-row">
+      <select id="gradeSelect" class="grade-select" aria-label="学年">
         <option value="3">3年生</option>
         <option value="2">2年生</option>
         <option value="1" selected>1年生</option>
       </select>
-      <select id="courseSelect" class="course-select"></select>
+      <select id="classSelect" class="class-select" aria-label="クラス名">
+        <option value="ITエキスパート科">ITエキスパート科</option>
+        <option value="ITビジネス科">ITビジネス科</option>
+      </select>
     </div>
     <button class="btn btn-green" onclick="doJoin()">参加する</button>
   </div>
@@ -101,7 +104,7 @@
       <p class="wt-sub" id="wtSub"></p>
       <div class="wt-sort hidden" id="wtSort">
         <button type="button" data-sort="name" aria-pressed="true">ユーザー名順 ▲</button>
-        <button type="button" data-sort="course" aria-pressed="false">コース名順 ▲</button>
+        <button type="button" data-sort="class" aria-pressed="false">クラス名順 ▲</button>
       </div>
       <div class="wt-list" id="wtList" tabindex="0" aria-label="ユーザーの一覧"></div>
     </div>
@@ -247,6 +250,12 @@
 <div id="oPause" class="overlay pause-overlay hidden">
   <div class="pause-title" id="pauseMsg"></div>
   <div class="pause-count" id="pauseCount"></div>
+</div>
+
+<!-- ── 同じ端末・同じ名前の別の画面が開かれたとき ───────── -->
+<div id="oReplaced" class="overlay pause-overlay hidden">
+  <div class="pause-title">別の画面で開かれたため、この画面は終了しました。</div>
+  <div class="pause-count">続きは、あとから開いた画面で行ってください。</div>
 </div>
 
 <!-- ── Game UI ────────────────────────────────────────── -->

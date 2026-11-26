@@ -42,7 +42,7 @@ const waitFor = (sock, name, pred = null, ms = 60000) => new Promise((res, rej) 
   bots.forEach(b => b.on('ready_wait', () => setTimeout(() => b.emit('cursor_ready'), 20 + Math.random() * 200)));
   await sleep(300);
   host.emit('set_name', { name: '教卓' });
-  bots.forEach((b, i) => b.emit('set_name', { name: 'ボット' + (i + 1), grade: String(1 + (i % 3)), course: i % 2 ? 'アプリコース' : 'プログラムコース' }));
+  bots.forEach((b, i) => b.emit('set_name', { name: 'ボット' + (i + 1), grade: String(1 + (i % 3)), className: i % 2 ? 'ITエキスパート科' : 'ITビジネス科' }));
   await sleep(800);
 
   // 大会モードは、サーバーPC（教卓）から開始する必要がある。URLが教卓PCのIPでも、接続元がこのPCでなければ進行役にはなれない。

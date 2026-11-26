@@ -229,12 +229,17 @@ function startVoiceItems(items, playAt, gen, onDone, onItemStart) {
   if (!curVoice && onDone) setTimeout(() => { if (gen === audioGeneration) onDone(); }, 0);
   return !!curVoice;
 }
+// 上の句の読み始めを覚える。進行役の端末はサーバーにも知らせる（ボーナスの時間の起点）
+function reportYomiStart() {
+  currentYomiStartAt = hiResNow() + serverOffset;
+  if (myIsHost && currentPhase === 'reading') socket.emit('yomi_started', { t: currentYomiStartAt });
+}
 // 読み上げ：警告の案内 → 「読み上げます」→ 上の句
 function playVoiceRead(yomi, playAt, gen, onDone) {
   const items = [{ ...VD.seg(VD.FIXED.warn), gapAfter: WARN_PAUSE_MS }, { ...VD.seg(VD.FIXED.intro), gapAfter: VOICE_PAUSE_MS }, VD.seg(yomi)];
   const ok = playVoiceItems(items, playAt, gen, onDone, i => {
     if (i === 1) armFlying();          // 「読み上げます」の発声開始：カーソルを定位置へ・フライング監視開始
-    else if (i === 2) { disarmFlying(); hideScorePanel(); }  // 上の句の1文字目：監視終了。前の札の判定内訳は「読み上げます」が終わるここまで表示しておく
+    else if (i === 2) { disarmFlying(); hideScorePanel(); reportYomiStart(); }  // 上の句の1文字目：監視終了。前の札の判定内訳は「読み上げます」が終わるここまで表示しておく
   });
   if (ok) setTimeout(() => { if (gen === audioGeneration && !introStarted) { introStarted = true; hideScorePanel(); syncGrabAvailability(); } }, 9000);
   return ok;
@@ -509,7 +514,13 @@ let liveTies = {};   // 同点の並び順（サーバーから届いた最新�
 // それだとサーバーPC自身で参加者としてテストできなかったため、明示的な印に変更した）。
 const HOST_PARAM = new URLSearchParams(location.search).has('host');
 const HOST_VALUE = new URLSearchParams(location.search).get('host') || '1';   // ?host=<キー>（キー未設定のサーバーでは ?host=1）
-const socket    = io({ query: { host: HOST_PARAM ? HOST_VALUE : '' } });
+// 同じ端末かどうかの手がかり。ブラウザの種類が違っても同じになる値だけを使う（User-Agentは使わない）
+function deviceFeatures() {
+  let zone = '';
+  try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { /* 取れなければ空 */ }
+  return [Math.max(screen.width, screen.height), Math.min(screen.width, screen.height), navigator.hardwareConcurrency || 0, zone].join('x');
+}
+const socket    = io({ query: { host: HOST_PARAM ? HOST_VALUE : '', device: deviceFeatures() } });
 
 // このブラウザ専用の参加者トークン（ページを開き直しても localStorage に残る）。
 // 大会モード中に切断（誤ってページを閉じた・ブラウザバックしたなど）した後、同じ
@@ -784,7 +795,7 @@ function renderHouseList(houses, players) {
     const rows = ids.map(id => {
       const p = players[id];
       if (!p) return '';
-      return `<div class="house-member">${escHtml(p.name)} <small>（${escHtml(p.grade || '')}年 ${escHtml(p.course || '')}）</small></div>`;
+      return `<div class="house-member">${escHtml(p.name)} <small>（${escHtml(p.grade || '')}年 ${escHtml(p.className || '')}）</small></div>`;
     }).join('');
     return `<div class="house-block"><div class="house-block-title">${HOUSE_LABELS[hid] || hid}（${ids.length}人）</div>${rows}</div>`;
   }).join('');
@@ -1252,30 +1263,13 @@ function readNext() {
   socket.emit('read_next');
 }
 
-// ── 学年・コース（ハウス編成用）───────────────────────────
-// 医療ビジネス科はかるた大会の対象外のため選択肢に含めない
-const COURSE_OPTIONS = {
-  '1': ['アプリコース', 'プログラムコース'],
-  '2': ['ITスペシャリストコース', '画像クリエイトコース', 'ITエンジニアコース', 'ビジュアルデザインコース', 'ビジネスITコース'],
-  '3': ['ITスペシャリストコース', '画像クリエイトコース'],
-};
-
-function updateCourseOptions() {
-  const gradeSel  = $('gradeSelect');
-  const courseSel = $('courseSelect');
-  if (!gradeSel || !courseSel) return;
-  const opts = COURSE_OPTIONS[gradeSel.value] || [];
-  courseSel.innerHTML = opts.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
-}
-updateCourseOptions();
-
 // ── Name entry ────────────────────────────────────────────
 // 展示用リンク（アドレスの最後に ?practice を付けたもの）では、名前だけ入力する。
-// 学年・コースは大会モードのハウス編成にだけ使うため、練習用リンクでは聞かない。
+// 学年・クラスは大会モードのハウス編成にだけ使うため、練習用リンクでは聞かない。
 const PRACTICE_LINK = new URLSearchParams(location.search).has('practice');
 (function applyPracticeLink() {
   if (!PRACTICE_LINK) return;
-  const row = document.querySelector('.grade-course-row');
+  const row = document.querySelector('.grade-class-row');
   if (row) row.style.display = 'none';
 })();
 
@@ -1295,7 +1289,7 @@ let ltIsHost  = false;   // join_load_test_monitorの応答で一度だけ届く
 
 // ── 実機ボット自動プレイ（アドレスの最後に ?bot=番号 を付けたもの）────────
 // 実機（本番で使う実際のPC）を多数リモートで同時起動し、「ボットスタート」ボタンを
-// 1回押すだけで、以降の「名前・学年・コースの入力→練習モード開始→かるたを取る」
+// 1回押すだけで、以降の「名前・学年・クラスの入力→練習モード開始→かるたを取る」
 // という一連の動作を自動で行わせるためのモード。
 //
 // 進行役の報告（intro_started・yomi_finished・announce_finished）や次の読み上げの
@@ -1359,7 +1353,7 @@ function playWarmupBlip() {
 
   const botName = BOT_IS_HOST ? 'ホストPC' : '負荷PC' + String(BOT_LINK).padStart(2, '0');
 
-  // 参加後は、通常のロビー（学年・コース選択やCPU強さなど）ではなく、参加人数だけが
+  // 参加後は、通常のロビー（学年・クラス選択やCPU強さなど）ではなく、参加人数だけが
   // わかる専用の待機画面（#oBotWait。openLobby側でBOT_LINK時に出し分けている）を見せる。
   // ホストだけ実際に機能する「ゲームスタート」ボタンを表示する。
   $('botWaitRoleLabel').textContent = BOT_IS_HOST
@@ -1381,13 +1375,11 @@ function playWarmupBlip() {
   show('oBotStart');
   $('botStartBtn').addEventListener('click', () => {
     hide('oBotStart');
-    // ① 参加：名前・学年・コースを自動入力して送信する
+    // ① 参加：名前・学年・クラスを自動入力して送信する
     //    （ダミー音の再生はdoJoin()が担う。bot/通常参加の両方で共通化している）
     $('familyNameInput').value = botName;
-    const grade = pick(Object.keys(COURSE_OPTIONS));
-    $('gradeSelect').value = grade;
-    updateCourseOptions();
-    $('courseSelect').value = pick(COURSE_OPTIONS[grade]);
+    $('gradeSelect').value = pick(['1', '2', '3']);
+    $('classSelect').value = pick(['ITエキスパート科', 'ITビジネス科']);
     doJoin();
     // ② 練習モード開始（人が「ゲームスタート」ボタンを押す操作の代わり）。
     //    ?bot=host のPCだけが、上で登録したボタンから明示的に開始する。
@@ -1564,14 +1556,14 @@ function doJoin() {
   const name = parts.filter(Boolean).join(' ');
   if (!name) return;
   const gradeSel  = $('gradeSelect');
-  const courseSel = $('courseSelect');
+  const classSel  = $('classSelect');
   const grade  = (!PRACTICE_LINK && !HOST_PARAM && gradeSel)  ? gradeSel.value  : null;
-  const course = (!PRACTICE_LINK && !HOST_PARAM && courseSel) ? courseSel.value : null;
+  const className = (!PRACTICE_LINK && !HOST_PARAM && classSel) ? classSel.value : null;
   unlockTts();
   getAudioCtx();
   playWarmupBlip();   // 参加操作（＝本物のクリック）直後に一瞬だけ鳴らし、本編の音声が
                        // 立ち上がり時のフェードを受けずに最初から本来の音量で鳴るようにする
-  lastJoinPayload = { name, grade, course, token: PLAYER_TOKEN };   // 通信が切れて再接続したとき、同じ内容で参加し直す
+  lastJoinPayload = { name, grade, className, token: PLAYER_TOKEN, device: deviceFeatures() };   // 通信が切れて再接続したとき、同じ内容で参加し直す
   socket.emit('set_name', lastJoinPayload);
   hide('oName');
   nameEntered = true;
@@ -1591,8 +1583,8 @@ NAME_FIELD_IDS.forEach((id, i) => {
   });
 });
 
-// ?host を付けて開いたPC（進行役）は、学年・コースはもちろん名前の入力も不要にする
-// （進行役は大会モードで札を取らず、学年・コースによるハンデも適用されないため）。
+// ?host を付けて開いたPC（進行役）は、学年・クラスはもちろん名前の入力も不要にする
+// （進行役は大会モードで札を取らず、学年・クラスを使わないため）。
 // 名前欄は固定で「ホスト」として自動的に参加する。
 (function applyHostAutoJoin() {
   if (!HOST_PARAM || BOT_LINK) return;
@@ -1747,7 +1739,7 @@ function openLobby(players) {
   clearSpectatorChat();
   renderLobbyList(players);
   hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oCeremony');
-  // ?bot=N / ?bot=host は、学年・コース選択やCPU強さなど通常のロビーUIを見せず、
+  // ?bot=N / ?bot=host は、学年・クラス選択やCPU強さなど通常のロビーUIを見せず、
   // 参加人数だけがわかる専用の待機画面を表示する（ホストだけ実際の開始ボタンあり）。
   if (BOT_LINK) {
     hide('oLobby');
@@ -2591,28 +2583,10 @@ function refreshDebugButtons() {
 
 // ── 試合開始の待ち合わせ ───────────────────────────────────────
 // 札を取る側の全員が仮想カーソル（Pointer Lock。使えない端末は通常カーソル）に移るまで、
-// サーバーは最初の読み上げを始めない。待っている間に、ハンデの内容と自分のハンデを表示する。
-let readyState = { active: false, total: 0, ready: 0, deadline: 0, handicap: null };
+// サーバーは最初の読み上げを始めない。待っている間は、準備の状況を表示する。
+let readyState = { active: false, total: 0, ready: 0, deadline: 0 };
 let readyTick = null;
 
-function handicapHtml() {
-  const hc = readyState.handicap;
-  if (!hc) return '';
-  if (!hc.event && !hc.any) return '<div class="hc-box"><b>ハンデ</b>：なし（学年・コースを入力していない人は、ハンデなしで参加します）</div>';
-  const g = hc.rules.grade;
-  const prog = hc.rules.programming;
-  const mine = (hc.mine && hc.mine[myId]) || { gain: 1, penalty: 1 };
-  const has = mine.gain !== 1 || mine.penalty !== 1;
-  const row = (label, gain, pen) => `<tr><td>${label}</td><td>×${gain}</td><td>×${pen}</td></tr>`;
-  return `<div class="hc-box"><b>ハンデ</b>（学年・コースを入力した人にかかります。複数あてはまる場合は掛け算）
-    <table><tr><th>対象</th><th>得点</th><th>お手付き・フライングの減点</th></tr>
-      ${row('2年生', g['2'].gain, g['2'].penalty)}
-      ${row('3年生', g['3'].gain, g['3'].penalty)}
-      ${row('2・3年のプログラミング系コース（ITスペシャリスト・ITエンジニア）にはさらに', prog.gain, prog.penalty)}
-      <tr><td>1年生・画像／アプリ系コース</td><td colspan="2">ハンデなし</td></tr>
-    </table>
-    <div class="hc-mine ${has ? 'has' : 'none'}">あなたのハンデ：${has ? `得点 ×${mine.gain}　減点 ×${mine.penalty}` : 'なし'}</div></div>`;
-}
 function startStatusHtml() {
   if (!readyState.active) return '';
   const left = Math.max(0, readyState.total - readyState.ready);
@@ -2621,7 +2595,7 @@ function startStatusHtml() {
     <div class="start-note">距離・精度は、画面の札＝実物の取り札（横${CARD_REAL_W_MM}mm）の縮尺でmmに換算します。</div>`;
 }
 function renderStartExtras() {
-  document.querySelectorAll('.start-extra').forEach(el => { el.innerHTML = handicapHtml() + startStatusHtml(); });
+  document.querySelectorAll('.start-extra').forEach(el => { el.innerHTML = startStatusHtml(); });
   const rw = $('readyWait');
   if (rw) rw.classList.toggle('hidden', !(readyState.active && KCursor.state.enabled && (KCursor.state.locked || KCursor.state.fallback)));
 }
@@ -2630,7 +2604,7 @@ function reportReadyIfPossible() {
   renderStartExtras();
 }
 socket.on('ready_wait', d => {
-  readyState = { active: d.active, total: d.total, ready: d.ready, deadline: d.deadline, handicap: d.handicap };
+  readyState = { active: d.active, total: d.total, ready: d.ready, deadline: d.deadline };
   refreshReadBtn();
   if (readyTick) clearInterval(readyTick);
   readyTick = setInterval(renderStartExtras, 500);
@@ -2703,7 +2677,10 @@ KCursor.init({ home: homeScreenPoint, click: virtualClick, hover: updateVHover, 
 // ── 判定の内訳パネル ──────────────────────────────────────
 // 点数の計算式（server.js と同じ）：速度 + 精度 + 距離（マウスコントロール力）。
 const SPEED_MAX_PTS = 400, SPEED_TAU_MS = 2500, ACC_MAX_PTS = 400, CTRL_MAX_PTS = 200;
-const ACC_BONUS_THRESHOLD = 350, ACC_BONUS_PTS = 1000;   // 精度が350点以上なら精度ボーナス1000点（札1枚の上限の外）
+// 1000点ボーナス（札1枚の上限の外）：精度320点以上で、上の句の読み始めから1.73秒以内
+const BONUS_ACC_MIN = 320, BONUS_YOMI_MS = 1730, BONUS_PTS = 1000;
+const BONUS_RULE_TEXT = `精度${BONUS_ACC_MIN}点以上・上の句から${BONUS_YOMI_MS / 1000}秒以内`;
+let currentYomiStartAt = 0;   // この端末で上の句の読み上げが始まった時刻（サーバー時計。0=まだ）
 const speedPts = ms => Math.round(SPEED_MAX_PTS * Math.exp(-Math.max(0, ms) / SPEED_TAU_MS));
 const accPts   = mm => Math.round(ACC_MAX_PTS * Math.pow(1 - Math.min(1, Math.max(0, mm / ACC_FULL_MM)), 3));
 const ctrlPts  = mm => { const f = Math.min(1, Math.max(0, mm / BOARD_FAR_MM)); return Math.round(CTRL_MAX_PTS * f * f); };
@@ -2720,6 +2697,9 @@ function hideScorePanel() {
   const el = $('scorePanel');
   if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
 }
+// 自分のクリックがボーナスの条件を満たしていそうか（正式な判定はサーバー）
+const bonusLooksReached = g => accPts(g.offsetMm) >= BONUS_ACC_MIN &&
+  (!currentYomiStartAt || hiResNow() + serverOffset - currentYomiStartAt <= BONUS_YOMI_MS);
 // 自分が札をクリックした瞬間に出す「仮の内訳」（正式な判定は0.5秒後）
 function showPendingPanel(speedMs, g) {
   const el = $('scorePanel');
@@ -2729,7 +2709,7 @@ function showPendingPanel(speedMs, g) {
     ${spRow('⚡ 速度', secStr(speedMs), '読み上げ開始から', fmtPts(speedPts(speedMs)))}
     ${spRow('🎯 精度', mmStr(g.offsetMm), '札の中心からの距離', fmtPts(accPts(g.offsetMm)))}
     ${spRow('🖱 距離', mmStr(g.distMm), '定位置から札の中心まで', fmtPts(ctrlPts(g.distMm)))}
-    ${accPts(g.offsetMm) >= ACC_BONUS_THRESHOLD ? `<div class="sp-row"><span class="sp-label">🎁 精度ボーナス</span><span class="sp-detail">精度${ACC_BONUS_THRESHOLD}点以上</span><span class="sp-pts">+${fmtPts(ACC_BONUS_PTS)}</span></div>` : ''}
+    ${bonusLooksReached(g) ? `<div class="sp-row"><span class="sp-label">🎁 ボーナス</span><span class="sp-detail">${BONUS_RULE_TEXT}</span><span class="sp-pts">+${fmtPts(BONUS_PTS)}</span></div>` : ''}
     <div class="sp-cont">0.5秒間にクリックした全員のうち、精度の点数が一番高い人が札を取ります。<br>札を取れなくても、「そこまで」までに正しい札をクリックした人には点数が入ります。<br>mm は画面の札＝実物の取り札（横${CARD_REAL_W_MM}mm）の縮尺で換算しています。</div>`;
 }
 // 札を取った人の内訳（全員の画面に表示）。同時に申告した人は縦に1行ずつ並べる。
@@ -2737,14 +2717,11 @@ function showScorePanel(by, r, contenders) {
   const el = $('scorePanel');
   if (!el || !r) return;
   el.className = 'score-panel';
-  // ハンデ・ボーナス・獲得ポイントは、自分に点が入っていれば自分の分、そうでなければ1位の人の分を出す
+  // ボーナス・獲得ポイントは、自分に点が入っていれば自分の分、そうでなければ1位の人の分を出す
   const mc = (contenders || []).find(c => c.id === myId);
   const iWon = by.id === myId;
   const own = mc && !iWon ? mc : r;
   const totalLabel = mc ? 'あなたの獲得ポイント' : '獲得ポイント';
-  const hc = own.handicap && own.handicap !== 1
-    ? `<div class="sp-row"><span class="sp-label sp-hc">ハンデ</span><span class="sp-detail sp-hc">×${own.handicap}</span><span class="sp-pts sp-hc">${fmtPts(own.wanted - own.base)}</span></div>`
-    : '';
   const capNote = own.capped ? '<div class="sp-cont">※ 1試合の上限（2万点）に達しました。</div>' : '';
   // クリックした人は（0.5秒以内に限らず）全員、精度の高い順に並べて表示する。自分の行は目立たせる。
   const list = (contenders || []).length > 1
@@ -2773,8 +2750,7 @@ function showScorePanel(by, r, contenders) {
   cmp += '</div>';
   el.innerHTML = `<div class="sp-title"><span class="tn-dot" style="background:${by.color || '#4a9eff'}"></span>${escHtml(by.name)} <span style="color:var(--dim);font-weight:400;font-size:.75rem">が獲得</span></div>
     ${cmp}
-    ${hc}
-    ${own.bonus ? `<div class="sp-row"><span class="sp-label">🎁 精度ボーナス</span><span class="sp-detail">精度${ACC_BONUS_THRESHOLD}点以上${own.handicap !== 1 ? `（${fmtPts(own.bonusBase)}×${own.handicap}）` : '（別枠）'}</span><span class="sp-pts">+${fmtPts(own.bonus)}</span></div>` : ''}
+    ${own.bonus ? `<div class="sp-row"><span class="sp-label">🎁 ボーナス</span><span class="sp-detail">${BONUS_RULE_TEXT}（別枠）</span><span class="sp-pts">+${fmtPts(own.bonus)}</span></div>` : ''}
     <div class="sp-total"><span>${totalLabel}</span><span class="sp-big">+${fmtPts(own.awarded + (own.bonus || 0))}</span></div>
     ${capNote}${list}`;
   // 一覧の中で自分の行が隠れていたら、見える位置までスクロールする（一目でわかるように）
@@ -2954,6 +2930,24 @@ socket.on('headphone_check_setting', ({ enabled }) => {
   syncWaiting();
 });
 
+// 切断していた一人練習に戻った（別のブラウザで開いた・読み込み直した）
+socket.on('resume_practice', data => {
+  myId       = data.myId;
+  liveHostId = data.hostId;
+  liveData   = { ...data };
+  applyVoiceSummary(data.voice);
+  applyInit(liveData);
+});
+// 同じ端末・同じ名前の別の画面が開かれたので、この画面は終了する（サーバーが切断する）
+socket.on('session_replaced', () => {
+  stopTimer();
+  stopAllAudio();
+  KComments.clear();
+  KHeadphone.sync(false);
+  KCursor.setEnabled(false);
+  show('oReplaced');
+});
+
 socket.on('houses_assigned', ({ houses, players }) => {
   currentHouses = houses;
   if (liveData) liveData.players = players;
@@ -3075,6 +3069,7 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
 // playAt = イントロ開始時刻（全 PC でハードウェアレベルで同期）
 socket.on('read_card', ({ card, remaining, playAt }) => {
   KComments.setQuiet(true);   // かるたの読み上げ中はコメントを流さない
+  currentYomiStartAt = 0;
   currentReadPlayAt = playAt;
   introStarted = false;   // 「読み上げます」が始まるまでは取れない
   // 前の札の判定内訳は、次の札の「読み上げます」が終わる（上の句が始まる）まで表示し続ける（playVoiceReadで消す）
@@ -3354,7 +3349,7 @@ function onRoundFinished({ round, players, survivorIds, eliminatedIds, survivorC
 // 「惜しい」を流す条件：順位に関係なく、3位との点差がこの点数以内（約1枚分。server.js の NEAR_POINTS と同じ）
 const DJ_CLOSE_MAX_DIFF  = 500;
 
-// DJが名前を呼ぶときは学年・コースのタグなしの名前を使う（サーバー側 djName と同じ）
+// DJが名前を呼ぶときは学年・クラスのタグなしの名前を使う（サーバー側 djName と同じ）
 const rawName = p => (p && (p.rawName || p.name)) || '';
 
 // 大会モードの結果画面のDJ音声（各端末で、その端末のユーザー自身の結果に合わせて読み上げる）。

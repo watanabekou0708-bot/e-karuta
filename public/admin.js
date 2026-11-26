@@ -193,7 +193,22 @@ async function fetchSurveyLogs() {
 
 setInterval(fetchSurveyLogs, 15000);
 
-socket.on('connect', () => { socket.emit('join_admin'); socket.emit('join_load_test_monitor'); fetchLoadtestLogs(); fetchBottestLogs(); fetchTimingLogs(); fetchSurveyLogs(); });
+// 接続ログ（30分ごとの記録）の一覧
+async function fetchAccessLogs() {
+  try {
+    const r = await fetch('/api/access/logs?host=' + HOST_Q);
+    const d = await r.json();
+    $('accessLogList').innerHTML = (d.files || []).map(f => `
+      <div class="admin-sched-row" style="grid-template-columns:1fr auto auto">
+        <span>${escHtml(f.name)}${f.current ? '（今回の起動分）' : ''}</span>
+        <span class="admin-hint">${fmtBytes(f.sizeBytes)}</span>
+        <a class="btn-sched-start" href="/api/access/logs/${encodeURIComponent(f.name)}?host=${HOST_Q}" download>⬇ ダウンロード</a>
+      </div>`).join('') || '<p class="ov-sub">まだ記録がありません（接続があると30分ごとに書き出します）。</p>';
+  } catch (e) { /* 取得できなければ一覧は変えない */ }
+}
+setInterval(fetchAccessLogs, 15000);
+
+socket.on('connect', () => { socket.emit('join_admin'); socket.emit('join_load_test_monitor'); fetchLoadtestLogs(); fetchBottestLogs(); fetchTimingLogs(); fetchSurveyLogs(); fetchAccessLogs(); });
 socket.on('load_test_status', renderLtAdminStatus);
 socket.on('admin_init', (d) => {
   isHost = !!d.isHost;

@@ -809,9 +809,9 @@ body.vcursor-on, body.vcursor-on * { cursor: none !important; }
 }
 .btn-back:hover { color: var(--text); border-color: var(--accent); }
 
-/* ── Grade/course（名前入力画面）───────────────────────── */
-.grade-course-row { display: flex; gap: .5rem; margin-bottom: 1rem; }
-.grade-select, .course-select {
+/* ── 学年・クラス（名前入力画面）───────────────────────── */
+.grade-class-row { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.grade-select, .class-select {
   flex: 1; padding: .6rem .5rem;
   background: var(--surf); border: 1px solid var(--border);
   border-radius: 8px; color: var(--text); font-size: .9rem;
@@ -1154,7 +1154,7 @@ body.in-game .lock-prompt { background: rgba(27, 19, 12, .82); }
 body.in-game .lock-prompt-box { background: #f6eed9; color: #221b13; border-color: #c4382a; }
 body.in-game .lock-prompt-box small { color: #7a6444; }
 
-/* 試合開始の待ち合わせ画面（ハンデの説明つき） */
+/* 試合開始の待ち合わせ画面 */
 .lock-prompt.ready-wait { pointer-events: none; cursor: default; }
 .lock-prompt-box { max-width: 560px; }
 .start-extra { margin-top: .9rem; font-size: .95rem; font-weight: 400; text-align: left; }

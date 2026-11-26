@@ -20,10 +20,7 @@ const RESULT_CLASS = { '通過': 'r-pass', '敗退': 'r-out', '最終': 'r-final
 //  get     … 絞り込みに使う値   options … ▼メニューのチェック項目（無い列は名前の検索欄で絞り込む）
 //  compare … 昇順の比較
 const GRADES = ['1', '2', '3'];
-const COURSES = [
-  'アプリコース', 'プログラムコース', 'ITスペシャリストコース', '画像クリエイトコース',
-  'ITエンジニアコース', 'ビジュアルデザインコース', 'ビジネスITコース',
-];
+const CLASSES = ['ITエキスパート科', 'ITビジネス科'];
 const NONE = '未設定';
 const NO_RESULT = '結果なし';
 const collator = new Intl.Collator('ja', { numeric: true });
@@ -46,7 +43,7 @@ const resultColumn = (key, title) => ({
 const COLUMNS = [
   { key: 'name', title: '名前', compare: (a, b) => collator.compare(plainName(a), plainName(b)) },
   choiceColumn('grade', '学年', [...GRADES, NONE], r => (GRADES.includes(String(r.grade)) ? String(r.grade) : NONE), v => (v === NONE ? v : v + '年')),
-  choiceColumn('course', 'コース', [...COURSES, NONE], r => (COURSES.includes(r.course) ? r.course : NONE)),
+  choiceColumn('className', 'クラス', [...CLASSES, NONE], r => (CLASSES.includes(r.className) ? r.className : NONE)),
   choiceColumn('state', 'いまの状態', STATES.map(([k]) => k), r => r.state, v => STATE_LABEL[v]),
   resultColumn('main', '本戦の結果'),
   resultColumn('revival', '敗者復活戦の結果'),
@@ -104,11 +101,11 @@ function render() {
     STATES.map(([k, label]) => `<button class="st-chip s-${k} ${onlyState(k) ? 'active' : ''}" data-f="${k}"><b>${counts[k] || 0}</b><small>${label}</small></button>`).join('');
 
   const rows = visibleRows(d.rows);
-  const gradeCol = columnOf('grade'), courseCol = columnOf('course');
+  const gradeCol = columnOf('grade'), classCol = columnOf('className');
   $('stRows').innerHTML = rows.map(r => `<tr>
       <td class="st-name">${escHtml(plainName(r))}${r.online ? '' : '<span class="st-off">（未接続）</span>'}</td>
       <td>${gradeCol.get(r) === NONE ? '<span class="st-none">—</span>' : escHtml(gradeCol.labelOf(gradeCol.get(r)))}</td>
-      <td>${courseCol.get(r) === NONE ? '<span class="st-none">—</span>' : escHtml(r.course)}</td>
+      <td>${classCol.get(r) === NONE ? '<span class="st-none">—</span>' : escHtml(r.className)}</td>
       <td><span class="st-badge s-${r.state}">${escHtml(r.text)}</span></td>
       <td>${renderResults(r.main)}</td>
       <td>${renderResults(r.revival)}</td>

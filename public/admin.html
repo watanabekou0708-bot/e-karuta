@@ -55,6 +55,12 @@
     <div id="svLogList" class="admin-schedule"></div>
   </div>
 
+  <div class="admin-card" id="accessCard">
+    <h2 class="admin-h2">🌐 接続ログ</h2>
+    <p class="ov-sub">学外から遊んでいる人がいるかを、30分ごとに記録します（Excelで開けます）。接続元IPと、入力された名前を含みます。区分を「学内・学外」で出すには、サーバーの network-config.js の設定が必要です。</p>
+    <div id="accessLogList" class="admin-schedule"></div>
+  </div>
+
   <div class="admin-card" id="headphoneCard">
     <h2 class="admin-h2">🎧 ヘッドフォン確認</h2>
     <p class="ov-sub">参加者が大会モードを選ぶと、音声で流れる3けたの番号を入力してから待機画面に進みます。音声が出せないときは「確認しない」にしてください（サーバーを再起動すると「確認する」に戻ります）。</p>
@@ -63,7 +69,7 @@
 
   <div class="admin-card" id="practiceCard">
     <h2 class="admin-h2">🎮 参加者の練習モード</h2>
-    <p class="ov-sub">練習は始まると全員の画面が試合になるため、はじめは教卓PCだけが開始できます。参加者にも開始させたいときだけ「許可する」にしてください。<b>大会の日は「許可しない」のままにしてください。</b>サーバーを起動し直すと「許可しない」に戻ります。</p>
+    <p class="ov-sub">参加者も練習を始められます（はじめの設定）。練習は一人ずつ別の試合になり、ほかの人の画面は変わりません。大会を開始すると、練習中の人はロビーに戻って大会に参加します。サーバーを起動し直すと「許可する」に戻ります。</p>
     <button id="practiceToggleBtn" class="btn btn-blue" type="button" disabled onclick="toggleStudentPractice()">読み込み中…</button>
   </div>
 
