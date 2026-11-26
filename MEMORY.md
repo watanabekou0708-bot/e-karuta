@@ -372,3 +372,8 @@ f608b63（この追記を含むコミットの親）
 
 ### 基準となるGit commit
 5c5e5c9（この追記を含むコミットの親）
+
+## 追記 2026-11-26（プッシュ）
+- ユーザー指示で origin/master へプッシュ（上の追記の「GitHubへは未プッシュ」はこれで解消）。本番反映と nginx・network-config.js の設定は未実施。
+- 含めなかったもの: .claude/settings.local.json、poster/、voicevox_sample.html。
+- 基準commit: この追記を含むコミットの親（79ff656）。
