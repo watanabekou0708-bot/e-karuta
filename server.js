@@ -75,6 +75,9 @@ const settings = {
   // 大会モードに入るのに3けたの入場番号が必要か。番号は game-room.js が自動で作る（空なら次に使うときに作る）
   entryCodeEnabled: true,
   entryCode: '',
+  // 仕掛け（回転／下半分2倍）を出すか。切り替えは次の試合から効く
+  gimmickRotateEnabled: true,
+  gimmickUnderdogEnabled: true,
 };
 // サーバー内蔵の負荷テストのボットだけが知っている合言葉（起動のたびに作り直す。教卓PCの権限は与えない）
 const INTERNAL_TOKEN = require('crypto').randomBytes(24).toString('hex');

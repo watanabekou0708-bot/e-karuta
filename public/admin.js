@@ -180,6 +180,20 @@ function fetchEntryCode() {
 function toggleEntryCode() { if (isHost) socket.emit('set_entry_code', !entryCodeEnabled); }
 socket.on('entry_code_setting', fetchEntryCode);
 
+// ── 仕掛け（回転／下半分2倍）を出すか ──
+let gimmicks = { rotate: true, underdog: true };
+const GIMMICK_BUTTONS = { rotate: ['gimmickRotateBtn', '回転'], underdog: ['gimmickUnderdogBtn', '下半分2倍'] };
+function renderGimmicks() {
+  Object.entries(GIMMICK_BUTTONS).forEach(([type, [id, label]]) => {
+    const btn = $(id);
+    btn.disabled = !isHost;
+    btn.textContent = !isHost ? '教卓PCからのみ変更できます' : `${label}：${gimmicks[type] ? '出す（押すと「出さない」）' : '出さない（押すと「出す」）'}`;
+    btn.setAttribute('aria-pressed', String(gimmicks[type]));
+  });
+}
+function toggleGimmick(type) { if (isHost) socket.emit('set_gimmick', { type, on: !gimmicks[type] }); }
+socket.on('gimmick_setting', next => { gimmicks = next; renderGimmicks(); });
+
 // ── ヘッドフォン確認をするか ──
 let headphoneCheckEnabled = true;
 function renderHeadphoneCheck() {
@@ -197,6 +211,8 @@ socket.on('admin_init', (d) => {
   isHost = !!d.isHost;
   renderStudentPractice();
   renderHeadphoneCheck();
+  gimmicks = d.gimmicks || gimmicks;
+  renderGimmicks();
   fetchEntryCode();
 });
 

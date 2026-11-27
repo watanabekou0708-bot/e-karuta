@@ -236,7 +236,7 @@ function playVoiceRead(yomi, playAt, gen, onDone) {
     if (i === 1) armFlying();          // 「読み上げます」の発声開始：カーソルを定位置へ・フライング監視開始
     else if (i === 2) { disarmFlying(); hideScorePanel(); }  // 上の句の1文字目：監視終了。前の札の判定内訳は「読み上げます」が終わるここまで表示しておく
   });
-  if (ok) setTimeout(() => { if (gen === audioGeneration && !introStarted) { introStarted = true; hideScorePanel(); syncGrabAvailability(); } }, 9000);
+  if (ok) setTimeout(() => { if (gen === audioGeneration && !introStarted) { introStarted = true; hideScorePanel(); syncGrabAvailability(); KGimmick.intro(cardLayout); } }, 9000);
   return ok;
 }
 // 時間切れ（誰も取れなかった）のときの正解発表：そこまで → 上の句 → 下の句（答え合わせ＝青山龍星）。
@@ -1683,6 +1683,7 @@ function openLobby(players) {
   _ceremonyCallback = null;
 
   stopAllAudio();
+  KGimmick.end();
   gameStarted          = false;
   syncGrabAvailability();
   isAnnouncing         = false;
@@ -2306,6 +2307,7 @@ function skipCeremony() { _endCeremony(); }
 // cardLayout に保存された位置・向きをそのまま使うので、整理した配置が
 // 対局画面にそのまま引き継がれる。
 function renderGrid(cardOrder, remainingSet, mode) {
+  KGimmick.end();
   const grid = $('grid');
   grid.innerHTML = '';
   const order = cardOrder && cardOrder.length ? cardOrder : KARUTA.map(k => k.id);
@@ -2619,6 +2621,7 @@ function armFlying() {
   if (myIsHost) socket.emit('intro_started', { t: currentReadPlayAt });
   introStarted = true;                             // ここから札を取れる
   syncGrabAvailability();
+  KGimmick.intro(cardLayout);                      // 回転の仕掛けは、取れるようになる瞬間から始める
   if (!canEverTake() || myGrabLocked || isArranging) return;
   setHomeAlert(true);                              // 定位置の円を強調（上の句の1文字目が読まれるまで）
   if (KCursor.isVirtual()) {
@@ -2680,6 +2683,7 @@ function showPendingPanel(speedMs, g) {
     ${spRow('⚡ 速度', secStr(speedMs), '読み上げ開始から', fmtPts(speedPts(speedMs)))}
     ${spRow('🎯 精度', mmStr(g.offsetMm), '札の中心からの距離', fmtPts(accPts(g.offsetMm)))}
     ${spRow('🖱 距離', mmStr(g.distMm), '定位置から札の中心まで', fmtPts(ctrlPts(g.distMm)))}
+    ${KGimmick.isTarget(myId) ? spRow('✨ 下半分2倍', '速度・精度・距離の点が2倍', '', '×2') : ''}
     ${bonusLooksReached(speedMs, g) ? `<div class="sp-row"><span class="sp-label">🎁 ボーナス</span><span class="sp-detail">${BONUS_RULE_TEXT}</span><span class="sp-pts">+${fmtPts(BONUS_PTS)}</span></div>` : ''}
     <div class="sp-cont">0.5秒間にクリックした全員のうち、精度の点数が一番高い人が札を取ります。<br>札を取れなくても、「そこまで」までに正しい札をクリックした人には点数が入ります。<br>mm は画面の札＝実物の取り札（横${CARD_REAL_W_MM}mm）の縮尺で換算しています。</div>`;
 }
@@ -2721,6 +2725,7 @@ function showScorePanel(by, r, contenders) {
   cmp += '</div>';
   el.innerHTML = `<div class="sp-title"><span class="tn-dot" style="background:${by.color || '#4a9eff'}"></span>${escHtml(by.name)} <span style="color:var(--dim);font-weight:400;font-size:.75rem">が獲得</span></div>
     ${cmp}
+    ${own.mult > 1 ? `<div class="sp-row"><span class="sp-label">✨ 下半分2倍</span><span class="sp-detail">速度・精度・距離の合計を${own.mult}倍</span><span class="sp-pts">×${own.mult}</span></div>` : ''}
     ${own.bonus ? `<div class="sp-row"><span class="sp-label">🎁 ボーナス</span><span class="sp-detail">${BONUS_RULE_TEXT}（別枠）</span><span class="sp-pts">+${fmtPts(own.bonus)}</span></div>` : ''}
     <div class="sp-total"><span>${totalLabel}</span><span class="sp-big">+${fmtPts(own.awarded + (own.bonus || 0))}</span></div>
     ${capNote}${list}`;
@@ -3051,8 +3056,9 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
 
 // イントロ（読み上げます）→ 上の句 MP3 を Web Audio で精密同期再生
 // playAt = イントロ開始時刻（全 PC でハードウェアレベルで同期）
-socket.on('read_card', ({ card, remaining, playAt }) => {
+socket.on('read_card', ({ card, remaining, playAt, gimmick }) => {
   KComments.setQuiet(true);   // かるたの読み上げ中はコメントを流さない
+  KGimmick.prepare(gimmick, myId);
   currentReadPlayAt = playAt;
   introStarted = false;   // 「読み上げます」が始まるまでは取れない
   // 前の札の判定内訳は、次の札の「読み上げます」が終わる（上の句が始まる）まで表示し続ける（playVoiceReadで消す）
@@ -3084,8 +3090,9 @@ socket.on('layout', ({ layout, by }) => {
   if (setServerLayout(layout, Object.keys(layout))) applyLayoutToDom();
 });
 
-socket.on('decoy_read', ({ id, yomi, playAt }) => {
+socket.on('decoy_read', ({ id, yomi, playAt, gimmick }) => {
   KComments.setQuiet(true);
+  KGimmick.prepare(gimmick, myId);
   currentReadPlayAt = playAt;
   introStarted = false;
   setGrabLocked(false);
@@ -3105,6 +3112,7 @@ socket.on('decoy_read', ({ id, yomi, playAt }) => {
 // 制限時間（10秒）超過。「そこまで」と案内した後、上の句・下の句で正解を発表する。
 // 音声はクライアントにまだ無ければ再生前に取得してから鳴らす（途中で無音にならないため）。
 socket.on('time_up', ({ card, decoy, playAt }) => {
+  KGimmick.end();
   dropIdleWaiters('read');   // まだ始められていない詠み上げは取り消す
   stopAllAudio();   // ここで世代カウンタをインクリメントする
   const gen = audioGeneration;
@@ -3151,6 +3159,7 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
 // DJ・答え合わせの音声は、クライアントにまだ無ければ再生前に取得してから鳴らす
 // （無いまま鳴らすと、その部分だけ無音になり「途中で切れた」ように聞こえるため）。
 socket.on('card_taken', ({ cardId, by, players, result, contenders, djText, djSegs, seq }) => {
+  KGimmick.end();
   dropIdleWaiters('read');   // まだ始められていない詠み上げは取り消す
   stopAllAudio();   // ここで世代カウンタをインクリメントする
   const gen = audioGeneration;

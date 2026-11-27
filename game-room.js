@@ -335,6 +335,12 @@ function controlPoints(distMm) {
   return Math.round(CTRL_MAX_PTS * f * f);
 }
 
+// 仕掛け（ギミック）の抽選と対象の決め方
+const GIMMICK = require('./gimmick-plan.js');
+const GIMMICK_CPU_ROTATE_DELAY_MS = 500;   // 札が回っている読みでは、CPUの反応をこの分だけ遅くする
+const GIMMICK_SETTINGS = { rotate: 'gimmickRotateEnabled', underdog: 'gimmickUnderdogEnabled' };
+const gimmickSettings = () => ({ rotate: settings.gimmickRotateEnabled, underdog: settings.gimmickUnderdogEnabled });
+
 // ── Game state ────────────────────────────────────────────
 const gs = {
   phase:          'lobby',
@@ -352,6 +358,9 @@ const gs = {
   readStartAt:    0,      // 現在の読み上げの開始予定時刻（サーバー時計）。速度ポイントの基準
   readQueue:      [],     // この試合で読む札（盤面の札のうち6〜9枚。読む順）。残りは読まれずに場に残る
   readTotal:      0,
+  gimmickPlan:    {},     // この試合の仕掛けの予定 { 何回目の読み: 種類 }
+  readNo:         0,      // この試合で何回目の読みか（ダミー読みも数える）
+  readGimmick:    null,   // 今の読みの仕掛け { type, order? , targets? }。次の読みが始まるまで残し、加点に使う
   yomiFinishedAt: 0,
   yomiFinishedForCurrent: false,   // 今の札の上の句が最後まで読み終わったか（読み上げ中に勝者が決まっても、これが true になるまで確定を待つ）
   pendingWinner:  null,    // 読み上げ中に決まった勝者（{ grabberId, card, scored, contenders }）。読み終わるまで未確定のまま保持する
@@ -684,6 +693,34 @@ const tieTimer = setInterval(() => {
   io.emit('tie_order', { ties });
 }, TIE_SHUFFLE_MS).unref();
 
+// ── 仕掛け（ギミック）──
+// 次の読みの番号を進め、その読みに仕掛けがあれば準備する。本物の札かダミーかは見ない
+function beginReadGimmick() {
+  gs.readNo++;
+  const type = gs.gimmickPlan[gs.readNo] || null;
+  gs.readGimmick = null;
+  if (type === 'rotate') gs.readGimmick = { type, order: shuffle([...gs.remaining]) };
+  if (type === 'underdog') {
+    // 読み始める時点の点数で、この試合で札を取れる人の下半分を決める
+    const entries = Object.entries(gs.players)
+      .filter(([id, p]) => (p.isBot || p.joined) && canParticipate(id))
+      .map(([id, p]) => [id, p.score]);
+    gs.readGimmick = { type, targets: new Set(GIMMICK.lowerHalfIds(entries)) };
+  }
+  if (type) logEvent('gimmick', { type, readNo: gs.readNo, targets: gs.readGimmick.targets ? [...gs.readGimmick.targets] : undefined });
+}
+// 画面に送る形
+function gimmickPayload() {
+  const g = gs.readGimmick;
+  if (!g) return null;
+  return g.type === 'underdog' ? { type: g.type, targetIds: [...g.targets] } : { type: g.type, order: g.order };
+}
+// この読みで、その人の通常の得点にかける倍率
+function gimmickMultiplier(id) {
+  const g = gs.readGimmick;
+  return g && g.type === 'underdog' && g.targets.has(id) ? GIMMICK.MULTIPLIER : 1;
+}
+
 // 1回の申告(candidate)を採点する。
 //  cand: { id, t(クリック時刻・サーバー時計), offsetMm(札の中心からの距離mm), distMm(定位置から札の中心までmm) }
 function scoreCandidate(cand) {
@@ -706,7 +743,8 @@ function scoreCandidate(cand) {
 // 正しい札をクリックした1人ぶんの点数を、その人の得点に加える。scored は scoreCandidate() の結果。
 // 1試合の上限(SCORE_CAP)は通常の得点にだけかかり、ボーナスは別枠で上に加算する。
 function awardPoints(player, scored) {
-  const wanted     = scored.base;
+  const mult       = gimmickMultiplier(scored.id);   // 下半分2倍の対象なら2（ボーナスは倍にしない）
+  const wanted     = scored.base * mult;
   const bonusPrev  = player.bonus || 0;
   const baseBefore = player.score - bonusPrev;
   const baseAfter  = Math.max(baseBefore, Math.min(SCORE_CAP, baseBefore + wanted));
@@ -714,7 +752,7 @@ function awardPoints(player, scored) {
   const bonus      = scored.bonusOk ? BONUS_PTS : 0;
   player.bonus = bonusPrev + bonus;
   player.score = baseAfter + player.bonus;
-  return { ...scored, awarded, wanted, capped: awarded < wanted, bonus, total: player.score };
+  return { ...scored, mult, awarded, wanted, capped: awarded < wanted, bonus, total: player.score };
 }
 
 // 正解取得の共通処理（人間・CPU 共用）。scored は scoreCandidate() の結果（札を取った1位の人）、
@@ -799,7 +837,7 @@ async function processCorrectGrab(grabberId, card, scored, contenders) {
     players: gs.players,
     result,
     contenders: sortedContenders.map(c => ({ id: c.id, name: c.name, color: c.color, speedMs: c.speedMs, offsetMm: c.offsetMm, distMm: c.distMm, key: c.key, base: c.base, win: c.win,
-      awarded: c.awarded, wanted: c.wanted, capped: c.capped, bonus: c.bonus })),
+      awarded: c.awarded, wanted: c.wanted, capped: c.capped, bonus: c.bonus, mult: c.mult })),
     djText, djSegs,
     seq: announceSeq + 1,
   });
@@ -877,7 +915,8 @@ function scheduleCpuGrabs(card) {
       ? base.missRate * 0.4
       : gs.cpuDifficulty === 'easy'
       ? Math.min(base.missRate * 1.5, 0.8) : base.missRate;
-    const delay = minMs + Math.random() * (maxMs - minMs);
+    const delay = minMs + Math.random() * (maxMs - minMs)
+      + (gs.readGimmick && gs.readGimmick.type === 'rotate' ? GIMMICK_CPU_ROTATE_DELAY_MS : 0);
     const accMod = gs.cpuDifficulty === 'hard' ? 0.6 : gs.cpuDifficulty === 'easy' ? 1.6 : 1.0;
     const [oMin, oMax] = CPU_OFFSET_RANGE_MM[tierKey];
     const offsetMm = (oMin + Math.random() * (oMax - oMin)) * accMod;
@@ -939,6 +978,7 @@ function startRealRead() {
     card,
     remaining: [...gs.remaining],
     playAt,
+    gimmick: gimmickPayload(),
   });
   if (readTimeoutTimer) clearTimeout(readTimeoutTimer);
   // yomi_finished が来ない場合の安全フォールバック（8s 後に計測開始）
@@ -1089,6 +1129,7 @@ function startDecoyRead() {
     id:     decoy.id,
     yomi:   decoy.yomi,
     playAt,
+    gimmick: gimmickPayload(),
   });
   gs.currentDecoy = decoy;   // time_up 発火時に上の句として再読み上げる
   if (decoyTimer) clearTimeout(decoyTimer);
@@ -1624,6 +1665,10 @@ function doStartPlaying() {
   gs.phase       = 'waiting';
   gs.readQueue   = pickReadQueue(gs.cardOrder);
   gs.readTotal   = gs.readQueue.length;
+  gs.gimmickPlan = GIMMICK.planGimmicks(gs.readTotal, { rotate: settings.gimmickRotateEnabled, underdog: settings.gimmickUnderdogEnabled });
+  gs.readNo      = 0;
+  gs.readGimmick = null;
+  logEvent('gimmick_plan', { plan: gs.gimmickPlan });
   gs.currentCard = pickNext();
   gs.matchLevel     = matchLevelIndex(gs.cardOrder);
   gs.grabCandidates = [];
@@ -1875,6 +1920,7 @@ function transferEventIdentity(oldId, newId) {
   swap(gs.event.revivalCandidates);
   if (gs.event.history[oldId]) { gs.event.history[newId] = gs.event.history[oldId]; delete gs.event.history[oldId]; }
   if (gs.ready.active) swap(gs.ready.need);
+  if (gs.readGimmick && gs.readGimmick.targets) swap(gs.readGimmick.targets);
 }
 // 大会に関わりがある（今の試合の参加者・本戦待機中・敗者復活戦待機中）、今は未接続の
 // 参加者の中から、predicate に一致する人を探す。
@@ -2143,6 +2189,7 @@ function connect(socket, { player = null } = {}) {
     if (pauseState.active) return;
     if (pauseState.requested) { activatePause(); return; }
     const chance = getDecoyChance();
+    beginReadGimmick();
     if (Math.random() < chance) {
       startDecoyRead();
     } else {
@@ -2681,6 +2728,15 @@ function connect(socket, { player = null } = {}) {
     ack({ correct });
   });
 
+  // 仕掛けのON/OFF（教卓PCのみ。次の試合から効く）
+  socket.on('set_gimmick', (payload) => {
+    const key = payload && GIMMICK_SETTINGS[payload.type];
+    if (!isHostEligible(socket) || !key || typeof payload.on !== 'boolean') return;
+    settings[key] = payload.on;
+    logEvent('gimmick_setting', { type: payload.type, enabled: payload.on });
+    env.broadcastAll('gimmick_setting', gimmickSettings());
+  });
+
   socket.on('set_headphone_check', (on) => {
     if (!isHostEligible(socket) || typeof on !== 'boolean') return;
     settings.headphoneCheckEnabled = on;
@@ -2715,6 +2771,7 @@ function connect(socket, { player = null } = {}) {
       isHost:      isHostEligible(socket),
       studentPracticeAllowed: settings.studentPracticeAllowed,
       headphoneCheckEnabled: settings.headphoneCheckEnabled,
+      gimmicks:    gimmickSettings(),
       supervised:  process.env.KARUTA_SUPERVISED === '1',
       runMode:     serverRunMode(),
       pause:       pauseSnapshot(),
@@ -3060,7 +3117,7 @@ function movePlayer(oldId, newId) {
   gs.players[newId] = gs.players[oldId];
   delete gs.players[oldId];
   if (gs.hostId === oldId) gs.hostId = newId;
-  [gs.ready && gs.ready.need, gs.ready && gs.ready.done, gs.lockedPlayers, gs.eliminatedPlayers].forEach(set => {
+  [gs.ready && gs.ready.need, gs.ready && gs.ready.done, gs.lockedPlayers, gs.eliminatedPlayers, gs.readGimmick && gs.readGimmick.targets].forEach(set => {
     if (set && set.delete(oldId)) set.add(newId);
   });
 }
