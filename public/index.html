@@ -86,16 +86,6 @@
 <!-- ── Lobby ─────────────────────────────────────────── -->
 <div id="oLobby" class="overlay hidden">
   <div class="ov-card">
-    <!-- 大会モードの結果画面の表示中は、ロビー本来の案内（接続URL・参加人数など）は隠す -->
-    <div id="lobbyTopInfo">
-      <div class="ov-title">ロビー</div>
-      <p class="ov-sub">他のパソコンは下記URLにアクセスしてください</p>
-      <div class="lobby-url-label">接続URL</div>
-      <div class="lobby-url" id="lobbyUrl" title="クリックで選択"></div>
-      <div class="lobby-url-label">現在の参加人数：<span id="lobbyCount">0</span>人</div>
-      <div class="lobby-players" id="lobbyList"></div>
-    </div>
-
     <!-- 大会モード開始前の待機画面（中身は waiting.js） -->
     <div id="waitingView" class="hidden">
       <div class="wt-label">待機画面</div>
@@ -183,6 +173,20 @@
     <!-- ゲスト向けメッセージ（モード未選択時） -->
     <p id="lobbyWaiting" class="ov-sub" style="margin-top:.8rem">ホストがモードを選択するまでお待ちください</p>
     <button id="lobbyLeaveBtn" class="btn btn-leave" onclick="leaveLobby()">🚪 退室する</button>
+  </div>
+</div>
+
+<!-- ── 大会モードの入場番号（ヘッドフォン確認の前。処理は entry-code.js）──── -->
+<div id="oEntryCode" class="overlay hidden">
+  <div class="ov-card">
+    <div class="ov-title">🔑 大会モードの入場番号</div>
+    <p class="ov-sub">先生が知らせる3けたの番号を入力してください。</p>
+    <form id="entryForm" autocomplete="off">
+      <input id="entryInput" class="name-input hp-input" type="text" inputmode="numeric" maxlength="3" aria-label="入場番号（3けた）" aria-describedby="entryError">
+      <p id="entryError" class="name-error hidden" role="alert"></p>
+      <button type="submit" class="btn btn-green">入場する</button>
+    </form>
+    <button id="entryBack" class="btn-back" type="button" style="margin-top:.8rem">← モード選択に戻る</button>
   </div>
 </div>
 
@@ -385,6 +389,7 @@
 <script src="comments.js"></script>
 <script src="waiting.js"></script>
 <script src="headphone.js"></script>
+<script src="entry-code.js"></script>
 <script src="game.js"></script>
 <script src="a11y.js"></script>
 </body>

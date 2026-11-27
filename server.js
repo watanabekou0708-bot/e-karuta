@@ -72,6 +72,9 @@ const settings = {
   studentPracticeAllowed: true,
   // 大会モードの待機画面の前に「ヘッドフォン確認（3けたの番号）」をするか
   headphoneCheckEnabled: true,
+  // 大会モードに入るのに3けたの入場番号が必要か。番号は game-room.js が自動で作る（空なら次に使うときに作る）
+  entryCodeEnabled: true,
+  entryCode: '',
 };
 // サーバー内蔵の負荷テストのボットだけが知っている合言葉（起動のたびに作り直す。教卓PCの権限は与えない）
 const INTERNAL_TOKEN = require('crypto').randomBytes(24).toString('hex');

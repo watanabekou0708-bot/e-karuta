@@ -61,6 +61,13 @@
     <div id="accessLogList" class="admin-schedule"></div>
   </div>
 
+  <div class="admin-card" id="entryCodeCard">
+    <h2 class="admin-h2">🔑 大会モードの入場番号</h2>
+    <p class="ov-sub">ONのときは、下の3けたの番号を入力した参加者だけが大会モードに入れます（番号を入れていない人は、大会の参加者に含まれません）。OFFのときは誰でも入れます。番号は自動で作り、OFFにしてからONにすると新しい番号になります。サーバーを再起動すると「ON」に戻り、番号も変わります。</p>
+    <p id="entryCodeValue" style="font-size:2.4rem;font-weight:700;letter-spacing:.3em;margin:.4rem 0" aria-live="polite">—</p>
+    <button id="entryCodeToggleBtn" class="btn btn-blue" type="button" disabled onclick="toggleEntryCode()">読み込み中…</button>
+  </div>
+
   <div class="admin-card" id="headphoneCard">
     <h2 class="admin-h2">🎧 ヘッドフォン確認</h2>
     <p class="ov-sub">参加者が大会モードを選ぶと、音声で流れる3けたの番号を入力してから待機画面に進みます。音声が出せないときは「確認しない」にしてください（サーバーを再起動すると「確認する」に戻ります）。</p>

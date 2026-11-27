@@ -10,6 +10,8 @@
 - `mockups/`：実装前の画面案（`survey-mockup.html` はプレイ後アンケートの案）。
 - `survey.js` / `public/survey.html`・`survey.css`・`survey-page.js`：アンケート（サーバー側のCSV保存 / 専用ページ）。
 - `手順書/Webかるた_アンケート.url`：共有ドライブに置くアンケートのショートカット。
+- `public/entry-code.js`：大会モードの入場番号（3けた）の入力画面。番号の表示とON/OFFは大会設定画面。
+- `ゲーム性アイデア案.md`：大会を盛り上げる仕掛けの検討メモ（未実装）。
 - `public/waiting.js`：大会モード開始前の待機画面。
 
 ## サーバーの構成

@@ -158,6 +158,28 @@ function renderStudentPractice() {
 function toggleStudentPractice() { if (isHost) socket.emit('set_student_practice', !studentPracticeAllowed); }
 socket.on('student_practice', ({ allowed }) => { studentPracticeAllowed = !!allowed; renderStudentPractice(); });
 
+// ── 大会モードの入場番号（番号は教卓PCにだけ届く）──
+let entryCodeEnabled = true;
+let entryCodeValue = null;
+function renderEntryCode() {
+  const btn = $('entryCodeToggleBtn');
+  btn.disabled = !isHost;
+  btn.textContent = !isHost ? '教卓PCでのみ操作できます'
+    : entryCodeEnabled ? '現在：ON（押すと「OFF」）' : '現在：OFF（押すと「ON」）';
+  btn.setAttribute('aria-pressed', String(entryCodeEnabled));
+  $('entryCodeValue').textContent = !isHost ? '—' : entryCodeEnabled ? (entryCodeValue || '…') : '番号なし';
+}
+function fetchEntryCode() {
+  if (!isHost) { renderEntryCode(); return; }
+  socket.emit('get_entry_code', ({ enabled, code }) => {
+    entryCodeEnabled = enabled;
+    entryCodeValue = code;
+    renderEntryCode();
+  });
+}
+function toggleEntryCode() { if (isHost) socket.emit('set_entry_code', !entryCodeEnabled); }
+socket.on('entry_code_setting', fetchEntryCode);
+
 // ── ヘッドフォン確認をするか ──
 let headphoneCheckEnabled = true;
 function renderHeadphoneCheck() {
@@ -175,6 +197,7 @@ socket.on('admin_init', (d) => {
   isHost = !!d.isHost;
   renderStudentPractice();
   renderHeadphoneCheck();
+  fetchEntryCode();
 });
 
 // ── アンケート結果（CSV）の一覧 ──

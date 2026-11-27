@@ -89,28 +89,6 @@ body {
 }
 .btn-leave:hover { color: var(--danger); border-color: var(--danger); filter: none; transform: none; box-shadow: none; }
 
-/* ── Lobby ───────────────────────────────────────────────── */
-.lobby-url {
-  background: var(--surf); border: 1px solid var(--border);
-  border-radius: 8px; padding: .55rem 1rem;
-  font-size: .8rem; color: var(--green); font-family: monospace;
-  margin-bottom: 1.25rem; word-break: break-all;
-  cursor: text; user-select: all;
-}
-.lobby-url-label {
-  font-size: .65rem; color: var(--dim);
-  text-transform: uppercase; letter-spacing: .1em; margin-bottom: .4rem;
-}
-.lobby-players { margin-bottom: 1.5rem; max-height: 220px; overflow-y: auto; }
-.lobby-row {
-  display: flex; align-items: center; gap: .6rem;
-  padding: .45rem .75rem; margin-bottom: .35rem;
-  background: var(--surf); border-radius: 8px; border: 1px solid var(--border);
-}
-.lobby-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.lobby-name { font-size: .9rem; flex: 1; text-align: left; }
-.lobby-you  { font-size: .7rem; color: var(--dim); }
-
 /* ── Difficulty picker（ホストのみ・ロビー）──────────────── */
 .diff-picker { margin-bottom: 1.1rem; }
 .diff-label  { font-size: .7rem; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .4rem; }
@@ -884,9 +862,6 @@ body.vcursor-on, body.vcursor-on * { cursor: none !important; }
 }
 .read-btn:disabled::before { content: '🚫 '; }
 .read-btn:disabled:hover { filter: none; transform: none; box-shadow: none; }
-
-/* ── Lobby host badge ────────────────────────────────────── */
-.lobby-host { font-size: .7rem; color: var(--warn); margin-left: .2rem; }
 
 /* ── 対局画面のレイアウト（左：ランキング／中央：読み上げ＋盤面／右：判定の内訳）──
    画面いっぱいに使い、ページ全体はスクロールさせない。ランキングは左の縦のスペースを

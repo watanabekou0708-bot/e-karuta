@@ -543,13 +543,6 @@ if (HOST_PARAM) {
     if (statusLink)    statusLink.href    = 'status.html?host=' + encodeURIComponent(HOST_VALUE);
   });
 }
-// ロビーに表示する「他のパソコンはこのURLへ」の接続先。?host が付いたままだと、
-// それを見た他の人がアクセスしたときにホスト扱いになってしまうため取り除く。
-function guestConnectUrl() {
-  const u = new URL(window.location.href);
-  u.searchParams.delete('host');
-  return u.toString();
-}
 let myId        = null;
 let myIsHost    = false;
 let isServerPc  = false;   // サーバーを立ち上げているPC自身のブラウザか（大会モードの操作はここだけ）
@@ -700,6 +693,7 @@ socket.on('event_start_denied', ({ reason }) => {
     not_joined:      'このPCが参加登録されていません。ページを再読み込みしてから、もう一度押してください。',
     not_lobby:       'ロビー以外の状態のため開始できません。ロビーに戻ってから押してください。',
     no_participants: '参加者がいません。学生が参加してから押してください。',
+    no_entry:        '入場番号を入れた参加者がいません。大会設定画面の番号を知らせてから押してください。',
   }[reason] || '大会モードを開始できませんでした。';
   alert(msg);
 });
@@ -892,7 +886,7 @@ function renderLobbyEventSection() {
     if (ceremonyBox)  ceremonyBox.classList.add('hidden');
     if (guestMsg) {
       guestMsg.classList.remove('hidden');
-      guestMsg.innerHTML = `現在の参加人数：<span id="lobbyEventGuestCount">${lobbyParticipantCount()}</span>人<br>ホストが大会モードを開始するまでお待ちください。`;
+      guestMsg.textContent = 'ホストが大会モードを開始するまでお待ちください。';
     }
     return;
   }
@@ -969,10 +963,7 @@ function renderLobbyEventSection() {
     }
   }
   if (resultBox) resultBox.classList.toggle('hidden', !showResult);
-  // 結果画面の表示中は、ロビー本来の案内（接続URL・参加人数・退室するボタン）を隠す
-  const topInfo = $('lobbyTopInfo');
   const leaveBtn = $('lobbyLeaveBtn');
-  if (topInfo)  topInfo.classList.toggle('hidden', showResult);
   if (leaveBtn) leaveBtn.classList.remove('hidden');   // 退室するボタンは常に使えるようにする
 
   // ── 表彰式の案内（最終試合後、ホームに戻ったら表示。ホスト・非ホスト共通）────
@@ -1031,21 +1022,21 @@ function renderLobbyEventSection() {
 // この画面を開いていること＝準備完了。サーバーの記録と違っていれば知らせる（再接続後もここで元に戻る）。
 function syncWaiting() {
   const choseEvent = lobbyMode === 'event' && !eventStarted;
-  // 参加者は、ヘッドフォン確認に合格するまで待機画面（準備完了）に進めない。進行役とボットは対象外
-  const needsCheck = choseEvent && !isServerPc && !HOST_PARAM && !BOT_LINK && KHeadphone.isRequired();
-  KHeadphone.sync(needsCheck && nameEntered && !$('oLobby').classList.contains('hidden'));
-  const waitingNow = choseEvent && !needsCheck;
+  // 参加者は「入場番号 → ヘッドフォン確認」の順に合格するまで待機画面（準備完了）に進めない。進行役とボットは対象外
+  const isGuest = choseEvent && !isServerPc && !HOST_PARAM && !BOT_LINK;
+  const needsEntry = isGuest && KEntry.isRequired();
+  const needsCheck = isGuest && !needsEntry && KHeadphone.isRequired();
+  const canShow = nameEntered && !$('oLobby').classList.contains('hidden');
+  KEntry.sync(needsEntry && canShow);
+  KHeadphone.sync(needsCheck && canShow);
+  const waitingNow = choseEvent && !needsEntry && !needsCheck;
   const card = document.querySelector('#oLobby .ov-card');
   card.classList.toggle('waiting-mode', waitingNow);
   $('waitingView').classList.toggle('hidden', !waitingNow);
-  if (waitingNow) KWaiting.render({ players: livePlayers, hostId: liveHostId, myId, isHost: isServerPc });
+  if (waitingNow) KWaiting.render({ players: livePlayers, hostId: liveHostId, myId, isHost: isServerPc, entryRequired: KEntry.isEnabled() });
   const me = livePlayers[myId];
   const ready = waitingNow && !$('oLobby').classList.contains('hidden');
   if (!isServerPc && me && me.joined && !!me.eventReady !== ready) socket.emit('event_ready', ready);
-}
-
-function lobbyParticipantCount() {
-  return Object.values(livePlayers || {}).filter(p => !p.isBot && p.joined).length;
 }
 
 // 対象者（本戦プール／敗者復活戦候補）のうち、今実際に接続している（CPUは常に・人は
@@ -1071,7 +1062,6 @@ function showEventHome() {
   clearSpectatorChat();
   renderLobbyList(livePlayers || {});
   hide('oName'); hide('oGameOver'); hide('oRoundResult'); hide('oCeremony');
-  $('lobbyUrl').textContent = guestConnectUrl();
   show('oLobby');
   updateLobbyUI();
   updateHostNotice();
@@ -1744,30 +1734,14 @@ function openLobby(players) {
     show('oBotWait');
     return;
   }
-  $('lobbyUrl').textContent = guestConnectUrl();
   show('oLobby');
   updateLobbyUI();
   updateHostNotice();
 }
 
+// ロビーには参加者の一覧を出さない。実機ボットの待機画面の参加人数だけを更新する
 function renderLobbyList(players) {
-  const ul = $('lobbyList');
-  ul.innerHTML = '';
-  const joined = Object.entries(players).filter(([, p]) => !p.isBot && p.joined);   // ロビーには CPU と未参加者を表示しない
-  if ($('lobbyCount')) $('lobbyCount').textContent = joined.length;
-  if ($('botWaitCount')) $('botWaitCount').textContent = joined.length;
-  joined
-    .forEach(([id, p]) => {
-      const row = document.createElement('div');
-      row.className = 'lobby-row';
-      const isHost = id === liveHostId;
-      row.innerHTML = `
-        <span class="lobby-dot" style="background:${p.color}"></span>
-        <span class="lobby-name">${escHtml(p.name)}</span>
-        ${id === myId ? '<span class="lobby-you">あなた</span>' : ''}
-        ${isHost      ? '<span class="lobby-host">👑 ホスト</span>' : ''}`;
-      ul.appendChild(row);
-    });
+  if ($('botWaitCount')) $('botWaitCount').textContent = Object.values(players).filter(p => !p.isBot && p.joined).length;
 }
 
 function requestLobby() { socket.emit('go_to_lobby'); }
@@ -2861,13 +2835,17 @@ socket.on('init', data => {
   // 通信が切れて再接続すると、サーバーでは新しい「未参加」の接続になる（画面は参加済みのまま）。
   // そのままだと「大会モードを開始」などの操作がサーバーに無視されるので、同じ内容で参加し直す。
   initCount++;
-  if (initCount > 1 && nameEntered && lastJoinPayload) socket.emit('set_name', lastJoinPayload);
+  if (initCount > 1 && nameEntered && lastJoinPayload) {
+    socket.emit('set_name', lastJoinPayload);
+    KEntry.resend();
+  }
   myId       = data.myId;
   liveTies   = {};
   KComments.setQuiet(data.phase === 'reading' || data.phase === 'decoy');
   isServerPc = !!data.isServerPc;
   studentPracticeAllowed = !!data.studentPracticeAllowed;
   KHeadphone.setEnabled(data.headphoneCheckEnabled !== false);
+  KEntry.setEnabled(data.entryCodeEnabled !== false);
   liveHostId = data.hostId;
   liveData   = { ...data };
   applyVoiceSummary(data.voice);
@@ -2922,6 +2900,13 @@ socket.on('tie_order', ({ ties }) => {
 });
 
 KHeadphone.init({ socket, onPass: () => syncWaiting(), onBack: () => backToLobbyModeSelect() });
+KEntry.init({ socket, onPass: () => syncWaiting(), onBack: () => backToLobbyModeSelect() });
+socket.on('entry_code_setting', ({ enabled }) => {
+  KEntry.reset(!!enabled);
+  KEntry.sync(false);   // 入力中の画面はいったん閉じて、必要なら空の状態で出し直す
+  syncWaiting();
+});
+
 socket.on('headphone_check_setting', ({ enabled }) => {
   KHeadphone.setEnabled(!!enabled);
   syncWaiting();
@@ -2940,6 +2925,7 @@ socket.on('session_replaced', () => {
   stopTimer();
   stopAllAudio();
   KComments.clear();
+  KEntry.sync(false);
   KHeadphone.sync(false);
   KCursor.setEnabled(false);
   show('oReplaced');
@@ -3011,6 +2997,7 @@ socket.on('event_memorize_start', ({ cardOrder, cards, players, endsAt, stage, s
   soundCheckPending = true; soundCheckRunning = false;   // 大会モードだけ、最初の読み上げの前にテスト音声を1回流す
   matchHeadcount      = { humanCount: hc || 0, cpuCount: cc || 0, totalCount: tc || 0 };
   isEventMode         = true;
+  KEntry.sync(false);
   KHeadphone.sync(false);
   eventStarted        = true;
   eventStage          = stage;

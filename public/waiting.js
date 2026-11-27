@@ -37,10 +37,21 @@ window.KWaiting = (() => {
       .flatMap(([title, members]) => [make('div', 'wt-group', `${title}（${members.length}名）`), ...members.sort(byGradeName).map(p => tile(p, myId))]);
   }
 
-  // view: { players, hostId, myId, isHost }
+  // ホストの画面の補足：待機画面を開いていない人の数。入場番号がONのときは、番号を入れていない人を分けて数える
+  function hostNote(members, entryRequired) {
+    const notReady = members.filter(p => !p.eventReady);
+    const excluded = entryRequired ? notReady.filter(p => !p.entryPassed).length : 0;
+    const included = notReady.length - excluded;
+    return [
+      included ? `このほかに待機画面を開いていない参加者が ${included}名います（開始すると参加者に含まれます）` : '',
+      excluded ? `入場番号を入れていない人が ${excluded}名います（開始しても参加者に含まれません）` : '',
+    ].filter(Boolean).join('／');
+  }
+
+  // view: { players, hostId, myId, isHost, entryRequired }
   function render(view) {
     last = view;
-    const { players, hostId, myId, isHost } = view;
+    const { players, hostId, myId, isHost, entryRequired } = view;
     // 参加登録している人（CPUと進行役を除く）
     const members = Object.entries(players || {})
       .filter(([id, p]) => !p.isBot && p.joined && id !== hostId)
@@ -51,9 +62,7 @@ window.KWaiting = (() => {
     el('wtReady').textContent = isHost ? `${ready.length}名準備完了！` : '準備完了！';
     el('wtNote').classList.toggle('hidden', isHost);
     el('wtSort').classList.toggle('hidden', !isHost);
-    const notReady = members.length - ready.length;
-    el('wtSub').textContent = !isHost ? `参加中のユーザー（${members.length}名）`
-      : notReady ? `このほかに待機画面を開いていない参加者が ${notReady}名います（開始すると参加者に含まれます）` : '';
+    el('wtSub').textContent = isHost ? hostNote(members, entryRequired) : `参加中のユーザー（${members.length}名）`;
     document.querySelectorAll('#wtSort button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sort === sortKey)));
 
     // 中身を入れ替えても、一覧のスクロール位置は保つ

@@ -1443,6 +1443,18 @@ function eventStatusSnapshot() {
 // 大会モードの待機画面の「準備完了」を、全員ぶん取り消す
 function clearEventReady() { Object.values(gs.players).forEach(p => { p.eventReady = false; }); }
 
+// ── 大会モードの入場番号 ──
+// 番号を間違えた接続は、この時間がたつまで次の番号を受け付けない（総当たりを遅くする）
+const ENTRY_CODE_RETRY_MS = 2000;
+function currentEntryCode() {
+  if (!settings.entryCode) settings.entryCode = String(require('crypto').randomInt(1000)).padStart(3, '0');
+  return settings.entryCode;
+}
+// 大会の参加者になれるか（入場番号がOFFなら全員。ONなら番号を合わせた人だけ）
+function hasEntryPass(id) {
+  return !settings.entryCodeEnabled || !!(gs.players[id] && gs.players[id].entryPassed);
+}
+
 // 大会モードの1試合終了処理。ステージごとに通過／敗退／敗者復活行きを振り分ける。
 function endEventRound() {
   gs.phase = 'round_finished';
@@ -1805,6 +1817,7 @@ function sendInitTo(socket, eventName = 'init') {
     isServerPc:        isHostEligible(socket),   // サーバーPC自身のブラウザか（大会モードの操作可否）
     studentPracticeAllowed: settings.studentPracticeAllowed,   // 参加者が練習モードを開始できるか
     headphoneCheckEnabled: settings.headphoneCheckEnabled,
+    entryCodeEnabled:  settings.entryCodeEnabled,   // 番号そのものは送らない
     round:             gs.round,
     maxRounds:         gs.maxRounds,
     survivorCount:       gs.survivorCount,
@@ -2622,6 +2635,7 @@ function connect(socket, { player = null } = {}) {
   socket.on('event_ready', (on) => {
     const p = gs.players[socket.id];
     if (!p || !p.joined || isHostEligible(socket) || typeof on !== 'boolean' || !!p.eventReady === on) return;
+    if (on && !hasEntryPass(socket.id)) return;
     p.eventReady = on;
     io.emit('players_updated', gs.players);
   });
@@ -2632,6 +2646,39 @@ function connect(socket, { player = null } = {}) {
     settings.studentPracticeAllowed = on;
     logEvent('student_practice', { allowed: on });
     env.broadcastAll('student_practice', { allowed: on });
+  });
+
+  // ── 大会モードの入場番号 ──
+  // 切り替えると合格と準備完了を取り消す。もう一度ONにしたときは新しい番号になる
+  socket.on('set_entry_code', (on) => {
+    if (!isHostEligible(socket) || typeof on !== 'boolean' || on === settings.entryCodeEnabled) return;
+    settings.entryCodeEnabled = on;
+    settings.entryCode = '';
+    Object.values(gs.players).forEach(p => { delete p.entryPassed; });
+    clearEventReady();
+    logEvent('entry_code_setting', { enabled: on });
+    env.broadcastAll('entry_code_setting', { enabled: on });
+    io.emit('players_updated', gs.players);
+  });
+  // 番号を返すのは教卓PCだけ（大会設定画面の表示用）
+  socket.on('get_entry_code', (ack) => {
+    if (typeof ack !== 'function' || !isHostEligible(socket)) return;
+    ack({ enabled: settings.entryCodeEnabled, code: settings.entryCodeEnabled ? currentEntryCode() : null });
+  });
+  socket.on('entry_code_check', (payload, ack) => {
+    if (typeof ack !== 'function' || !isJoinedHuman(socket.id)) return;
+    if (!settings.entryCodeEnabled) { ack({ correct: true }); return; }
+    const now = Date.now();
+    if (now < (socket.data.entryRetryAt || 0)) { ack({ correct: false, wait: true }); return; }
+    const correct = !!payload && payload.code === currentEntryCode();
+    logEvent('entry_code_check', { id: socket.id, name: gs.players[socket.id].name, correct });
+    if (correct) {
+      gs.players[socket.id].entryPassed = true;
+      io.emit('players_updated', gs.players);
+    } else {
+      socket.data.entryRetryAt = now + ENTRY_CODE_RETRY_MS;
+    }
+    ack({ correct });
   });
 
   socket.on('set_headphone_check', (on) => {
@@ -2827,9 +2874,11 @@ function connect(socket, { player = null } = {}) {
     if (env.recallPracticePlayers) env.recallPracticePlayers();   // 一人練習中の人はロビーに戻して参加者にする
     setHost(socket.id);   // 大会モードの進行役はサーバーPC。参加者はそれ以外のロビーにいる全員
     removeCpuPlayers();   // 前の練習モード等から残ったCPUがいれば一旦クリアする
-    let participantIds = Object.entries(gs.players)
+    // 入場番号がONのときは、番号を合わせた人だけを参加者にする
+    const joinedIds = Object.entries(gs.players)
       .filter(([id, p]) => id !== gs.hostId && !p.isBot && p.joined)
       .map(([id]) => id);
+    let participantIds = joinedIds.filter(hasEntryPass);
     if (gs.eventConfig.testCpuFill) {
       // テスト用：管理画面の「CPUで人数を補充する」がオンのときだけ、実参加者が
       // 0人でも少人数でも、CPUを足して本番の流れを体験できるようにする
@@ -2837,10 +2886,10 @@ function connect(socket, { player = null } = {}) {
       gs.cpuDifficulty = 'normal';
       addCpuPlayersForPractice(PRACTICE_MOCK_TOTAL_TARGET);
       participantIds = Object.entries(gs.players)
-        .filter(([id, p]) => id !== gs.hostId && (p.isBot || p.joined))
+        .filter(([id, p]) => id !== gs.hostId && (p.isBot || (p.joined && hasEntryPass(id))))
         .map(([id]) => id);
     }
-    if (participantIds.length === 0) { socket.emit('event_start_denied', { reason: 'no_participants' }); return; }
+    if (participantIds.length === 0) { socket.emit('event_start_denied', { reason: joinedIds.length ? 'no_entry' : 'no_participants' }); return; }
 
     clearEventReady();
     gs.event.active            = true;
