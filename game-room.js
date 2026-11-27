@@ -292,28 +292,25 @@ const INTRO_GRACE_MS = 400;   // 端末ごとの「読み上げます」開始�
 const GRAB_WINDOW_MS  = 500;   // 最初の正解申告からこの時間だけ他の候補も受け付け、点数の高い人が取る
 
 // ── ポイント制 ─────────────────────────────────────────────
-// 1枚あたり最大1000点 = 速度(400) + 精度(400) + マウスコントロール力(200)。
-// これとは別に、精度が350点以上のときは精度ボーナス1000点が加わる（札1枚の上限の外）。
-// 各項目は「少し変わると点が大きく動く」ように指数・べき乗カーブにしている。
-//  速度  : 「読み上げます」の発声開始からの経過時間。1秒で約270点 / 3秒で約120点 / 6秒で約35点
-//  精度  : 札の中心からクリック位置までの距離(mm)。0mmで400点 / 約3.8mmで300点 / 約10mmで約180点 / 札の角(約42mm)で0点
-//  距離  : 定位置(円)から札の中心までの距離(mm)。遠い札を取るほど高得点(最大200点)
+// 1枚あたり最大500点 = 速度(200) + 精度(200) + マウスコントロール力(100)。全モード共通。
+// これとは別に、速度と精度の両方が150点以上のときはボーナス500点が加わる（札1枚の上限の外）。
+//  速度  : 「読み上げます」の発声開始からの経過時間。2.5秒まで満点で、以後1秒ごとに約33点減り、8.5秒で0点（4秒で150点）
+//  精度  : 札の中心からクリック位置までの距離(mm)。0mmで200点 / 約3.8mmで150点 / 約10mmで約90点 / 札の角(約42mm)で0点
+//  距離  : 定位置(円)から札の中心までの距離(mm)。遠い札を取るほど高得点(最大100点)
 // 0.5秒の受付時間内に複数人がクリックしたときは、精度の点数が一番高い人が取る（同点なら速い人）。
 // 速度・距離は誰が取るかには使わず、取った人の得点にだけ加算される。
 // 長さはすべて mm。画面上の札(横180px)を実物の取り札(横 CARD_REAL_W_MM mm)に見立てた縮尺で px から換算する。
-const SPEED_MAX_PTS = 400;
-const SPEED_TAU_MS  = 2500;
-const ACC_MAX_PTS   = 400;
-const CTRL_MAX_PTS  = 200;
-// 1000点ボーナス：精度の点数がこれ以上で、かつ上の句の読み始めから BONUS_YOMI_MS 以内にクリックしたとき。
-// 時間は速さの点の5割(200/400点)にあたる1.73秒。速さの点は「読み上げます」から数えるが、上の句はその約1.9秒後に
-// 始まるので、ボーナスの判定だけは上の句の読み始めから数える。距離の条件はない。
-const BONUS_ACC_MIN = 320;         // 精度の満点400点の8割
-const BONUS_YOMI_MS = 1730;
-const BONUS_PTS     = 1000;        // 札1枚の上限・1試合の上限(SCORE_CAP)とは別枠で加算する
-const INTRO_TO_YOMI_EST_MS = 1900; // 上の句の読み始めの報告(yomi_started)が無いときに使う「読み上げます」からの時間
-const DJ_MOUSE_DIST_PTS = 100;     // 距離の点数がこれ以上＋ボーナス → DJ「ナイスマウスさばき」
-const MISS_PENALTY  = 100;     // お手付き・フライング1回の減点
+const SPEED_MAX_PTS = 200;
+const SPEED_FULL_MS = 2500;        // ここまでは速度が満点
+const SPEED_ZERO_MS = 8500;        // ここで速度が0点
+const ACC_MAX_PTS   = 200;
+const CTRL_MAX_PTS  = 100;
+// ボーナス：速さと正確さの両立（速度の点数も精度の点数も、これ以上）。距離の条件はない。
+const BONUS_SPEED_MIN = 150;       // 速度の満点の75%（「読み上げます」から約4秒以内）
+const BONUS_ACC_MIN   = 150;       // 精度の満点の75%（中心から約3.8mm以内）
+const BONUS_PTS       = 500;       // 札1枚の上限・1試合の上限(SCORE_CAP)とは別枠で加算する
+const DJ_MOUSE_DIST_PTS = 50;      // 距離の点数がこれ以上＋ボーナス → DJ「ナイスマウスさばき」
+const MISS_PENALTY  = 50;      // お手付き・フライング1回の減点
 const NEAR_POINTS   = 300;     // 「あと少しで1位」「惜しい」の判定に使う点差（約1枚分）
 const DJ_COMBO_GAP_MS = 800;    // 1つのDJコメントの中で複数の実況をつなぐときの間（public/game.js の VOICE_PAUSE_MS と同じ）
 const SCORE_CAP     = +process.env.KARUTA_SCORE_CAP || 20000;   // 1試合で積める点数の上限（環境変数はテスト用）
@@ -331,7 +328,7 @@ const BOARD_FAR = Math.hypot(Math.max(HOME_X, BOARD_W - HOME_X), HOME_Y);   // �
 const FAR_MM    = BOARD_FAR / PX_PER_MM;                                     // 同(mm)
 const ACC_FULL_MM = Math.hypot(CARD_W_PX / 2, CARD_H_PX / 2) * MM_PER_PX;                // 札(180×100px)の中心から角までの距離(mm)。これ以上ズレると精度0点
 
-function speedPoints(ms)  { return Math.round(SPEED_MAX_PTS * Math.exp(-Math.max(0, ms) / SPEED_TAU_MS)); }
+function speedPoints(ms)  { return Math.round(SPEED_MAX_PTS * Math.min(1, Math.max(0, (SPEED_ZERO_MS - ms) / (SPEED_ZERO_MS - SPEED_FULL_MS)))); }
 function accuracyPoints(offsetMm) { return Math.round(ACC_MAX_PTS * Math.pow(1 - Math.min(1, Math.max(0, offsetMm / ACC_FULL_MM)), 3)); }
 function controlPoints(distMm) {
   const f = Math.min(1, Math.max(0, distMm / FAR_MM));
@@ -353,7 +350,6 @@ const gs = {
   currentDecoy:   null,   // ダミー読み中の札情報（time_up で正解発表に使用）
   grabCandidates: [],     // 受付時間中に届いた正解候補（速さ＋精度判定用）
   readStartAt:    0,      // 現在の読み上げの開始予定時刻（サーバー時計）。速度ポイントの基準
-  yomiStartAt:    0,      // 上の句の読み始め（サーバー時計）。ボーナスの時間の基準（0=まだ報告が無い）
   readQueue:      [],     // この試合で読む札（盤面の札のうち6〜9枚。読む順）。残りは読まれずに場に残る
   readTotal:      0,
   yomiFinishedAt: 0,
@@ -695,16 +691,13 @@ function scoreCandidate(cand) {
   const speedPts  = speedPoints(speedMs);
   const accPts    = accuracyPoints(cand.offsetMm);
   const ctrlPts   = controlPoints(cand.distMm);
-  const yomiStartAt = gs.yomiStartAt || gs.readStartAt + INTRO_TO_YOMI_EST_MS;
-  const yomiMs    = cand.t - yomiStartAt;   // 上の句の読み始めから数えた時間（ボーナスの判定に使う）
   const p = gs.players[cand.id];
   return {
     id: cand.id, name: p ? p.name : '?', color: p ? p.color : '#888', isBot: !!(p && p.isBot),
     speedMs: Math.round(speedMs), speedPts,
     offsetMm: Math.round(cand.offsetMm * 10) / 10, accPts,
     distMm: Math.round(cand.distMm * 10) / 10, ctrlPts,
-    yomiMs: Math.round(yomiMs),
-    bonusOk: accPts >= BONUS_ACC_MIN && yomiMs <= BONUS_YOMI_MS,
+    bonusOk: speedPts >= BONUS_SPEED_MIN && accPts >= BONUS_ACC_MIN,
     key:  accPts,                       // 誰が取るかの決定に使う値（精度の点数。同点なら速い人）
     base: speedPts + accPts + ctrlPts,  // 通常の獲得点
   };
@@ -806,7 +799,7 @@ async function processCorrectGrab(grabberId, card, scored, contenders) {
     players: gs.players,
     result,
     contenders: sortedContenders.map(c => ({ id: c.id, name: c.name, color: c.color, speedMs: c.speedMs, offsetMm: c.offsetMm, distMm: c.distMm, key: c.key, base: c.base, win: c.win,
-      yomiMs: c.yomiMs, awarded: c.awarded, wanted: c.wanted, capped: c.capped, bonus: c.bonus })),
+      awarded: c.awarded, wanted: c.wanted, capped: c.capped, bonus: c.bonus })),
     djText, djSegs,
     seq: announceSeq + 1,
   });
@@ -895,8 +888,9 @@ function scheduleCpuGrabs(card) {
       if (gs.phase !== 'reading' || !gs.currentCard || gs.currentCard.id !== card.id) return;
       if (!gs.remaining.has(card.id)) return;
       if (willMiss) {
+        // 点数の表示は人のお手付きと同じく「そこまで」で更新する（読み上げ中に動くとダミーでないと分かるため）
         applyMiss(cpuId, card.id, 'cpu_miss');
-        io.emit('players_updated', gs.players);
+        gs.pendingMisses.push({ activeCardId: card.id, clickedCardId: card.id, socketId: null, penalty: 0 });
       } else {
         addGrabCandidate({ id: cpuId, cardId: card.id, t: hiResNow(), offsetMm, distMm }, 'cpu');
       }
@@ -936,7 +930,6 @@ function startRealRead() {
   const card = gs.currentCard;
   const playAt = hiResNow() + 400;
   gs.readStartAt = playAt + INTRO_START_EST_MS;   // ホストの「読み上げます」開始報告(intro_started)で正確な値に置き換わる
-  gs.yomiStartAt = 0;
   gs.yomiFinishedAt = 0;
   gs.yomiFinishedForCurrent = false;
   gs.pendingWinner = null;
@@ -993,7 +986,7 @@ function flushPendingMisses(cardId) {
   const due = gs.pendingMisses.filter(m => m.activeCardId === cardId);
   if (!due.length) return;
   gs.pendingMisses = gs.pendingMisses.filter(m => m.activeCardId !== cardId);
-  due.forEach(m => io.to(m.socketId).emit('wrong_grab', { cardId: m.clickedCardId, penalty: m.penalty }));
+  due.filter(m => m.socketId).forEach(m => io.to(m.socketId).emit('wrong_grab', { cardId: m.clickedCardId, penalty: m.penalty }));
   io.emit('players_updated', gs.players);
 }
 
@@ -1053,7 +1046,7 @@ function armDecoyTimeout() {
     logEvent('time_up', { kind: 'decoy', sinceReadStartMs: Math.round(hiResNow() - gs.readStartAt) });
     const decoy = gs.currentDecoy;
     gs.currentDecoy = null;
-    // そこまで → 上の句（デコイ yomi）→ これは盤面にない札でした の順で再生させる
+    // そこまで → 上の句（デコイ yomi）→ 下の句 の順で再生させる（ダミーだったという案内は読まない）
     io.emit('time_up', { card: null, decoy, playAt: hiResNow() + 250 });
 
     if (gs.pendingDecoyMisses.length) {
@@ -2145,8 +2138,7 @@ function connect(socket, { player = null } = {}) {
   });
 
   // ── Decoy finished（ホスト端末からのダミー読み再生完了通知）─
-  // ダミーの読み（yomi）を再生し終えたタイミングで受信する（「これは盤面にない札でした」は
-  // この後の「そこまで」からの発表シーケンスで読まれる、ここにはまだ含まれない）。
+  // ダミーの読み（yomi）を再生し終えたタイミングで受信する。
   // ここから、本物の札と同じ TOTAL_READ_CYCLE_MS のルールで残り時間だけ待ってから
   // 「そこまで」を発し次の札へ。
   socket.on('decoy_finished', () => {
@@ -2280,13 +2272,6 @@ function connect(socket, { player = null } = {}) {
   });
 
   // 仮想カーソルに移った（Pointer Lock 成立、または使えず通常カーソルで遊ぶ）ことの通知
-  // 進行役の端末で上の句の読み上げが始まった時刻（ボーナスの時間の起点）
-  socket.on('yomi_started', ({ t } = {}) => {
-    if (socket.id !== gs.hostId || gs.phase !== 'reading' || typeof t !== 'number' || !isFinite(t)) return;
-    const now = hiResNow();
-    gs.yomiStartAt = Math.max(gs.readStartAt, Math.min(now + 500, t));
-  });
-
   socket.on('cursor_ready', () => markReady(socket.id));
 
   socket.on('flying', () => {
@@ -2898,6 +2883,11 @@ function connect(socket, { player = null } = {}) {
   // ── Back to lobby ────────────────────────────────────────
   socket.on('go_to_lobby', () => {
     if (['reading', 'decoy', 'announcing'].includes(gs.phase)) return;
+    // 大会中は全員の大会状態がリセットされるので、教卓PC（進行役）だけが戻せる
+    if (gs.event.active && socket.id !== gs.hostId && !isHostEligible(socket)) {
+      logEvent('lobby_denied', { id: socket.id });
+      return;
+    }
     // 対局の途中（試合結果・ロビー以外）で中断できるのは進行役かサーバーPCだけ
     if (!['round_finished', 'lobby'].includes(gs.phase) && socket.id !== gs.hostId && !isHostEligible(socket)) return;
     clearAllTimers();

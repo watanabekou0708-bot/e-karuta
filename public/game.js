@@ -229,27 +229,21 @@ function startVoiceItems(items, playAt, gen, onDone, onItemStart) {
   if (!curVoice && onDone) setTimeout(() => { if (gen === audioGeneration) onDone(); }, 0);
   return !!curVoice;
 }
-// 上の句の読み始めを覚える。進行役の端末はサーバーにも知らせる（ボーナスの時間の起点）
-function reportYomiStart() {
-  currentYomiStartAt = hiResNow() + serverOffset;
-  if (myIsHost && currentPhase === 'reading') socket.emit('yomi_started', { t: currentYomiStartAt });
-}
 // 読み上げ：警告の案内 → 「読み上げます」→ 上の句
 function playVoiceRead(yomi, playAt, gen, onDone) {
   const items = [{ ...VD.seg(VD.FIXED.warn), gapAfter: WARN_PAUSE_MS }, { ...VD.seg(VD.FIXED.intro), gapAfter: VOICE_PAUSE_MS }, VD.seg(yomi)];
   const ok = playVoiceItems(items, playAt, gen, onDone, i => {
     if (i === 1) armFlying();          // 「読み上げます」の発声開始：カーソルを定位置へ・フライング監視開始
-    else if (i === 2) { disarmFlying(); hideScorePanel(); reportYomiStart(); }  // 上の句の1文字目：監視終了。前の札の判定内訳は「読み上げます」が終わるここまで表示しておく
+    else if (i === 2) { disarmFlying(); hideScorePanel(); }  // 上の句の1文字目：監視終了。前の札の判定内訳は「読み上げます」が終わるここまで表示しておく
   });
   if (ok) setTimeout(() => { if (gen === audioGeneration && !introStarted) { introStarted = true; hideScorePanel(); syncGrabAvailability(); } }, 9000);
   return ok;
 }
 // 時間切れ（誰も取れなかった）のときの正解発表：そこまで → 上の句 → 下の句（答え合わせ＝青山龍星）。
-// ダミー読みのときは最後に「これは盤面にない札でした」。誰かが取ったときの実況は card_taken 側で別に組み立てる。
-function voiceAnnounceItems(yomi, tori, withNotice) {
-  const items = [{ ...VD.seg(VD.FIXED.timeup), gapAfter: ANNOUNCE_PAUSE_MS }, ...VD.answerSegments(yomi, tori)];
-  if (withNotice) { items[2].gapAfter = VOICE_PAUSE_MS; items.push(VD.seg(VD.FIXED.notice, 'aoyama')); }
-  return items;
+// ダミー読みも同じ流れで、ダミーだったという案内は読まない（どちらか分からないままにする）。
+// 誰かが取ったときの実況は card_taken 側で別に組み立てる。
+function voiceAnnounceItems(yomi, tori) {
+  return [{ ...VD.seg(VD.FIXED.timeup), gapAfter: ANNOUNCE_PAUSE_MS }, ...VD.answerSegments(yomi, tori)];
 }
 
 // 読み上げ（警告 → 「読み上げます」→ 上の句）を、事前に用意した音声ファイルで再生する。
@@ -984,6 +978,8 @@ function renderLobbyEventSection() {
   // ── 表彰式の案内（最終試合後、ホームに戻ったら表示。ホスト・非ホスト共通）────
   if (stageDone && data && data.ceremony && ceremonyBox && eventShowingHub) {
     ceremonyBox.classList.remove('hidden');
+    // 全員の大会状態を戻すボタンは、教卓PC（進行役）だけに出す
+    $('lobbyEventCeremonyBack').classList.toggle('hidden', !(myIsHost || isServerPc));
     if (ceremonyMsg) ceremonyMsg.textContent = `${data.ceremony.time}から表彰式を行います。${data.ceremony.location}に集合してください。`
       // 1行に収まるよう、はみ出す間は文字を小さくする
       ceremonyMsg.style.whiteSpace = 'nowrap';
@@ -1094,6 +1090,8 @@ function updateHostNotice() {
   }
   const specPanel = $('specPanel');
   if (specPanel) specPanel.classList.toggle('hidden', !amSpectating || isArranging);
+  // 大会モードの観戦者の画面は、読み上げ中でもコメント・リアクションがすぐに流れる（競技者の画面は読み上げの後）
+  KComments.setLive(!!(isEventMode && amSpectating));
   $('commentToggleBtn').classList.toggle('hidden', !(isEventMode && gameStarted && !myIsHost && !isServerPc));
   const debugBtn    = $('debugEndBtn');
   const debugCpuBtn = $('debugCpuBtn');
@@ -2502,7 +2500,8 @@ function onCardClick(id, el, ev) {
   socket.emit('grab_card', { cardId: id, t, offsetMm: g.offsetMm, distMm: g.distMm });
   myClickedThisRead = true;   // 正解・不正解を問わず、この札の読み上げ中はもう1回クリックできない
   syncGrabAvailability();
-  if (currentPhase === 'reading') showPendingPanel(t - currentReadPlayAt, g);   // 判定を待つ0.5秒の間も、自分の数値を即座に出す
+  // 自分の数値を即座に出す。ダミー読みでも同じ表示にして、「そこまで」までどちらか分からないようにする
+  showPendingPanel(t - currentReadPlayAt, g);
 }
 
 // ── 仮想カーソルとの連携 ──────────────────────────────────────
@@ -2676,12 +2675,11 @@ KCursor.init({ home: homeScreenPoint, click: virtualClick, hover: updateVHover, 
 
 // ── 判定の内訳パネル ──────────────────────────────────────
 // 点数の計算式（server.js と同じ）：速度 + 精度 + 距離（マウスコントロール力）。
-const SPEED_MAX_PTS = 400, SPEED_TAU_MS = 2500, ACC_MAX_PTS = 400, CTRL_MAX_PTS = 200;
-// 1000点ボーナス（札1枚の上限の外）：精度320点以上で、上の句の読み始めから1.73秒以内
-const BONUS_ACC_MIN = 320, BONUS_YOMI_MS = 1730, BONUS_PTS = 1000;
-const BONUS_RULE_TEXT = `精度${BONUS_ACC_MIN}点以上・上の句から${BONUS_YOMI_MS / 1000}秒以内`;
-let currentYomiStartAt = 0;   // この端末で上の句の読み上げが始まった時刻（サーバー時計。0=まだ）
-const speedPts = ms => Math.round(SPEED_MAX_PTS * Math.exp(-Math.max(0, ms) / SPEED_TAU_MS));
+const SPEED_MAX_PTS = 200, SPEED_FULL_MS = 2500, SPEED_ZERO_MS = 8500, ACC_MAX_PTS = 200, CTRL_MAX_PTS = 100;
+// ボーナス（札1枚の上限の外）：速度と精度の両方が150点以上
+const BONUS_SPEED_MIN = 150, BONUS_ACC_MIN = 150, BONUS_PTS = 500;
+const BONUS_RULE_TEXT = `速度と精度が両方${BONUS_ACC_MIN}点以上`;
+const speedPts = ms => Math.round(SPEED_MAX_PTS * Math.min(1, Math.max(0, (SPEED_ZERO_MS - ms) / (SPEED_ZERO_MS - SPEED_FULL_MS))));
 const accPts   = mm => Math.round(ACC_MAX_PTS * Math.pow(1 - Math.min(1, Math.max(0, mm / ACC_FULL_MM)), 3));
 const ctrlPts  = mm => { const f = Math.min(1, Math.max(0, mm / BOARD_FAR_MM)); return Math.round(CTRL_MAX_PTS * f * f); };
 const mmStr = mm => (Math.round(mm * 10) / 10).toFixed(1) + 'mm';
@@ -2698,8 +2696,7 @@ function hideScorePanel() {
   if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
 }
 // 自分のクリックがボーナスの条件を満たしていそうか（正式な判定はサーバー）
-const bonusLooksReached = g => accPts(g.offsetMm) >= BONUS_ACC_MIN &&
-  (!currentYomiStartAt || hiResNow() + serverOffset - currentYomiStartAt <= BONUS_YOMI_MS);
+const bonusLooksReached = (speedMs, g) => speedPts(speedMs) >= BONUS_SPEED_MIN && accPts(g.offsetMm) >= BONUS_ACC_MIN;
 // 自分が札をクリックした瞬間に出す「仮の内訳」（正式な判定は0.5秒後）
 function showPendingPanel(speedMs, g) {
   const el = $('scorePanel');
@@ -2709,7 +2706,7 @@ function showPendingPanel(speedMs, g) {
     ${spRow('⚡ 速度', secStr(speedMs), '読み上げ開始から', fmtPts(speedPts(speedMs)))}
     ${spRow('🎯 精度', mmStr(g.offsetMm), '札の中心からの距離', fmtPts(accPts(g.offsetMm)))}
     ${spRow('🖱 距離', mmStr(g.distMm), '定位置から札の中心まで', fmtPts(ctrlPts(g.distMm)))}
-    ${bonusLooksReached(g) ? `<div class="sp-row"><span class="sp-label">🎁 ボーナス</span><span class="sp-detail">${BONUS_RULE_TEXT}</span><span class="sp-pts">+${fmtPts(BONUS_PTS)}</span></div>` : ''}
+    ${bonusLooksReached(speedMs, g) ? `<div class="sp-row"><span class="sp-label">🎁 ボーナス</span><span class="sp-detail">${BONUS_RULE_TEXT}</span><span class="sp-pts">+${fmtPts(BONUS_PTS)}</span></div>` : ''}
     <div class="sp-cont">0.5秒間にクリックした全員のうち、精度の点数が一番高い人が札を取ります。<br>札を取れなくても、「そこまで」までに正しい札をクリックした人には点数が入ります。<br>mm は画面の札＝実物の取り札（横${CARD_REAL_W_MM}mm）の縮尺で換算しています。</div>`;
 }
 // 札を取った人の内訳（全員の画面に表示）。同時に申告した人は縦に1行ずつ並べる。
@@ -2737,7 +2734,7 @@ function showScorePanel(by, r, contenders) {
   const cell = (val, pts, cls) => `<span class="v${cls ? ' ' + cls : ''}">${val}<small>+${fmtPts(pts)}点</small></span>`;
   let cmp = `<div class="sp-cmp">
       <span></span><span class="c">⚡ 速度<small>短いほど有利</small></span><span class="c">🎯 精度<small>短いほど有利</small></span><span class="c">🖱 距離<small>長いほど加点（取る判定には無関係）</small></span>
-      <span class="rl${iWon ? ' you' : ''}">${iWon ? 'あなた' : '取った人'}</span>${cell(secStr(win.speedMs), win.sp, iWon ? 'me' : '')}${cell(mmStr(win.offsetMm), win.ap, iWon ? 'me' : '')}${cell(mmStr(win.distMm), win.cp, iWon ? 'me' : '')}`;
+      <span class="rl${iWon ? ' you' : ''}">${iWon ? 'あなた' : isEventMode ? '1位' : '取った人'}</span>${cell(secStr(win.speedMs), win.sp, iWon ? 'me' : '')}${cell(mmStr(win.offsetMm), win.ap, iWon ? 'me' : '')}${cell(mmStr(win.distMm), win.cp, iWon ? 'me' : '')}`;
   if (mc && !iWon) {
     const mine = { sp: speedPts(mc.speedMs), ap: accPts(mc.offsetMm), cp: ctrlPts(mc.distMm) };
     const diff = (txt, d) => `<span class="v diff ${d > 0 ? 'good' : d < 0 ? 'bad' : ''}">${txt}<small>${d > 0 ? '▲ +' : d < 0 ? '▼ ' : ''}${fmtPts(d)}点</small></span>`;
@@ -3069,7 +3066,6 @@ socket.on('game_waiting', ({ cardOrder, remaining, players, hostId, round, total
 // playAt = イントロ開始時刻（全 PC でハードウェアレベルで同期）
 socket.on('read_card', ({ card, remaining, playAt }) => {
   KComments.setQuiet(true);   // かるたの読み上げ中はコメントを流さない
-  currentYomiStartAt = 0;
   currentReadPlayAt = playAt;
   introStarted = false;   // 「読み上げます」が始まるまでは取れない
   // 前の札の判定内訳は、次の札の「読み上げます」が終わる（上の句が始まる）まで表示し続ける（playVoiceReadで消す）
@@ -3094,8 +3090,7 @@ socket.on('read_card', ({ card, remaining, playAt }) => {
 });
 
 // ダミー読み（盤面に対応する札が無い読み上げ）。取ろうとすると全員お手付き扱い。
-// 再生（「これは盤面にない札でした」の案内まで含む）が完全に終わるまで待ち、
-// ホスト端末がその完了を decoy_finished でサーバーに通知する。
+// 再生が終わるまで待ち、ホスト端末がその完了を decoy_finished でサーバーに通知する。
 // 教卓PC（進行役）が並べ替えた配置を、全員の画面に反映する
 socket.on('layout', ({ layout, by }) => {
   if (by === myId || !isArranging) return;
@@ -3147,10 +3142,10 @@ socket.on('time_up', ({ card, decoy, playAt }) => {
 
   let items = null;
   if (!card) {
-    // ダミー後：そこまで → 上の句 → 下の句 → これは盤面にない札でした
-    if (decoy) items = voiceAnnounceItems(decoy.yomi, decoy.tori || '', true);
+    // ダミー後も本物の札と同じく：そこまで → 上の句 → 下の句
+    if (decoy) items = voiceAnnounceItems(decoy.yomi, decoy.tori || '');
   } else {
-    items = voiceAnnounceItems(card.yomi, card.tori, false);
+    items = voiceAnnounceItems(card.yomi, card.tori);
   }
   if (!items) { finishTimeUp(); return; }
   Voice.preload(items, { ensure: true }).then(() => {
@@ -3355,6 +3350,8 @@ const rawName = p => (p && (p.rawName || p.name)) || '';
 // 大会モードの結果画面のDJ音声（各端末で、その端末のユーザー自身の結果に合わせて読み上げる）。
 // 通過・復活・（最終試合の）3位のボーダーから何位以内なら「惜しい」扱いにするか
 const DJ_EVENT_CLOSE_RANK_WINDOW = 5;
+// 最終試合の結果だけは順位ではなく点差で判定する：4位以下で3位との点差がこの点数以内なら「惜しい」
+const DJ_FINAL_CLOSE_MAX_DIFF = 400;
 
 function speakEventRoundResultDj(data) {
   const players = data.players || {};
@@ -3370,9 +3367,9 @@ function speakEventRoundResultDj(data) {
     else if (idx === 1) segs = VD.eventRunnerUpSegments(name, scoreOf(myId));
     else if (idx === 2) segs = VD.eventThirdPlaceSegments(name, scoreOf(myId));
     else if (idx !== -1) {
-      const closeToThird = ranking.length > 2 && idx >= 3 && idx < 3 + DJ_EVENT_CLOSE_RANK_WINDOW;
-      segs = closeToThird
-        ? VD.eventFinalCloseSegments(name, Math.max(0, scoreOf(ranking[2]) - scoreOf(myId)))
+      const diff = ranking.length > 2 ? scoreOf(ranking[2]) - scoreOf(myId) : 0;
+      segs = (diff > 0 && diff <= DJ_FINAL_CLOSE_MAX_DIFF)   // 同点（点差0）のときは点差を言わない
+        ? VD.eventFinalCloseSegments(name, diff)
         : VD.eventRankedSegments(name, scoreOf(myId), idx + 1);
     }
     // 最終試合は、自分の結果（対象者のみ）に続けて、全員へ締めの案内を流す。

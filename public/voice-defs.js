@@ -36,8 +36,23 @@
     const v = VOICES[voice];
     return `${voice}_${CACHE_VERSION}_${hash(JSON.stringify(v)).slice(0, 6)}`;
   }
+  // 表示の文章は同じまま、読み(tts.js)だけを直した文（値は hash(表示の文章)）。この文だけ音声のファイル名を変える。
+  // ブラウザは音声を長期キャッシュするので、同じ名前で作り直しても古い音声が流れる。
+  // CACHE_VERSION と違い、ほかの文の作成済みの音声はそのまま使える。
+  const REREAD_TEXTS = new Set([
+    '02209b99ca954f', '06b390fde97cda', '008f7975c7c7d9', '18c526667b4dc0', '1117a09159f2d2', '077febb263f761',
+    '0033d7dea21086', '0478bb3b7b5181', '0f0245c713e6f0', '0a2a4997e2571d', '0f3cef23a253ad', '1341367acc69be',
+    '08645118db082a', '0603d8ef688f9a', '0ef780ca537594', '04ad3555d2117e', '0312758543af27', '1775847a8727b9',
+    '185bd8ad7658ef', '07a943dd955f68', '0d49cc6407a19e', '0c48193caace48', '0d9d01b55e9e57', '03c8f96f891db1',
+    '05b8098047bbc6', '07865ddc8e698e', '09dedf91abdc59', '120bd19d672a70', '09c975f2814980', '14c3a3db30d10e',
+    '0ee0b1d1fe13f6', '181c3be79b9ca2', '0077b320271d1b', '1b5107aec31f52', '02655bc9df38c8', '08071bfe2965b6',
+    '14b4052658093f', '01ea338a2c4886', '19116ce7870cbc', '0404facc468481', '0d5602a0387835', '06d097df3f94a2',
+    '043530f0ff1a08', '158e79dfa9fd82', '1c696ce26b46c4', '01eb3635a64b86', '1b5e2678fab2a1',
+    '04b9e1839889d2',
+  ]);
   function voiceKey(voice, text) {
-    return hash(voice + '\u0000' + text) + hash(text, 7).slice(0, 4);   // 衝突しにくいよう別シードを足す
+    const rev = REREAD_TEXTS.has(hash(text)) ? '\u0000r2' : '';
+    return hash(voice + '\u0000' + text + rev) + hash(text, 7).slice(0, 4);   // 衝突しにくいよう別シードを足す
   }
   const voiceUrl = (voice, text) => `/voice/${voiceDir(voice)}/${voiceKey(voice, text)}.wav`;
 
@@ -49,7 +64,6 @@
     warn:   'マウスを定位置に戻します。フライングに注意してください。',
     intro:  '読み上げます',
     timeup: 'そこまで',
-    notice: 'これは盤面にない札でした',
     testIntro: '今からテスト音声を流します。',
     testOutro: 'テスト音声は終了です。では、ゲームを始めます。',
   };
@@ -151,7 +165,7 @@
 
   function warmupItems() {
     const items = [];
-    Object.values(FIXED).forEach(t => items.push(seg(t)));   // 警告・読み上げます・そこまで・これは盤面にない札でした（めたん）
+    Object.values(FIXED).forEach(t => items.push(seg(t)));   // 警告・読み上げます・そこまで・テスト音声の案内（めたん）
     items.push(seg(HEADPHONE_INTRO), seg(HEADPHONE_AGAIN), ...DIGIT_READINGS.map((_, d) => digitSeg(d)));
     [
       'が札をとりました！', 'ナイスキャッチ！', '現在', 'です。', 'お見事、', 'が1枚ゲットです！', '流石です！', 'いい精度。', '素晴らしい！',

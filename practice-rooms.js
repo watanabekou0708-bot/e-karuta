@@ -11,7 +11,7 @@ const { createHub } = require('./room-hub.js');
 const PRACTICE_KEEP_MS = +process.env.KARUTA_PRACTICE_KEEP_MS || 2 * 60 * 1000;   // 切断した練習を、同じ人が戻るまで残す時間
 // 一人練習の部屋に渡す操作。ここに無い操作（参加登録・管理画面など）は、練習中でも大会用の部屋が受け取る
 const PRACTICE_EVENTS = new Set([
-  'start_next_round', 'read_next', 'decoy_finished', 'yomi_started', 'yomi_finished', 'announce_finished', 'announce_ready',
+  'start_next_round', 'read_next', 'decoy_finished', 'yomi_finished', 'announce_finished', 'announce_ready',
   'grab_card', 'flying', 'intro_started', 'cursor_ready', 'skip_memorize', 'debug_end_game', 'debug_cpu_points',
   'set_layout', 'sound_check_start', 'start_revival', 'start_next_revival_round', 'start_group_match', 'start_next_group_round',
 ]);

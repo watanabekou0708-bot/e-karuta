@@ -1,7 +1,8 @@
 'use strict';
 // 観戦コメントの表示（観戦者と競技者の画面に流す）。
-//  ・届いたコメントはいったん順番待ちに入れ、少しずつ間を空けて流す（リアルタイムでは流さない）
-//  ・かるたの読み上げ中（「マウスを定位置に戻します」から「そこまで」まで）は絶対に流さない。
+//  ・観戦者の画面は、届いたらすぐに流す（読み上げ中も流す。setLive(true) のとき）
+//  ・競技者の画面は、届いたコメントをいったん順番待ちに入れ、少しずつ間を空けて流す
+//  ・競技者の画面では、かるたの読み上げ中（「マウスを定位置に戻します」から「そこまで」まで）は絶対に流さない。
 //    流れている途中で読み上げが始まったら、透明にしていって消す
 //  ・表示のオン・オフは端末ごとに切り替えられる（このブラウザに保存する）
 // 読み上げの開始・終了は game.js が setQuiet() で知らせる。
@@ -13,6 +14,7 @@ window.KComments = (() => {
   const STORE_KEY = 'karutaShowComments';
 
   let quiet = false;
+  let live = false;   // 観戦者の画面。読み上げ中でも順番待ちをせずに流す
   let enabled = readEnabled();
   let queue = [];
   let timer = null;
@@ -49,6 +51,7 @@ window.KComments = (() => {
   // show: 画面に出す処理。順番が来たときに呼ぶ
   function enqueue(show) {
     if (!enabled) return;
+    if (live) { show(); return; }
     queue.push(show);
     if (queue.length > QUEUE_MAX) queue.shift();
     schedule();
@@ -80,9 +83,16 @@ window.KComments = (() => {
     setQuiet(on) {
       if (quiet === on) return;
       quiet = on;
+      if (live) return;
       if (quiet) { stopTimer(); fadeOutShown(); } else schedule();
     },
-    isQuiet: () => quiet,
+    setLive(on) {
+      if (live === on) return;
+      live = on;
+      if (live) { stopTimer(); queue.splice(0).forEach(show => show()); }
+      else if (quiet) fadeOutShown();
+    },
+    isQuiet: () => quiet && !live,
     isEnabled: () => enabled,
     setEnabled(on) {
       enabled = on;
