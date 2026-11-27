@@ -1665,7 +1665,10 @@ function doStartPlaying() {
   gs.phase       = 'waiting';
   gs.readQueue   = pickReadQueue(gs.cardOrder);
   gs.readTotal   = gs.readQueue.length;
-  gs.gimmickPlan = GIMMICK.planGimmicks(gs.readTotal, { rotate: settings.gimmickRotateEnabled, underdog: settings.gimmickUnderdogEnabled });
+  // 仕掛けは大会モード（本戦・敗者復活戦）だけで起こす。練習では起こさない
+  gs.gimmickPlan = gs.event.active
+    ? GIMMICK.planGimmicks(gs.readTotal, { rotate: settings.gimmickRotateEnabled, underdog: settings.gimmickUnderdogEnabled })
+    : {};
   gs.readNo      = 0;
   gs.readGimmick = null;
   logEvent('gimmick_plan', { plan: gs.gimmickPlan });
